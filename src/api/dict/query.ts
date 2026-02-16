@@ -1,40 +1,32 @@
-// 查询词典的 API
-// Author: wchengk09
-
-import MDict from 'mdict-js';
-import parse, { DictionaryEntry } from './parse-html';
-import { fileURLToPath } from 'url';
+import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { DictCsv, DictionaryEntry, Meaning } from './ecdict';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DICT_PATH = path.join(__dirname, '..', '..', 'dict', 'niujin.mdx');
+const DICT_PATH = path.join(__dirname, '..', '..', 'dict', 'ecdict.csv');
 
-const dict = new MDict(DICT_PATH);
+const dict = new DictCsv(DICT_PATH);
 
-/**
- * 查询一个单词的函数
- * @param word 要查询的单词
- * @returns 返回下列 JSON 格式的信息：
- * {
-    "word": "某个英文单词",
-    "pronunciation": "这个单词的音标",
-    "meanings": [
-        {
-            "content": "中文释义 1",
-            "type": "词性 1",
-            "sentence": "例句 1"
-        },
-        {
-            "content": "中文释义 2",
-            "type": "词性 2",
-            "sentence": "例句 2"
-        },
-        ...
-    ]
- */
-export default function query(word: string): DictionaryEntry{
-    let result = dict.lookup(word);
-    return parse(result.definition);
+export function query(word: string): DictionaryEntry | null {
+    const result = dict.query(word);
+    let ret: DictionaryEntry = {
+        word: word,
+        meaning: []
+    };
+    if (!result)return null;
+    for (const meaning of result.meaning) {
+        const content = meaning.content.trim().replaceAll(';', ',').replaceAll('，', ',').replaceAll('；', '.').replaceAll(' ','').replaceAll('.',',').split(',');
+        for (const c of content) {
+            ret.meaning.push({
+                type: meaning.type,
+                content: c.trim()
+            });
+        }
+    }
+    return ret;
 }
+
+console.log(query('tend'));
