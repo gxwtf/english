@@ -5,15 +5,20 @@ import { useState, useEffect } from 'react';
 const STORAGE_KEY = 'gxwtf_english_auth';
 
 export const useAuth = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem(STORAGE_KEY) === 'true';
-  });
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(STORAGE_KEY, isLoggedIn.toString());
-  }, [isLoggedIn]);
+    setIsClient(true);
+    const stored = localStorage.getItem(STORAGE_KEY) === 'true';
+    setIsLoggedIn(stored);
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      localStorage.setItem(STORAGE_KEY, isLoggedIn.toString());
+    }
+  }, [isLoggedIn, isClient]);
 
   const login = () => {
     setIsLoggedIn(true);
@@ -25,6 +30,7 @@ export const useAuth = () => {
 
   return {
     isLoggedIn,
+    isClient,
     login,
     logout,
   };

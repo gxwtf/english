@@ -9,4 +9,4 @@
 
 目前仅限于背单词，未来可能会添加阅读、作文训练等功能。
 
-**注意，本项目使用牛津高阶词典，[下载链接](https://545c.com/dir/541880-29613207-8ef999?d=29613207&fk=15b8c4#/f/tempdir-BmJXZFVmCmpbYQRjCSVTNQcxBzVTZQs4CWVXM1QxBj9RLVBmADUAblptVzVUZ1E7BjJWYltu)。启动项目之前，请从此链接下载词典
+**注意，本项目使用的词典来自 [ECDICT 开源项目](https://github.com/skywind3000/ECDICT)。运行本项目之前，请手动下载 [ecdict.csv](https://github.com/skywind3000/ECDICT/blob/master/ecdict.csv) 文件并保存到 `./src/dict` 目录下。**

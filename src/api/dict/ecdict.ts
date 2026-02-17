@@ -1,16 +1,5 @@
 import * as fs from 'fs';
-
-// --- 接口定义 ---
-
-export interface Meaning {
-    content: string; // 一个中文释义
-    type: string;    // 单词的词性 (例如: n. / vi. / adj.)
-}
-
-export interface DictionaryEntry {
-    word: string;
-    meaning: Meaning[];
-}
+import { DictionaryEntry, Meaning } from '@/types/dict'
 
 // --- 核心类实现 ---
 

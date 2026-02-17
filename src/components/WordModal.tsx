@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Search, Check, AlertCircle } from 'lucide-react';
-import query from '@/api/dict/query';
-import { DictionaryEntry, DictionaryMeaning } from '@/types/dict';
+import { X, Search, Check, AlertCircle, CheckSquare } from 'lucide-react';
+import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag } from '@/types/word';
 import { WORD_TAGS } from '@/constants/word-tags';
 import { Button } from '@/components/ui/button';
@@ -17,17 +16,22 @@ interface WordModalProps {
   onSave: (word: {
     text: string;
     tags: WordTag[];
-    meanings: DictionaryMeaning[];
+    meanings: {
+      content: string;
+      type: string;
+      sentence: string;
+    }[];
   }) => void;
   initialWord?: Word;
+  queryWord: (word: string) => Promise<DictionaryEntry | null>;
 }
 
-export const WordModal = ({ isOpen, onClose, onSave, initialWord }: WordModalProps) => {
+export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord }: WordModalProps) => {
   const [word, setWord] = useState('');
   const [dictionaryData, setDictionaryData] = useState<DictionaryEntry | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedMeanings, setSelectedMeanings] = useState<DictionaryMeaning[]>([]);
+  const [selectedMeanings, setSelectedMeanings] = useState<Meaning[]>([]);
   const [selectedTags, setSelectedTags] = useState<WordTag[]>([]);
   const [searchedWord, setSearchedWord] = useState('');
 
@@ -58,8 +62,16 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord }: WordModalPro
     setSearchedWord(word.trim());
 
     try {
-      const result = query(word.trim());
-      setDictionaryData(result);
+      const result = await queryWord(word.trim());
+      if (result) {
+        setDictionaryData(result);
+      } else {
+        setDictionaryData({
+          word: word.trim(),
+          pronunciation: '',
+          meaning: []
+        });
+      }
       setSelectedMeanings([]);
     } catch (err) {
       setError('查询失败，请重试');
@@ -69,7 +81,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord }: WordModalPro
     }
   };
 
-  const toggleMeaning = (meaning: DictionaryMeaning) => {
+  const toggleMeaning = (meaning: Meaning) => {
     setSelectedMeanings(prev => {
       const exists = prev.some(m => m.content === meaning.content && m.type === meaning.type);
       if (exists) {
@@ -96,9 +108,16 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord }: WordModalPro
       return;
     }
 
+    // 转换数据格式以匹配组件需求
+    const meaningsData = selectedMeanings.map(meaning => ({
+      content: meaning.content,
+      type: meaning.type,
+      sentence: ''
+    }));
+
     onSave({
       text: searchedWord.trim(),
-      meanings: selectedMeanings,
+      meanings: meaningsData,
       tags: selectedTags
     });
 
@@ -164,12 +183,39 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord }: WordModalPro
 
               {/* 释义选择 */}
               <div>
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  选择不熟悉的释义（至少选一个）:
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    选择不熟悉的释义（至少选一个）:
+                  </h4>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedMeanings(dictionaryData.meaning.map((m: any) => m));
+                      }}
+                      className="h-8 px-3 text-xs"
+                    >
+                      <CheckSquare className="h-3 w-3 mr-1" />
+                      全选
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const meaningsWithoutDef = dictionaryData.meaning.filter((m: any) => m.type !== 'def.');
+                        setSelectedMeanings(meaningsWithoutDef);
+                      }}
+                      className="h-8 px-3 text-xs"
+                    >
+                      <CheckSquare className="h-3 w-3 mr-1" />
+                      全选（def.除外）
+                    </Button>
+                  </div>
+                </div>
                 <ScrollArea className="h-64">
                   <div className="space-y-2">
-                    {dictionaryData.meanings.map((meaning, index) => {
+                    {dictionaryData.meaning.map((meaning: any, index: number) => {
                       const isSelected = selectedMeanings.some(
                         m => m.content === meaning.content && m.type === meaning.type
                       );

@@ -9,11 +9,15 @@ import { WordToolbar } from '@/components/WordToolbar';
 import { WordCard } from '@/components/WordCard';
 import { WordModal } from '@/components/WordModal';
 import { Word, WordTag } from '@/types/word';
+import { DictionaryEntry } from '@/types/dict';
 import { storage } from '@/lib/storage';
-import { DictionaryMeaning } from '@/types/dict';
 
-export const AuthenticatedPage = () => {
-  const { isLoggedIn } = useAuth();
+interface AuthenticatedPageProps {
+  queryWord: (word: string) => Promise<DictionaryEntry | null>;
+}
+
+export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
+  const { isLoggedIn, isClient } = useAuth();
   const [words, setWords] = useState<Word[]>([]);
   const [selectedWordIds, setSelectedWordIds] = useState<number[]>([]);
   const [sortBy, setSortBy] = useState<'default' | 'alphabet'>('default');
@@ -33,7 +37,11 @@ export const AuthenticatedPage = () => {
   // 保存单词到本地存储
   const handleSaveWord = (wordData: {
     text: string;
-    meanings: DictionaryMeaning[];
+    meanings: {
+      content: string;
+      type: string;
+      sentence: string;
+    }[];
     tags: WordTag[];
   }) => {
     let newWord: Word;
@@ -131,8 +139,8 @@ export const AuthenticatedPage = () => {
     alert(`AI 出题功能开发中，已选 ${selectedWordIds.length} 个单词`);
   };
 
-  // 如果未登录，显示未登录页面
-  if (!isLoggedIn) {
+  // 如果未登录或尚未完成客户端初始化，显示未登录页面
+  if (!isLoggedIn || !isClient) {
     return <UnauthenticatedPage />;
   }
 
@@ -259,6 +267,7 @@ export const AuthenticatedPage = () => {
         }}
         onSave={handleSaveWord}
         initialWord={editingWord}
+        queryWord={queryWord}
       />
     </div>
   );

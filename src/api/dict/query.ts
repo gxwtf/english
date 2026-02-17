@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { DictCsv, DictionaryEntry, Meaning } from './ecdict';
+import { DictCsv } from './ecdict';
+import { DictionaryEntry, Meaning } from '@/types/dict';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,4 +30,4 @@ export function query(word: string): DictionaryEntry | null {
     return ret;
 }
 
-console.log(query('tend'));
+console.log(query('set'));
