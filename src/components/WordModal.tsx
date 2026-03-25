@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Search, Check, AlertCircle, CheckSquare } from 'lucide-react';
+import { X, Search, Check, AlertCircle, CheckSquare, Settings } from 'lucide-react';
 import { DictionaryEntry, Meaning } from '@/types/dict';
-import { Word, WordTag } from '@/types/word';
-import { WORD_TAGS } from '@/constants/word-tags';
+import { Word, WordTag, TagConfig } from '@/types/word';
+import { COLOR_PRESETS, ICON_PRESETS } from '@/constants/word-tags';
+import { TagEditModal } from '@/components/TagEditModal';
+import { IconBadge } from '@/components/IconBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -24,9 +26,11 @@ interface WordModalProps {
   }) => void;
   initialWord?: Word;
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
+  allTagConfigs: Record<WordTag, TagConfig>;
+  onTagsUpdate?: (newTagConfigs: Record<WordTag, TagConfig>) => void;
 }
 
-export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord }: WordModalProps) => {
+export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, allTagConfigs, onTagsUpdate }: WordModalProps) => {
   const [word, setWord] = useState('');
   const [dictionaryData, setDictionaryData] = useState<DictionaryEntry | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,14 +38,27 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord }: W
   const [selectedMeanings, setSelectedMeanings] = useState<Meaning[]>([]);
   const [selectedTags, setSelectedTags] = useState<WordTag[]>([]);
   const [searchedWord, setSearchedWord] = useState('');
+  const [showTagEditModal, setShowTagEditModal] = useState(false);
 
   useEffect(() => {
     if (initialWord) {
       setWord(initialWord.text);
       setSearchedWord(initialWord.text);
-      // 这里应该从某个地方获取保存的释义，但现在先清空
-      setSelectedMeanings([]);
+      // 加载已保存的释义
+      setSelectedMeanings(initialWord.meanings?.map(m => ({
+        content: m.content,
+        type: m.type,
+        sentence: m.sentence || ''
+      })) || []);
       setSelectedTags(initialWord.tags);
+      // 为编辑模式加载词典数据以便显示
+      if (initialWord.meanings && initialWord.meanings.length > 0) {
+        setDictionaryData({
+          word: initialWord.text,
+          pronunciation: '',
+          meaning: initialWord.meanings
+        });
+      }
     } else {
       setWord('');
       setDictionaryData(null);
@@ -129,6 +146,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord }: W
   if (!isOpen) return null;
 
   return (
+    <>
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
         {/* 头部 */}
@@ -145,8 +163,12 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord }: W
         <div className="flex-1 overflow-auto p-6">
           {/* 搜索单词 */}
           <div className="mb-6">
+            <label htmlFor="word-search-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              搜索单词
+            </label>
             <div className="flex gap-2">
               <Input
+                id="word-search-input"
                 placeholder="输入要查询的英文单词..."
                 value={word}
                 onChange={(e) => setWord(e.target.value)}
@@ -219,9 +241,10 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord }: W
                       const isSelected = selectedMeanings.some(
                         m => m.content === meaning.content && m.type === meaning.type
                       );
+                      const meaningKey = `${meaning.content}-${meaning.type}-${index}`;
                       return (
                         <div
-                          key={index}
+                          key={meaningKey}
                           className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                             isSelected
                               ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700'
@@ -267,21 +290,58 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord }: W
 
               {/* 标签选择 */}
               <div>
-                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  选择标签:
-                </h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    选择标签:
+                  </h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowTagEditModal(true)}
+                    className="h-8 px-3 text-xs"
+                  >
+                    <Settings className="h-3 w-3 mr-1" />
+                    标签管理
+                  </Button>
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  {(Object.keys(WORD_TAGS) as WordTag[]).map(tag => {
-                    const tagConfig = WORD_TAGS[tag];
+                  {(Object.keys(allTagConfigs) as WordTag[]).map(tag => {
+                    const tagConfig = allTagConfigs[tag];
+                    if (!tagConfig) return null;
                     const isSelected = selectedTags.includes(tag);
+                    const colorPreset = COLOR_PRESETS.find(c => c.id === tagConfig.colorId);
+
+                    // 获取选中状态的样式：将浅色背景 -50 替换为 -600，同时为深色模式准备 -900 背景
+                    const getSelectedBgClass = (bgClass: string): string => {
+                      return bgClass.replace(/-50/g, '-600');
+                    };
+                    // 为深色模式准备更深的背景色
+                    const getDarkBgClass = (bgClass: string): string => {
+                      return bgClass.replace(/-50/g, '-900');
+                    };
+
                     return (
                       <Badge
                         key={tag}
-                        variant={isSelected ? 'default' : 'outline'}
-                        className={`${tagConfig.color} cursor-pointer transition-all hover:scale-105`}
+                        variant="outline"
+                        className={`
+                          ${
+                            isSelected
+                              // 选中时使用深色背景 + 白色文字
+                              ? colorPreset
+                                ? `${getSelectedBgClass(colorPreset.bgClass)} text-white border-transparent ${getDarkBgClass(colorPreset.bgClass)} dark:bg-opacity-80 dark:text-white`
+                                : 'bg-primary text-primary-foreground border-transparent'
+                              // 未选中时使用浅色背景
+                              : colorPreset
+                                ? `${colorPreset.className} dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-opacity-80`
+                                : 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-opacity-80'
+                          }
+                          cursor-pointer transition-all hover:scale-105 hover:opacity-90
+                          ${isSelected ? 'ring-2 ring-offset-2 ring-blue-500' : ''}
+                        `}
                         onClick={() => toggleTag(tag)}
                       >
-                        {tagConfig.icon}
+                        <IconBadge iconId={tagConfig.iconId} size="md" />
                         <span className="ml-1">{tagConfig.name}</span>
                       </Badge>
                     );
@@ -314,5 +374,17 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord }: W
         </div>
       </div>
     </div>
+      {showTagEditModal && (
+        <TagEditModal
+          isOpen={showTagEditModal}
+          onClose={() => setShowTagEditModal(false)}
+          onTagsUpdate={(newTagConfigs) => {
+            setShowTagEditModal(false);
+            onTagsUpdate?.(newTagConfigs);
+          }}
+          currentTags={allTagConfigs}
+        />
+      )}
+    </>
   );
 };

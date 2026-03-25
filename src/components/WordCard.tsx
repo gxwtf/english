@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { Check, Edit2, Trash2, X, BookOpen } from 'lucide-react';
-import { Word, WordTag } from '@/types/word';
-import { WORD_TAGS } from '@/constants/word-tags';
+import { Word, WordTag, TagConfig } from '@/types/word';
+import { COLOR_PRESETS, ICON_PRESETS } from '@/constants/word-tags';
+import { IconBadge } from '@/components/IconBadge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,6 +15,8 @@ interface WordCardProps {
   onToggleSelect: (id: number) => void;
   onEdit: (word: Word) => void;
   onDelete: (id: number) => void;
+  allTagConfigs: Record<WordTag, TagConfig>;
+  onTagClick?: (tag: WordTag, isAdditive: boolean) => void;
 }
 
 export const WordCard = ({
@@ -21,7 +24,9 @@ export const WordCard = ({
   isSelected,
   onToggleSelect,
   onEdit,
-  onDelete
+  onDelete,
+  allTagConfigs,
+  onTagClick
 }: WordCardProps) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -55,7 +60,9 @@ export const WordCard = ({
                 {word.text}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                暂无释义数据
+                {word.meanings && word.meanings.length > 0
+                  ? word.meanings.map(m => m.content).join('; ')
+                  : '暂无释义数据'}
               </p>
             </div>
 
@@ -86,16 +93,26 @@ export const WordCard = ({
 
           <div className="flex flex-wrap gap-2">
             {word.tags.map(tag => {
-              const tagConfig = WORD_TAGS[tag as WordTag];
+              const tagConfig = allTagConfigs[tag as WordTag];
+              if (!tagConfig) return null;
+              const colorPreset = COLOR_PRESETS.find(c => c.id === tagConfig.colorId);
               return (
-                <Badge
+                <button
                   key={tag}
-                  variant="secondary"
-                  className={`${tagConfig.color} text-xs`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTagClick?.(tag, false);
+                  }}
+                  className="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
                 >
-                  {tagConfig.icon}
-                  <span className="ml-1">{tagConfig.name}</span>
-                </Badge>
+                  <Badge
+                    variant="secondary"
+                    className={`${colorPreset?.bgClass || 'bg-gray-200'} bg-opacity-90 dark:bg-gray-700 text-white dark:text-gray-300 dark:border-gray-600 text-xs cursor-pointer hover:opacity-80 transition-opacity`}
+                  >
+                    <IconBadge iconId={tagConfig.iconId} size="sm" />
+                    <span className="ml-1">{tagConfig.name}</span>
+                  </Badge>
+                </button>
               );
             })}
             {word.tags.length === 0 && (

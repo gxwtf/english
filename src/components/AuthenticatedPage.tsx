@@ -8,7 +8,7 @@ import { Navbar } from '@/components/Navbar';
 import { WordToolbar } from '@/components/WordToolbar';
 import { WordCard } from '@/components/WordCard';
 import { WordModal } from '@/components/WordModal';
-import { Word, WordTag } from '@/types/word';
+import { Word, WordTag, TagConfig } from '@/types/word';
 import { DictionaryEntry } from '@/types/dict';
 import { storage } from '@/lib/storage';
 
@@ -27,11 +27,15 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   const [showModal, setShowModal] = useState(false);
   const [editingWord, setEditingWord] = useState<Word | undefined>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [allTagConfigs, setAllTagConfigs] = useState<Record<WordTag, TagConfig>>({});
 
-  // 从本地存储加载单词
+  // 从本地存储加载单词和标签配置
   useEffect(() => {
     const loadedWords = storage.getWords();
     setWords(loadedWords);
+
+    const loadedTagConfigs = storage.getTagConfigs();
+    setAllTagConfigs(loadedTagConfigs);
   }, []);
 
   // 保存单词到本地存储
@@ -51,15 +55,17 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
       newWord = {
         ...editingWord,
         tags: wordData.tags,
+        meanings: wordData.meanings,
       };
       storage.updateWord(editingWord.id, newWord);
     } else {
-      // 添加新单词
-      const newId = words.length > 0 ? Math.max(...words.map(w => w.id)) + 1 : 1;
+      // 添加新单词 - 使用 timestamps 确保唯一性
+      const newId = Date.now();
       newWord = {
         id: newId,
         text: wordData.text,
         tags: wordData.tags,
+        meanings: wordData.meanings,
       };
       storage.addWord(newWord);
     }
@@ -84,6 +90,12 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     setWords(prev => prev.filter(w => !selectedWordIds.includes(w.id)));
     setSelectedWordIds([]);
     setShowDeleteConfirm(false);
+  };
+
+  // 处理标签配置更新
+  const handleTagsUpdate = (newTagConfigs: Record<WordTag, TagConfig>) => {
+    storage.updateTagConfigs(newTagConfigs);
+    setAllTagConfigs(newTagConfigs);
   };
 
   // 筛选和排序单词
@@ -139,6 +151,21 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     alert(`AI 出题功能开发中，已选 ${selectedWordIds.length} 个单词`);
   };
 
+  // 处理标签点击 - 用于快速筛选
+  const handleTagClick = (clickedTag: WordTag, isAdditive: boolean) => {
+    // 如果当前没有筛选该标签，或者点击的是不同的标签，则添加/切换
+    if (!filterTags.includes(clickedTag)) {
+      setFilterTags([clickedTag]);
+      setFilterLogic('or');
+    } else if (isAdditive) {
+      // 如果已经包含该标签且是附加模式，移除它
+      setFilterTags(prev => prev.filter(t => t !== clickedTag));
+    } else {
+      // 否则切换逻辑（OR/AND）
+      setFilterLogic(prev => prev === 'and' ? 'or' : 'and');
+    }
+  };
+
   // 如果未登录或尚未完成客户端初始化，显示未登录页面
   if (!isLoggedIn || !isClient) {
     return <UnauthenticatedPage />;
@@ -181,12 +208,14 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
           filterTags={filterTags}
           filterLogic={filterLogic}
           searchTerm={searchTerm}
+          allTagConfigs={allTagConfigs}
           onToggleSelectAll={handleToggleSelectAll}
           onSort={setSortBy}
           onFilterChange={(tags, logic) => {
             setFilterTags(tags);
             setFilterLogic(logic);
           }}
+          onTagConfigsUpdate={handleTagsUpdate}
           onAIGenerate={handleAIGenerate}
           onDeleteSelected={() => setShowDeleteConfirm(true)}
           onSearchChange={setSearchTerm}
@@ -252,6 +281,8 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
                   setShowModal(true);
                 }}
                 onDelete={handleDeleteWord}
+                allTagConfigs={allTagConfigs}
+                onTagClick={handleTagClick}
               />
             ))}
           </div>
@@ -268,6 +299,8 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
         onSave={handleSaveWord}
         initialWord={editingWord}
         queryWord={queryWord}
+        allTagConfigs={allTagConfigs}
+        onTagsUpdate={handleTagsUpdate}
       />
     </div>
   );

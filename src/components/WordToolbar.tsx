@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   CheckSquare,
   SortAsc,
@@ -8,13 +8,16 @@ import {
   Filter,
   Sparkles,
   Trash2,
-  Search
+  Search,
+  Settings
 } from 'lucide-react';
-import { WordTag } from '@/types/word';
-import { WORD_TAGS } from '@/constants/word-tags';
+import { WordTag, TagConfig } from '@/types/word';
+import { COLOR_PRESETS, ICON_PRESETS } from '@/constants/word-tags';
+import { IconBadge } from '@/components/IconBadge';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { TagEditModal } from '@/components/TagEditModal';
 
 interface WordToolbarProps {
   selectedWordIds: number[];
@@ -23,9 +26,11 @@ interface WordToolbarProps {
   filterTags: WordTag[];
   filterLogic: 'and' | 'or';
   searchTerm: string;
+  allTagConfigs: Record<WordTag, TagConfig>;
   onToggleSelectAll: () => void;
   onSort: (sort: 'default' | 'alphabet') => void;
   onFilterChange: (tags: WordTag[], logic: 'and' | 'or') => void;
+  onTagConfigsUpdate: (newConfigs: Record<WordTag, TagConfig>) => void;
   onAIGenerate: () => void;
   onDeleteSelected: () => void;
   onSearchChange: (term: string) => void;
@@ -38,14 +43,32 @@ export const WordToolbar = ({
   filterTags,
   filterLogic,
   searchTerm,
+  allTagConfigs,
   onToggleSelectAll,
   onSort,
   onFilterChange,
+  onTagConfigsUpdate,
   onAIGenerate,
   onDeleteSelected,
   onSearchChange
 }: WordToolbarProps) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [showTagEditModal, setShowTagEditModal] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭下拉框
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target as Node)) {
+        setShowFilterDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const isAllSelected = selectedWordIds.length === allWordIds.length && allWordIds.length > 0;
   const canGenerateAI = selectedWordIds.length > 0;
@@ -65,6 +88,10 @@ export const WordToolbar = ({
 
   const handleFilterLogicToggle = () => {
     onFilterChange(filterTags, filterLogic === 'and' ? 'or' : 'and');
+  };
+
+  const handleTagConfigUpdate = (newTagConfigs: Record<WordTag, TagConfig>) => {
+    onTagConfigsUpdate(newTagConfigs);
   };
 
   return (
@@ -112,7 +139,7 @@ export const WordToolbar = ({
             </Button>
           </div>
 
-          <div className="relative">
+          <div className="relative" ref={filterDropdownRef}>
             <Button
               variant="outline"
               size="sm"
@@ -136,20 +163,25 @@ export const WordToolbar = ({
                   </p>
 
                   <div className="space-y-2 mb-4">
-                    {(Object.keys(WORD_TAGS) as WordTag[]).map(tag => {
-                      const tagConfig = WORD_TAGS[tag];
+                    {(Object.keys(allTagConfigs) as WordTag[]).map(tag => {
+                      const tagConfig = allTagConfigs[tag];
+                      if (!tagConfig) return null;
+                      const inputId = `tag-filter-${tag}`;
                       return (
                         <label
                           key={tag}
+                          htmlFor={inputId}
                           className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
                         >
                           <input
+                            id={inputId}
                             type="checkbox"
                             checked={filterTags.includes(tag)}
                             onChange={() => handleTagToggle(tag)}
                             className="rounded border-gray-300 dark:border-gray-600"
                           />
-                          <span className={`${tagConfig.color} text-sm px-2 py-1 rounded-full`}>
+                          <span className={`${COLOR_PRESETS.find(c => c.id === tagConfig.colorId)?.className || 'bg-gray-200'} text-sm px-2 py-1 rounded-full`}>
+                            <IconBadge iconId={tagConfig.iconId} size="md" className="mr-1" />
                             {tagConfig.name}
                           </span>
                         </label>
@@ -179,8 +211,10 @@ export const WordToolbar = ({
         {/* 右侧操作区 */}
         <div className="flex flex-wrap items-center gap-2 ml-auto">
           <div className="relative">
+            <label htmlFor="word-search" className="sr-only">搜索单词</label>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
+              id="word-search"
               placeholder="搜索单词..."
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
@@ -221,6 +255,14 @@ export const WordToolbar = ({
           </Button>
         </div>
       </div>
+
+      {/* 标签管理弹窗 */}
+      <TagEditModal
+        isOpen={showTagEditModal}
+        onClose={() => setShowTagEditModal(false)}
+        onTagsUpdate={handleTagConfigUpdate}
+        currentTags={allTagConfigs}
+      />
     </div>
   );
 };
