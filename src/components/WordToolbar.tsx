@@ -12,8 +12,7 @@ import {
   Settings
 } from 'lucide-react';
 import { WordTag, TagConfig } from '@/types/word';
-import { COLOR_PRESETS, ICON_PRESETS } from '@/constants/word-tags';
-import { IconBadge } from '@/components/IconBadge';
+import { COLOR_PRESETS } from '@/constants/word-tags';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -181,7 +180,6 @@ export const WordToolbar = ({
                             className="rounded border-gray-300 dark:border-gray-600"
                           />
                           <span className={`${COLOR_PRESETS.find(c => c.id === tagConfig.colorId)?.className || 'bg-gray-200'} text-sm px-2 py-1 rounded-full`}>
-                            <IconBadge iconId={tagConfig.iconId} size="md" className="mr-1" />
                             {tagConfig.name}
                           </span>
                         </label>
@@ -252,6 +250,16 @@ export const WordToolbar = ({
                 {selectedWordIds.length}
               </Badge>
             )}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTagEditModal(true)}
+            className="h-9"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            标签管理
           </Button>
         </div>
       </div>

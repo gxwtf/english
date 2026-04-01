@@ -23,22 +23,10 @@ export interface ColorConfig {
   borderClass: string;
 }
 
-// 图标配置接口
-export interface IconConfig {
-  id: string;
-  symbol: string;
-  lucideName?: string; // 可选的 lucide-react 组件名称
-  displayName: string;
-}
-
-// 标签配置接口 - 现在图标和颜色是独立的
+// 标签配置接口
 export interface TagConfig {
   id: string;
   name: string;
-  iconId: string;
   colorId: string;
   description: string;
 }
-
-// 获取图标符号的辅助类型
-export type IconSymbol = string;

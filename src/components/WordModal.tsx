@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Search, Check, AlertCircle, CheckSquare, Settings } from 'lucide-react';
+import { X, Search, Check, AlertCircle, CheckSquare, Square, Settings } from 'lucide-react';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag, TagConfig } from '@/types/word';
-import { COLOR_PRESETS, ICON_PRESETS } from '@/constants/word-tags';
+import { COLOR_PRESETS } from '@/constants/word-tags';
 import { TagEditModal } from '@/components/TagEditModal';
-import { IconBadge } from '@/components/IconBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -45,20 +44,15 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
       setWord(initialWord.text);
       setSearchedWord(initialWord.text);
       // 加载已保存的释义
-      setSelectedMeanings(initialWord.meanings?.map(m => ({
+      const savedMeanings = initialWord.meanings?.map(m => ({
         content: m.content,
         type: m.type,
         sentence: m.sentence || ''
-      })) || []);
+      })) || [];
+      setSelectedMeanings(savedMeanings);
       setSelectedTags(initialWord.tags);
-      // 为编辑模式加载词典数据以便显示
-      if (initialWord.meanings && initialWord.meanings.length > 0) {
-        setDictionaryData({
-          word: initialWord.text,
-          pronunciation: '',
-          meaning: initialWord.meanings
-        });
-      }
+      // 编辑模式不预设词典数据，需要重新查询以显示所有释义
+      setDictionaryData(null);
     } else {
       setWord('');
       setDictionaryData(null);
@@ -68,7 +62,34 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
     }
   }, [initialWord, isOpen]);
 
-  const handleSearch = async () => {
+  // 当编辑模式下已输入单词且词典数据为空时，自动查询词典
+  useEffect(() => {
+    if (initialWord && searchedWord && !dictionaryData) {
+      const fetchDictionaryData = async () => {
+        setLoading(true);
+        try {
+          const result = await queryWord(searchedWord);
+          if (result) {
+            setDictionaryData(result);
+          } else {
+            // 如果没有查询到结果，使用空数据
+            setDictionaryData({
+              word: searchedWord,
+              pronunciation: '',
+              meaning: []
+            });
+          }
+        } catch (err) {
+          console.error('查询词典失败:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchDictionaryData();
+    }
+  }, [initialWord, searchedWord, dictionaryData, queryWord]);
+
+  const handleSearch = async (clearSelectedMeanings = true) => {
     if (!word.trim()) {
       setError('请输入要查询的单词');
       return;
@@ -89,7 +110,10 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
           meaning: []
         });
       }
-      setSelectedMeanings([]);
+      // 只有用户主动查询时才清空已选择的释义
+      if (clearSelectedMeanings) {
+        setSelectedMeanings([]);
+      }
     } catch (err) {
       setError('查询失败，请重试');
       console.error(err);
@@ -98,12 +122,18 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
     }
   };
 
+  // 编辑模式下查询单词（不清空已选择的释义）
+  const handleEditSearch = async () => {
+    await handleSearch(false);
+  };
+
   const toggleMeaning = (meaning: Meaning) => {
     setSelectedMeanings(prev => {
       const exists = prev.some(m => m.content === meaning.content && m.type === meaning.type);
       if (exists) {
         return prev.filter(m => !(m.content === meaning.content && m.type === meaning.type));
       } else {
+        // 添加新释义时，保留词典中的完整信息（包括 sentence）
         return [...prev, meaning];
       }
     });
@@ -172,10 +202,10 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
                 placeholder="输入要查询的英文单词..."
                 value={word}
                 onChange={(e) => setWord(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                onKeyPress={(e) => e.key === 'Enter' && (initialWord ? handleEditSearch() : handleSearch())}
                 className="flex-1"
               />
-              <Button onClick={handleSearch} disabled={loading}>
+              <Button onClick={() => (initialWord ? handleEditSearch() : handleSearch())} disabled={loading}>
                 <Search className="h-4 w-4 mr-2" />
                 {loading ? '查询中...' : '查询'}
               </Button>
@@ -232,6 +262,15 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
                     >
                       <CheckSquare className="h-3 w-3 mr-1" />
                       全选（def.除外）
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedMeanings([])}
+                      className="h-8 px-3 text-xs"
+                    >
+                      <Square className="h-3 w-3 mr-1" />
+                      全不选
                     </Button>
                   </div>
                 </div>
@@ -311,15 +350,6 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
                     const isSelected = selectedTags.includes(tag);
                     const colorPreset = COLOR_PRESETS.find(c => c.id === tagConfig.colorId);
 
-                    // 获取选中状态的样式：将浅色背景 -50 替换为 -600，同时为深色模式准备 -900 背景
-                    const getSelectedBgClass = (bgClass: string): string => {
-                      return bgClass.replace(/-50/g, '-600');
-                    };
-                    // 为深色模式准备更深的背景色
-                    const getDarkBgClass = (bgClass: string): string => {
-                      return bgClass.replace(/-50/g, '-900');
-                    };
-
                     return (
                       <Badge
                         key={tag}
@@ -327,22 +357,20 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
                         className={`
                           ${
                             isSelected
-                              // 选中时使用深色背景 + 白色文字
+                              // 选中时保持原背景，添加蓝色边框
                               ? colorPreset
-                                ? `${getSelectedBgClass(colorPreset.bgClass)} text-white border-transparent ${getDarkBgClass(colorPreset.bgClass)} dark:bg-opacity-80 dark:text-white`
-                                : 'bg-primary text-primary-foreground border-transparent'
+                                ? `${colorPreset.className} dark:bg-gray-800 dark:text-gray-300 ring-2 ring-blue-500 ring-offset-1 shadow-md`
+                                : 'bg-blue-100 text-blue-800 border-blue-500 ring-2 ring-blue-500 ring-offset-1'
                               // 未选中时使用浅色背景
                               : colorPreset
                                 ? `${colorPreset.className} dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-opacity-80`
                                 : 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-opacity-80'
                           }
                           cursor-pointer transition-all hover:scale-105 hover:opacity-90
-                          ${isSelected ? 'ring-2 ring-offset-2 ring-blue-500' : ''}
                         `}
                         onClick={() => toggleTag(tag)}
                       >
-                        <IconBadge iconId={tagConfig.iconId} size="md" />
-                        <span className="ml-1">{tagConfig.name}</span>
+                        {tagConfig.name}
                       </Badge>
                     );
                   })}

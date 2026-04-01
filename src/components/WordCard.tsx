@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { Check, Edit2, Trash2, X, BookOpen } from 'lucide-react';
 import { Word, WordTag, TagConfig } from '@/types/word';
-import { COLOR_PRESETS, ICON_PRESETS } from '@/constants/word-tags';
-import { IconBadge } from '@/components/IconBadge';
+import { COLOR_PRESETS } from '@/constants/word-tags';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -59,11 +58,6 @@ export const WordCard = ({
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                 {word.text}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {word.meanings && word.meanings.length > 0
-                  ? word.meanings.map(m => m.content).join('; ')
-                  : '暂无释义数据'}
-              </p>
             </div>
 
             <div className="flex gap-2 ml-4">
@@ -91,36 +85,49 @@ export const WordCard = ({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {word.tags.map(tag => {
-              const tagConfig = allTagConfigs[tag as WordTag];
-              if (!tagConfig) return null;
-              const colorPreset = COLOR_PRESETS.find(c => c.id === tagConfig.colorId);
-              return (
-                <button
-                  key={tag}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onTagClick?.(tag, false);
-                  }}
-                  className="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
-                >
-                  <Badge
-                    variant="secondary"
-                    className={`${colorPreset?.bgClass || 'bg-gray-200'} bg-opacity-90 dark:bg-gray-700 text-white dark:text-gray-300 dark:border-gray-600 text-xs cursor-pointer hover:opacity-80 transition-opacity`}
+          {/* 含义和标签区域 */}
+          <div className="space-y-2">
+            {/* 单词含义 */}
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              {word.meanings && word.meanings.length > 0
+                ? word.meanings.map(m => m.content).join('; ')
+                : '暂无释义数据'}
+            </p>
+
+            {/* 标签列表 */}
+            <div className="flex flex-wrap gap-2">
+              {word.tags.map(tag => {
+                const tagConfig = allTagConfigs[tag as WordTag];
+                // 如果找不到配置，使用标签名作为默认显示
+                const displayName = tagConfig?.name || tag;
+                const colorPreset = tagConfig?.colorId
+                  ? COLOR_PRESETS.find(c => c.id === tagConfig.colorId)
+                  : COLOR_PRESETS[0];
+                return (
+                  <button
+                    key={tag}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTagClick?.(tag, false);
+                    }}
+                    className="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
                   >
-                    <IconBadge iconId={tagConfig.iconId} size="sm" />
-                    <span className="ml-1">{tagConfig.name}</span>
-                  </Badge>
-                </button>
-              );
-            })}
-            {word.tags.length === 0 && (
-              <Badge variant="outline" className="text-gray-400 text-xs">
-                <BookOpen className="h-3 w-3 mr-1" />
-                无标签
-              </Badge>
-            )}
+                    <Badge
+                      variant="secondary"
+                      className={`${colorPreset?.className || 'bg-gray-200'} text-xs cursor-pointer hover:opacity-80 transition-opacity border border-current`}
+                    >
+                      <span>{displayName}</span>
+                    </Badge>
+                  </button>
+                );
+              })}
+              {word.tags.length === 0 && (
+                <Badge variant="outline" className="text-gray-400 text-xs">
+                  <BookOpen className="h-3 w-3 mr-1" />
+                  无标签
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </div>

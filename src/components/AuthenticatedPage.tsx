@@ -8,6 +8,7 @@ import { Navbar } from '@/components/Navbar';
 import { WordToolbar } from '@/components/WordToolbar';
 import { WordCard } from '@/components/WordCard';
 import { WordModal } from '@/components/WordModal';
+import { AIQuestionTypeSelector, type AIQuestionType } from '@/components/AIQuestionTypeSelector';
 import { Word, WordTag, TagConfig } from '@/types/word';
 import { DictionaryEntry } from '@/types/dict';
 import { storage } from '@/lib/storage';
@@ -28,6 +29,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   const [editingWord, setEditingWord] = useState<Word | undefined>();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [allTagConfigs, setAllTagConfigs] = useState<Record<WordTag, TagConfig>>({});
+  const [showAISelector, setShowAISelector] = useState(false);
 
   // 从本地存储加载单词和标签配置
   useEffect(() => {
@@ -58,22 +60,33 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
         meanings: wordData.meanings,
       };
       storage.updateWord(editingWord.id, newWord);
+      setWords(prev => prev.map(w => w.id === editingWord.id ? newWord : w));
     } else {
-      // 添加新单词 - 使用 timestamps 确保唯一性
-      const newId = Date.now();
-      newWord = {
-        id: newId,
-        text: wordData.text,
-        tags: wordData.tags,
-        meanings: wordData.meanings,
-      };
-      storage.addWord(newWord);
+      // 添加新单词 - 检查是否已存在相同单词
+      const existingWord = words.find(w => w.text === wordData.text);
+      if (existingWord) {
+        // 已存在相同单词，覆盖它
+        newWord = {
+          ...existingWord,
+          tags: wordData.tags,
+          meanings: wordData.meanings,
+        };
+        storage.updateWord(existingWord.id, newWord);
+        setWords(prev => prev.map(w => w.id === existingWord.id ? newWord : w));
+      } else {
+        // 添加新单词 - 使用 timestamps 确保唯一性
+        const newId = Date.now();
+        newWord = {
+          id: newId,
+          text: wordData.text,
+          tags: wordData.tags,
+          meanings: wordData.meanings,
+        };
+        storage.addWord(newWord);
+        setWords(prev => [...prev, newWord]);
+      }
     }
 
-    setWords(prev => editingWord
-      ? prev.map(w => w.id === editingWord.id ? newWord : w)
-      : [...prev, newWord].sort((a, b) => a.text.localeCompare(b.text))
-    );
     setEditingWord(undefined);
   };
 
@@ -148,7 +161,13 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
 
   const handleAIGenerate = () => {
     if (selectedWordIds.length === 0) return;
-    alert(`AI 出题功能开发中，已选 ${selectedWordIds.length} 个单词`);
+    setShowAISelector(true);
+  };
+
+  const handleSelectQuestionType = (type: AIQuestionType) => {
+    console.log(`选择题目类型：${type}`);
+    // TODO: 根据题目类型生成题目
+    setShowAISelector(false);
   };
 
   // 处理标签点击 - 用于快速筛选
@@ -301,6 +320,13 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
         queryWord={queryWord}
         allTagConfigs={allTagConfigs}
         onTagsUpdate={handleTagsUpdate}
+      />
+
+      {/* AI 出题类型选择器 */}
+      <AIQuestionTypeSelector
+        isOpen={showAISelector}
+        onClose={() => setShowAISelector(false)}
+        onSelectType={handleSelectQuestionType}
       />
     </div>
   );

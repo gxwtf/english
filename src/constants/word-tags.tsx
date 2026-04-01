@@ -1,5 +1,5 @@
 // constants/word-tags.ts
-import { TagConfig, WordTag, ColorConfig, IconConfig } from '@/types/word';
+import { TagConfig, WordTag, ColorConfig } from '@/types/word';
 
 export const WORD_TAGS: Record<WordTag, TagConfig> = {};
 
@@ -100,53 +100,13 @@ export const COLOR_PRESETS: ColorConfig[] = [
     bgClass: 'bg-lime-50',
     textClass: 'text-lime-700',
     borderClass: 'border-lime-200'
+  },
+  {
+    id: 'lightblue',
+    name: '浅蓝色',
+    className: 'bg-blue-100 text-blue-800 border-blue-300',
+    bgClass: 'bg-blue-100',
+    textClass: 'text-blue-800',
+    borderClass: 'border-blue-300'
   }
 ];
-
-// 图标配置
-export const ICON_PRESETS: IconConfig[] = [
-  // 基础几何图形 - 使用 lucide-react
-  { id: 'circle', symbol: '○', lucideName: 'Circle', displayName: '圆圈' },
-  { id: 'dot', symbol: '●', lucideName: 'CircleDot', displayName: '实心圆' },
-  { id: 'square', symbol: '■', lucideName: 'Square', displayName: '方形' },
-  { id: 'triangle', symbol: '▲', lucideName: 'Triangle', displayName: '三角形' },
-  { id: 'diamond', symbol: '◆', lucideName: 'Diamond', displayName: '菱形' },
-  { id: 'star', symbol: '★', lucideName: 'Star', displayName: '星形' },
-  { id: 'heart', symbol: '♥', lucideName: 'Heart', displayName: '心形' },
-
-  // 特殊符号（暂时保持字符）
-  { id: 'diamond-solid', symbol: '♦', displayName: '实心菱形' },
-  { id: 'spade', symbol: '♠', displayName: '黑桃' },
-  { id: 'club', symbol: '♣', displayName: '梅花' },
-
-  // 星形变体
-  { id: 'star-four', symbol: '✦', displayName: '四角星' },
-  { id: 'star-eight', symbol: '✧', displayName: '八角星' },
-  { id: 'star-circle', symbol: '✪', displayName: '星圈' },
-  { id: 'star-dash', symbol: '✫', displayName: '星号线' },
-  { id: 'star-two', symbol: '✬', displayName: '双星' },
-  { id: 'star-plus', symbol: '✭', displayName: '星号' },
-  { id: 'star-cross', symbol: '✮', displayName: '星叉' },
-  { id: 'star-burst', symbol: '✯', displayName: '星爆' },
-
-  // 闪光系列
-  { id: 'sparkle', symbol: '✰', lucideName: 'Sparkles', displayName: '闪光' },
-  { id: 'sparkle-small', symbol: '✱', displayName: '小闪光' },
-  { id: 'sparkle-medium', symbol: '✲', displayName: '中闪光' },
-  { id: 'sparkle-large', symbol: '✳', displayName: '大闪光' },
-  { id: 'sparkle-diamond', symbol: '✴', displayName: '钻闪光' },
-  { id: 'sparkle-bullet', symbol: '✵', displayName: '点闪光' },
-  { id: 'sparkle-pin', symbol: '✶', displayName: '针闪光' },
-  { id: 'sparkle-needle', symbol: '✷', displayName: '针尖闪光' },
-  { id: 'sparkle-heavy', symbol: '✸', displayName: '重闪光' },
-  { id: 'sparkle-intense', symbol: '✹', displayName: '强闪光' },
-  { id: 'sparkle-sharp', symbol: '✺', displayName: '锐闪光' },
-  { id: 'sparkle-wing', symbol: '✻', displayName: '翼闪光' },
-  { id: 'sparkle-feather', symbol: '✼', displayName: '羽闪光' },
-  { id: 'sparkle-needle-tip', symbol: '✽', displayName: '针尖闪光' },
-  { id: 'sparkle-intense-tip', symbol: '✾', displayName: '强尖闪光' },
-  { id: 'sparkle-flower', symbol: '✿', displayName: '花闪光' }
-];
-
-// 为了向后兼容，保留原有的图标符号列表
-export const ICON_OPTIONS = ICON_PRESETS.map(icon => icon.symbol);

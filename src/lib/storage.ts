@@ -1,5 +1,5 @@
-import { Word, WordTag, TagConfig, ColorConfig, IconConfig } from '@/types/word';
-import { COLOR_PRESETS, ICON_PRESETS } from '@/constants/word-tags';
+import { Word, WordTag, TagConfig, ColorConfig } from '@/types/word';
+import { COLOR_PRESETS } from '@/constants/word-tags';
 
 const STORAGE_KEY = 'gxwtf_english_words';
 const TAGS_CONFIG_KEY = 'gxwtf_english_tags';
@@ -60,15 +60,14 @@ export const storage = {
     const migrated: Record<WordTag, TagConfig> = {};
 
     for (const [key, oldConfig] of Object.entries(oldConfigs)) {
-      // 如果已经是新格式，直接使用
-      if (oldConfig.iconId && oldConfig.colorId) {
+      // 如果已经是新格式（没有 iconId 和 icon 字段），直接使用
+      if (!('iconId' in oldConfig) && !('icon' in oldConfig)) {
         migrated[key] = oldConfig as TagConfig;
         continue;
       }
 
-      // 旧格式迁移：从 color 和 icon 属性推断对应的 ID
+      // 旧格式迁移：从 color 属性推断颜色 ID
       let colorId = 'blue'; // 默认
-      let iconId = 'dot'; // 默认
 
       // 根据颜色类名推断颜色 ID
       for (const color of COLOR_PRESETS) {
@@ -78,18 +77,9 @@ export const storage = {
         }
       }
 
-      // 根据图标符号推断图标 ID
-      for (const icon of ICON_PRESETS) {
-        if (oldConfig.icon === icon.symbol) {
-          iconId = icon.id;
-          break;
-        }
-      }
-
       migrated[key] = {
         id: key,
         name: oldConfig.name || key,
-        iconId: iconId,
         colorId: colorId,
         description: oldConfig.description || oldConfig.name || key
       };
