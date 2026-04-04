@@ -8,10 +8,10 @@ import { AuthenticatedPage } from '@/components/AuthenticatedPage';
 import query from '@/actions/query';
 
 export default function Home() {
-  const { isLoggedIn, isClient } = useAuth();
+  const { isLoggedIn, isClient, isLoading } = useAuth();
 
-  // 如果尚未完成客户端初始化，显示加载状态
-  if (!isClient) {
+  // 如果尚未完成客户端初始化或正在加载认证状态，显示加载状态
+  if (!isClient || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center">

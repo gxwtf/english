@@ -1,8 +1,7 @@
-import { BookOpen, Brain, Sparkles, LogIn } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { BookOpen, Brain, Sparkles } from 'lucide-react';
+import { GxaccountLogin } from '@/components/GxaccountLogin';
 
 export const UnauthenticatedPage = () => {
-  const { login } = useAuth();
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="flex flex-col items-center text-center p-8 max-w-4xl mx-auto">
@@ -50,13 +49,7 @@ export const UnauthenticatedPage = () => {
         </div>
 
         <div className="mt-8">
-          <button
-            onClick={login}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors mx-auto"
-          >
-            <LogIn className="w-5 h-5" />
-            模拟登录
-          </button>
+          <GxaccountLogin />
         </div>
 
         <div className="mt-12 animate-pulse">

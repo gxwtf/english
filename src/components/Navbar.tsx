@@ -1,14 +1,16 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, FileQuestion } from 'lucide-react';
+import { BookOpen, FileQuestion, LogOut, User } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface NavbarProps {
   currentPage: 'wordbook' | 'practice';
 }
 
 export const Navbar = ({ currentPage }: NavbarProps) => {
+  const { userInfo, logout } = useAuth();
+
   return (
     <nav className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -48,6 +50,29 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
               <FileQuestion className="h-4 w-4" />
               <span>题目列表</span>
             </Link>
+
+            {/* 用户信息和登出 - 由于 SSR 限制，登出后需要刷新页面 */}
+            {userInfo && (
+              <div className="flex items-center space-x-4 pl-4 border-l border-gray-200 dark:border-gray-700">
+                <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-300">
+                  <User className="h-4 w-4" />
+                  <span>{userInfo.userName}</span>
+                </div>
+                <button
+                  onClick={async () => {
+                    await logout();
+                    // 强制刷新页面以重新验证会话
+                    if (typeof window !== 'undefined') {
+                      window.location.href = '/';
+                    }
+                  }}
+                  className="flex items-center space-x-1 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>登出</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
