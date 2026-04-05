@@ -1,99 +1,46 @@
-import { Word, WordTag, TagConfig, ColorConfig } from '@/types/word';
-import { COLOR_PRESETS } from '@/constants/word-tags';
+import { Word, WordTag, TagConfig } from '@/types/word';
 
-const STORAGE_KEY = 'gxwtf_english_words';
-const TAGS_CONFIG_KEY = 'gxwtf_english_tags';
+// 缓存
+let cachedWords: Word[] | null = null;
+let cachedTagConfigs: Record<WordTag, TagConfig> | null = null;
 
 export const storage = {
+  // 加载所有单词
+  loadWords: async (): Promise<Word[]> => {
+    const response = await fetch('/api/words', { credentials: 'include' });
+    if (!response.ok) return [];
+    const words = await response.json();
+    cachedWords = words;
+    return words;
+  },
+
+  // 获取缓存的单词（同步，用于已加载后访问）
   getWords: (): Word[] => {
-    if (typeof window === 'undefined') return [];
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    return cachedWords || [];
   },
 
-  saveWords: (words: Word[]): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(words));
+  // 加载标签配置
+  loadTagConfigs: async (): Promise<Record<WordTag, TagConfig>> => {
+    const response = await fetch('/api/tags/config', { credentials: 'include' });
+    if (!response.ok) return {};
+    const configs = await response.json();
+    cachedTagConfigs = configs;
+    return configs;
   },
 
-  addWord: (word: Word): void => {
-    const words = storage.getWords();
-    words.push(word);
-    storage.saveWords(words);
-  },
-
-  updateWord: (id: number, updatedWord: Partial<Word>): void => {
-    const words = storage.getWords();
-    const index = words.findIndex(w => w.id === id);
-    if (index !== -1) {
-      words[index] = { ...words[index], ...updatedWord };
-      storage.saveWords(words);
-    }
-  },
-
-  deleteWord: (id: number): void => {
-    const words = storage.getWords();
-    const filtered = words.filter(w => w.id !== id);
-    storage.saveWords(filtered);
-  },
-
-  deleteWordsByIds: (ids: number[]): void => {
-    const words = storage.getWords();
-    const filtered = words.filter(w => !ids.includes(w.id));
-    storage.saveWords(filtered);
-  },
-
-  // 标签配置相关方法
+  // 获取缓存的标签配置（同步，用于已加载后访问）
   getTagConfigs: (): Record<WordTag, TagConfig> => {
-    if (typeof window === 'undefined') return {};
-    const stored = localStorage.getItem(TAGS_CONFIG_KEY);
-    let tagConfigs: Record<WordTag, TagConfig> = stored ? JSON.parse(stored) : {};
-
-    // 迁移旧格式到新格式
-    tagConfigs = storage.migrateTagConfigs(tagConfigs);
-
-    return tagConfigs;
+    return cachedTagConfigs || {};
   },
 
-  // 迁移标签配置从旧格式到新格式
-  migrateTagConfigs: (oldConfigs: Record<WordTag, any>): Record<WordTag, TagConfig> => {
-    const migrated: Record<WordTag, TagConfig> = {};
-
-    for (const [key, oldConfig] of Object.entries(oldConfigs)) {
-      // 如果已经是新格式（没有 iconId 和 icon 字段），直接使用
-      if (!('iconId' in oldConfig) && !('icon' in oldConfig)) {
-        migrated[key] = oldConfig as TagConfig;
-        continue;
-      }
-
-      // 旧格式迁移：从 color 属性推断颜色 ID
-      let colorId = 'blue'; // 默认
-
-      // 根据颜色类名推断颜色 ID
-      for (const color of COLOR_PRESETS) {
-        if (oldConfig.color === color.className) {
-          colorId = color.id;
-          break;
-        }
-      }
-
-      migrated[key] = {
-        id: key,
-        name: oldConfig.name || key,
-        colorId: colorId,
-        description: oldConfig.description || oldConfig.name || key
-      };
-    }
-
-    return migrated;
-  },
-
-  saveTagConfigs: (tagConfigs: Record<WordTag, TagConfig>): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(TAGS_CONFIG_KEY, JSON.stringify(tagConfigs));
-  },
-
+  // 更新标签配置（fire-and-forget，本地缓存先行更新）
   updateTagConfigs: (newConfigs: Record<WordTag, TagConfig>): void => {
-    storage.saveTagConfigs(newConfigs);
-  }
+    cachedTagConfigs = newConfigs;
+    fetch('/api/tags/config', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tagConfigs: newConfigs }),
+    }).catch(console.error);
+  },
 };

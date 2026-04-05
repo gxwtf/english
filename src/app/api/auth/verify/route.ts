@@ -1,5 +1,6 @@
 // 验证用户登录状态
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from '@/lib/db';
 
 // 验证本地 cookie 中的用户信息
 export async function GET(request: NextRequest) {
@@ -12,6 +13,25 @@ export async function GET(request: NextRequest) {
 
     try {
       const userInfo = JSON.parse(authCookie.value);
+
+      // 自动创建或更新用户到数据库
+      await prisma.user.upsert({
+        where: { userId: userInfo.userId },
+        update: {
+          userName: userInfo.userName,
+          admin: userInfo.admin,
+          email: userInfo.email,
+          realName: userInfo.realName,
+        },
+        create: {
+          userId: userInfo.userId,
+          userName: userInfo.userName,
+          admin: userInfo.admin,
+          email: userInfo.email,
+          realName: userInfo.realName,
+        },
+      });
+
       return NextResponse.json({
         loggedIn: true,
         userId: userInfo.userId,

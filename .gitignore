@@ -42,3 +42,4 @@ next-env.d.ts
 
 # 词典文件
 src/dict/*
+/src/generated/prisma

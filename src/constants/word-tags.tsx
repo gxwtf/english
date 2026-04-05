@@ -1,6 +1,7 @@
 // constants/word-tags.ts
 import { TagConfig, WordTag, ColorConfig } from '@/types/word';
 
+// 初始标签配置为空，由 storage 自动从 localStorage 加载
 export const WORD_TAGS: Record<WordTag, TagConfig> = {};
 
 // 预设颜色配置

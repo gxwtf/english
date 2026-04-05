@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { X, Search, Check, AlertCircle, CheckSquare, Square, Settings } from 'lucide-react';
 import { DictionaryEntry, Meaning } from '@/types/dict';
-import { Word, WordTag, TagConfig } from '@/types/word';
+import { Word, WordTag, TagConfig, RelatedWord } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
 import { TagEditModal } from '@/components/TagEditModal';
+import { RelatedWordSelector } from '@/components/RelatedWordSelector';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -22,20 +23,23 @@ interface WordModalProps {
       type: string;
       sentence: string;
     }[];
-  }) => void;
+    relatedWords?: RelatedWord[];
+  }) => Promise<void> | void;
   initialWord?: Word;
+  allWords?: Word[];  // 所有单词列表，用于关联单词选择
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
   allTagConfigs: Record<WordTag, TagConfig>;
   onTagsUpdate?: (newTagConfigs: Record<WordTag, TagConfig>) => void;
 }
 
-export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, allTagConfigs, onTagsUpdate }: WordModalProps) => {
+export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [], queryWord, allTagConfigs, onTagsUpdate }: WordModalProps) => {
   const [word, setWord] = useState('');
   const [dictionaryData, setDictionaryData] = useState<DictionaryEntry | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedMeanings, setSelectedMeanings] = useState<Meaning[]>([]);
   const [selectedTags, setSelectedTags] = useState<WordTag[]>([]);
+  const [selectedRelatedWords, setSelectedRelatedWords] = useState<RelatedWord[]>([]);
   const [searchedWord, setSearchedWord] = useState('');
   const [showTagEditModal, setShowTagEditModal] = useState(false);
 
@@ -51,6 +55,8 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
       })) || [];
       setSelectedMeanings(savedMeanings);
       setSelectedTags(initialWord.tags);
+      // 加载已保存的关联单词
+      setSelectedRelatedWords(initialWord.relatedWords || []);
       // 编辑模式不预设词典数据，需要重新查询以显示所有释义
       setDictionaryData(null);
     } else {
@@ -58,6 +64,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
       setDictionaryData(null);
       setSelectedMeanings([]);
       setSelectedTags([]);
+      setSelectedRelatedWords([]);
       setError('');
     }
   }, [initialWord, isOpen]);
@@ -145,7 +152,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!searchedWord.trim()) {
       setError('请输入单词');
       return;
@@ -162,10 +169,11 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
       sentence: ''
     }));
 
-    onSave({
+    await onSave({
       text: searchedWord.trim(),
       meanings: meaningsData,
-      tags: selectedTags
+      tags: selectedTags,
+      relatedWords: selectedRelatedWords
     });
 
     onClose();
@@ -177,22 +185,22 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
 
   return (
     <>
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
         {/* 头部 */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 gap-2">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate flex-1">
             {initialWord ? '编辑单词' : '添加单词'}
           </h2>
-          <Button variant="ghost" size="sm" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} className="flex-shrink-0">
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         {/* 内容区 */}
-        <div className="flex-1 overflow-auto p-6">
+        <div className="flex-1 overflow-auto p-4 sm:p-6">
           {/* 搜索单词 */}
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <label htmlFor="word-search-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               搜索单词
             </label>
@@ -205,7 +213,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
                 onKeyPress={(e) => e.key === 'Enter' && (initialWord ? handleEditSearch() : handleSearch())}
                 className="flex-1"
               />
-              <Button onClick={() => (initialWord ? handleEditSearch() : handleSearch())} disabled={loading}>
+              <Button onClick={() => (initialWord ? handleEditSearch() : handleSearch())} disabled={loading} className="whitespace-nowrap">
                 <Search className="h-4 w-4 mr-2" />
                 {loading ? '查询中...' : '查询'}
               </Button>
@@ -235,21 +243,21 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
 
               {/* 释义选择 */}
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     选择不熟悉的释义（至少选一个）:
                   </h4>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => {
                         setSelectedMeanings(dictionaryData.meaning.map((m: any) => m));
                       }}
-                      className="h-8 px-3 text-xs"
+                      className="h-8 px-3 text-xs whitespace-nowrap"
                     >
                       <CheckSquare className="h-3 w-3 mr-1" />
-                      全选
+                      <span className="hidden sm:inline">全选</span>
                     </Button>
                     <Button
                       variant="ghost"
@@ -258,19 +266,19 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
                         const meaningsWithoutDef = dictionaryData.meaning.filter((m: any) => m.type !== 'def.');
                         setSelectedMeanings(meaningsWithoutDef);
                       }}
-                      className="h-8 px-3 text-xs"
+                      className="h-8 px-3 text-xs whitespace-nowrap"
                     >
                       <CheckSquare className="h-3 w-3 mr-1" />
-                      全选（def.除外）
+                      <span className="hidden sm:inline">全选（def.除外）</span>
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setSelectedMeanings([])}
-                      className="h-8 px-3 text-xs"
+                      className="h-8 px-3 text-xs whitespace-nowrap"
                     >
                       <Square className="h-3 w-3 mr-1" />
-                      全不选
+                      <span className="hidden sm:inline">全不选</span>
                     </Button>
                   </div>
                 </div>
@@ -329,7 +337,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
 
               {/* 标签选择 */}
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 gap-2">
                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     选择标签:
                   </h4>
@@ -337,10 +345,11 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowTagEditModal(true)}
-                    className="h-8 px-3 text-xs"
+                    className="h-8 px-3 text-xs whitespace-nowrap flex-shrink-0"
                   >
                     <Settings className="h-3 w-3 mr-1" />
-                    标签管理
+                    <span className="hidden sm:inline">标签管理</span>
+                    <span className="sm:hidden">标签</span>
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -376,25 +385,36 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, queryWord, all
                   })}
                 </div>
               </div>
+
+              {/* 关联单词选择 */}
+              <RelatedWordSelector
+                currentWordText={searchedWord}
+                selectedRelatedWords={selectedRelatedWords}
+                onSelectChange={setSelectedRelatedWords}
+                queryWord={async (word: string) => {
+                  const result = await queryWord(word);
+                  return result ? { word: result.word } : null;
+                }}
+              />
             </div>
           )}
         </div>
 
         {/* 底部 */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 gap-3">
+          <div className="text-sm text-gray-500 dark:text-gray-400 text-center sm:text-left">
             {selectedMeanings.length > 0 && (
               <span>已选择 {selectedMeanings.length} 个释义</span>
             )}
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose}>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-none">
               取消
             </Button>
             <Button
               onClick={handleSave}
               disabled={isSaveDisabled}
-              className="min-w-[80px]"
+              className="flex-1 sm:flex-none min-w-[80px]"
             >
               保存
             </Button>
