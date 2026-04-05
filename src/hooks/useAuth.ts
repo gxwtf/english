@@ -1,17 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { verifyAuth as verifyAuthAction, logout as logoutAction } from '@/actions/auth';
+import { UserInfo } from '@/actions/auth';
 
 const STORAGE_KEY = 'gxwtf_english_auth';
-
-// 用户信息类型
-export interface UserInfo {
-  userId: number;
-  userName: string;
-  admin: number;
-  email?: string;
-  realName?: string;
-}
 
 export const useAuth = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -24,15 +17,14 @@ export const useAuth = () => {
     if (typeof window === 'undefined') return;
 
     try {
-      const response = await fetch('/api/auth/verify');
-      const data = await response.json();
+      const data = await verifyAuthAction();
 
       if (data.loggedIn) {
         setIsLoggedIn(true);
         setUserInfo({
-          userId: data.userId,
-          userName: data.userName,
-          admin: data.admin,
+          userId: (data as any).userId,
+          userName: (data as any).userName,
+          admin: (data as any).admin,
         });
         // 存储到 localStorage 用于客户端状态持久化
         localStorage.setItem(STORAGE_KEY, 'true');
@@ -64,7 +56,7 @@ export const useAuth = () => {
 
   const logout = useCallback(async () => {
     try {
-      await fetch('/api/auth/verify', { method: 'POST' });
+      await logoutAction();
     } catch (e) {
       console.error('Logout error:', e);
     } finally {

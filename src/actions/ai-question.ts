@@ -1,81 +1,109 @@
-// API 路由：处理队列头部的 GENERATING 题目
-import { NextRequest, NextResponse } from 'next/server';
+'use server';
+
 import { prisma } from '@/lib/db';
 import { callOpenAI } from '@/lib/openai';
+import { getAuthUser } from './auth';
+import { QuestionType } from '@/types/word';
 
-/**
- * GET - 处理队头第一个 GENERATING 状态的题目
- *
- * 流程:
- * 1. 查找第一个 GENERATING 状态的题目
- * 2. 根据 wordIds 获取对应的单词文本和释义
- * 3. 调用 AI 接口生成题目
- * 4. 将生成的题目写入 questionContent，状态更新为 GENERATED
- */
-export async function GET(request: NextRequest) {
+// GET /api/ai-question -> loadQuestionQueue
+export async function loadQuestionQueue() {
+  const user = await getAuthUser();
+  if (!user) return [];
+
+  const questions = await prisma.questionQueue.findMany({
+    where: { userId: user.userId },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return questions.map((q) => ({
+    id: q.id,
+    questionType: q.questionType as QuestionType,
+    status: q.status,
+    questionContent: (q.questionContent as Record<string, unknown> | undefined) ?? undefined,
+    lastAnswer: (q.lastAnswer as Record<string, unknown> | undefined) ?? undefined,
+    wordIds: q.wordIds,
+    createdAt: q.createdAt.toISOString(),
+    updatedAt: q.updatedAt.toISOString(),
+  }));
+}
+
+// POST /api/ai-question -> createQuestion
+export async function createQuestion(questionType: string, wordIds: number[]) {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  if (!questionType || !wordIds?.length) {
+    throw new Error('缺少题目类型或单词列表');
+  }
+
+  if (!['fill-blank', 'translate'].includes(questionType)) {
+    throw new Error('无效的题目类型');
+  }
+
+  const question = await prisma.questionQueue.create({
+    data: {
+      userId: user.userId,
+      questionType: questionType as any,
+      status: 'GENERATING',
+      wordIds,
+    },
+  });
+
+  return question;
+}
+
+// GET /api/ai-question/process -> processQuestionQueue
+export async function processQuestionQueue(prompt?: string) {
   try {
-    // 查找队头第一个待处理的题目
     const question = await prisma.questionQueue.findFirst({
       where: { status: 'GENERATING' },
       orderBy: { createdAt: 'asc' },
     });
 
     if (!question) {
-      return NextResponse.json({ success: false, message: '队列为空，没有待处理的题目' });
+      return { success: false, message: '队列为空，没有待处理的题目' };
     }
 
     const wordIds = question.wordIds as number[];
 
-    // 获取对应的单词信息（包含释义）
     const words = await prisma.word.findMany({
       where: { id: { in: wordIds } },
       include: { meanings: true },
     });
 
     if (words.length === 0) {
-      // 单词不存在了，标记为失败（用 GENERATING 状态兜底，实际不会被前端展示）
       await prisma.questionQueue.update({
         where: { id: question.id },
         data: {
           questionContent: { error: '所选单词不存在' } as unknown as object,
         },
       });
-      return NextResponse.json(
-        { success: false, message: '所选单词不存在', questionId: question.id },
-        { status: 400 }
-      );
+      return { success: false, message: '所选单词不存在', questionId: question.id };
     }
 
-    // 构建单词数据列表，用于传入 prompt
-    const wordData = words.map(w => ({
+    const wordData = words.map((w) => ({
       id: w.id,
       text: w.text,
-      meanings: w.meanings.map(m => ({ content: m.content, type: m.type, sentence: m.sentence ?? undefined })),
+      meanings: w.meanings.map((m) => ({
+        content: m.content,
+        type: m.type,
+        sentence: m.sentence ?? undefined,
+      })),
     }));
 
-    // 获取用户的自定义 prompt（从请求 URL 的 searchParams 读取，或传 body）
-    // 由于是 GET 请求，这里先使用默认 prompt 模板
-    // 后续用户可以扩展此路由传入自定义 prompt
-    const { searchParams } = new URL(request.url);
-    const customPrompt = searchParams.get('prompt') || '';
-
-    // 构建生成题目的 Prompt
+    const customPrompt = prompt || '';
     const systemPrompt = buildSystemPrompt(question.questionType as string);
     const userPrompt = buildUserPrompt(wordData, question.questionType as string, customPrompt);
 
-    // 调用 AI 接口生成题目
     const aiResult = await callOpenAI(systemPrompt, { prompt: userPrompt });
 
-    // 解析 AI 返回的题目内容（期望返回 JSON）
     let questionContent: object;
     try {
       questionContent = JSON.parse(aiResult.content);
     } catch {
-      // 如果返回的不是 JSON，就原样存储为字符串
       questionContent = { raw: aiResult.content };
     }
 
-    // 更新题目状态为 GENERATED
     await prisma.questionQueue.update({
       where: { id: question.id },
       data: {
@@ -84,15 +112,14 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    return {
       success: true,
       questionId: question.id,
       questionContent,
-    });
+    };
   } catch (error) {
     console.error('处理题目生成失败:', error);
 
-    // 标记当前处理中的题目（如果有）
     const currentQuestion = await prisma.questionQueue.findFirst({
       where: { status: 'GENERATING' },
       orderBy: { createdAt: 'asc' },
@@ -108,13 +135,36 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ error: '生成失败' }, { status: 500 });
+    return { success: false, error: '生成失败' };
   }
 }
 
-/**
- * 构建系统提示词
- */
+// POST /api/ai-question/[id]/answer -> submitAnswer
+export async function submitAnswer(questionId: string, answers: Record<string, unknown>) {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  if (!answers) throw new Error('缺少作答内容');
+
+  const q = await prisma.questionQueue.findUnique({
+    where: { id: questionId },
+  });
+
+  if (!q) throw new Error('题目不存在');
+  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+  if (q.status !== 'GENERATED') throw new Error('题目尚未生成完毕或已作答');
+
+  const updated = await prisma.questionQueue.update({
+    where: { id: questionId },
+    data: {
+      lastAnswer: answers as any,
+      status: 'ANSWERED',
+    },
+  });
+
+  return updated;
+}
+
 function buildSystemPrompt(questionType: string): string {
   if (questionType === 'fill-blank') {
     return `你是一个英语题目生成器。你的任务是根据提供的英语单词和释义，生成选词填空题。
@@ -160,7 +210,7 @@ JSON 格式要求：
       "type": "cn_to_en",
       "chinese": "中文句子",
       "hint": "提示：使用的关键词",
-      "referenceAnswer": "参考英文翻译",
+      "referenceAnswers": "参考英文翻译",
       "keyWords": ["必须使用的单词"]
     }
   ]
@@ -170,9 +220,6 @@ JSON 格式要求：
   return `你是一个英语题目生成器。请根据提供的单词生成练习题。必须以 JSON 格式返回。`;
 }
 
-/**
- * 构建用户提示词
- */
 function buildUserPrompt(
   wordData: { id: number; text: string; meanings: { content: string; type: string; sentence?: string }[] }[],
   questionType: string,

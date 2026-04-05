@@ -13,6 +13,8 @@ import { QuestionPanel } from '@/components/QuestionPanel';
 import { Word, WordTag, TagConfig, RelatedWord, QuestionQueueItem, QuestionStatus } from '@/types/word';
 import { DictionaryEntry } from '@/types/dict';
 import { storage } from '@/lib/storage';
+import { saveWord as saveWordAction, deleteWords as deleteWordsAction } from '@/actions/words';
+import { loadQuestionQueue as loadQuestionQueueAction, createQuestion as createQuestionAction, processQuestionQueue as processQuestionQueueAction, submitAnswer as submitAnswerAction } from '@/actions/ai-question';
 
 interface AuthenticatedPageProps {
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
@@ -68,16 +70,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     relatedWords?: RelatedWord[];
   }) => {
     try {
-      const response = await fetch('/api/words', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(wordData),
-      });
-
-      if (!response.ok) return;
-
-      const savedWord = await response.json();
+      const savedWord = await saveWordAction(wordData);
 
       setWords(prev => {
         const existingIndex = editingWord
@@ -104,15 +97,9 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
 
   const handleDeleteWord = async (id: number) => {
     try {
-      const response = await fetch(`/api/words?ids=${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        setWords(prev => prev.filter(w => w.id !== id));
-        setSelectedWordIds(prev => prev.filter(wordId => wordId !== id));
-      }
+      await deleteWordsAction([id]);
+      setWords(prev => prev.filter(w => w.id !== id));
+      setSelectedWordIds(prev => prev.filter(wordId => wordId !== id));
     } catch (error) {
       console.error('删除单词失败:', error);
     }
@@ -122,15 +109,9 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     if (selectedWordIds.length === 0) return;
 
     try {
-      const response = await fetch(`/api/words?ids=${selectedWordIds.join(',')}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        setWords(prev => prev.filter(w => !selectedWordIds.includes(w.id)));
-        setSelectedWordIds([]);
-      }
+      await deleteWordsAction(selectedWordIds);
+      setWords(prev => prev.filter(w => !selectedWordIds.includes(w.id)));
+      setSelectedWordIds([]);
     } catch (error) {
       console.error('删除单词失败:', error);
     } finally {
@@ -205,18 +186,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   // 创建题目并触发 AI 生成
   const createQuestionAndProcess = async (type: AIQuestionType, wordIds: number[]) => {
     try {
-      const res = await fetch('/api/ai-question', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionType: type, wordIds }),
-      });
-
-      if (!res.ok) {
-        console.error('创建题目失败:', await res.text());
-        return;
-      }
-
+      await createQuestionAction(type, wordIds);
       setShowQueuePanel(true);
 
       // 自动触发 AI 生成（处理队列头）
@@ -229,30 +199,21 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   // 加载题目队列
   const loadQuestionQueue = async () => {
     try {
-      const res = await fetch('/api/ai-question', {
-        method: 'GET',
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setQuestionQueue(data);
-      }
+      const data = await loadQuestionQueueAction();
+      setQuestionQueue(data);
     } catch (error) {
       console.error('加载题目队列失败:', error);
     }
   };
 
   // 触发 AI 生成（处理队列头）
-  const processQuestion = async (questionId?: string) => {
+  const processQuestion = async () => {
     try {
       setProcessing(true);
-      const processRes = await fetch('/api/ai-question/process', {
-        method: 'GET',
-        credentials: 'include',
-      });
+      const result = await processQuestionQueueAction();
 
-      if (!processRes.ok) {
-        console.error('AI 生成失败:', await processRes.text());
+      if (!result.success) {
+        console.error('AI 生成失败:', result);
       } else {
         await loadQuestionQueue();
       }

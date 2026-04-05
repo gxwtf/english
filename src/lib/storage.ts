@@ -1,4 +1,5 @@
 import { Word, WordTag, TagConfig } from '@/types/word';
+import { loadWords as loadWordsAction, loadTagConfigs as loadTagConfigsAction, saveTagConfigs as saveTagConfigsAction } from '@/actions/words';
 
 // 缓存
 let cachedWords: Word[] | null = null;
@@ -7,9 +8,7 @@ let cachedTagConfigs: Record<WordTag, TagConfig> | null = null;
 export const storage = {
   // 加载所有单词
   loadWords: async (): Promise<Word[]> => {
-    const response = await fetch('/api/words', { credentials: 'include' });
-    if (!response.ok) return [];
-    const words = await response.json();
+    const words = await loadWordsAction();
     cachedWords = words;
     return words;
   },
@@ -21,9 +20,7 @@ export const storage = {
 
   // 加载标签配置
   loadTagConfigs: async (): Promise<Record<WordTag, TagConfig>> => {
-    const response = await fetch('/api/tags/config', { credentials: 'include' });
-    if (!response.ok) return {};
-    const configs = await response.json();
+    const configs = await loadTagConfigsAction();
     cachedTagConfigs = configs;
     return configs;
   },
@@ -36,11 +33,6 @@ export const storage = {
   // 更新标签配置（fire-and-forget，本地缓存先行更新）
   updateTagConfigs: (newConfigs: Record<WordTag, TagConfig>): void => {
     cachedTagConfigs = newConfigs;
-    fetch('/api/tags/config', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tagConfigs: newConfigs }),
-    }).catch(console.error);
+    saveTagConfigsAction(newConfigs as any).catch(console.error);
   },
 };
