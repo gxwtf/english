@@ -1,0 +1,187 @@
+'use server';
+
+import { fetchEnrichedWords, enqueueQuestion, updateQuestionWithContent, enqueuePendingQuestion } from './utils';
+import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
+
+interface TranslateQuestionItem {
+  id: number;
+  type: string;
+  chinese: string;
+  hint: string;
+  referenceAnswers: string;
+  keyWords: string[];
+}
+
+interface TranslateQuestion {
+  title: string;
+  questions: TranslateQuestionItem[];
+}
+
+/**
+ * 创建占位题目（GENERATING 状态），用于在 AI 调用前就在队列中显示。
+ */
+export async function enqueuePendingTranslate(wordIds: number[], deepThinking?: boolean) {
+  if (!wordIds?.length) {
+    throw new Error('缺少单词列表');
+  }
+
+  return await enqueuePendingQuestion('translate', wordIds);
+}
+
+/**
+ * 生成翻译句子题目并入库。
+ *
+ * @param wordIds - 用户选择的单词 ID 列表
+ * @param customPrompt - 可选的自定义提示词
+ * @param deepThinking - 是否开启深度思考模式
+ * @returns 题目内容对象
+ */
+export async function generateAndEnqueueTranslate(
+  wordIds: number[],
+  customPrompt?: string,
+  deepThinking?: boolean,
+) {
+  return await doGenerateTranslate(wordIds, customPrompt, deepThinking);
+}
+
+/**
+ * 生成翻译句子题目，并更新一个已存在的 GENERATING 状态的占位题目。
+ * @param questionId - 占位题目的 ID
+ * @param wordIds - 用户选择的单词 ID 列表
+ * @param customPrompt - 可选的自定义提示词
+ * @param deepThinking - 是否开启深度思考模式
+ */
+export async function generateTranslateWithQuestion(
+  questionId: string,
+  wordIds: number[],
+  customPrompt?: string,
+  deepThinking?: boolean,
+) {
+  const parsed = await doGenerateTranslate(wordIds, customPrompt, deepThinking);
+  return await updateQuestionWithContent(questionId, parsed, 'translate', wordIds);
+}
+
+async function doGenerateTranslate(
+  wordIds: number[],
+  customPrompt?: string,
+  deepThinking?: boolean,
+) {
+  if (!wordIds?.length) {
+    throw new Error('缺少单词列表');
+  }
+
+  const wordData = await fetchEnrichedWords(wordIds);
+  if (wordData.length === 0) {
+    throw new Error('所选单词不存在');
+  }
+
+  const wordDescriptions = wordData
+    .map(
+      (w) =>
+        `- ${w.text}: ${w.meanings.map((m) => `${m.type || '常见'}: ${m.content}`).join('; ')}`,
+    )
+    .join('\n');
+
+  const randomTool = {
+    type: 'function' as const,
+    function: {
+      name: 'generateRandomNumber',
+      description: 'Generate a random integer within a specified range. Use this to randomize question order and word selection.',
+      parameters: {
+        type: 'object',
+        properties: {
+          min: { type: 'number', description: 'Minimum value (inclusive)' },
+          max: { type: 'number', description: 'Maximum value (inclusive)' },
+        },
+        required: ['min', 'max'],
+      },
+    },
+  };
+
+  const systemPrompt = `你是一位专业的英语考试题目生成专家。请根据提供的英文单词及其含义，生成一道"中英互译"练习题。
+
+## 深度思考要求：
+在生成题目之前，请先用 <think> 和 </think> 标签包裹你的思考过程。思考内容可以包括句子难度评估、翻译策略等。
+在 </think> 之后再输出最终的 JSON 答案。注意：思考标签外的 JSON 部分必须是合法的 JSON 对象。
+
+## 题目格式要求（必须返回合法的 JSON）：
+{
+  "title": "题目标题",
+  "questions": [
+    {
+      "id": 1,
+      "type": "cn_to_en",
+      "chinese": "中文句子",
+      "hint": "提示信息（可以是语法提示或场景描述）",
+      "referenceAnswers": "标准英文翻译",
+      "keyWords": ["必须使用的单词1", "必须使用的单词2"]
+    }
+  ]
+}
+
+## 关键规则：
+1. questions 是一个数组，每个元素代表一道翻译题
+2. type 固定为 "cn_to_en"（中译英）
+3. chinese 是中文句子，要翻译成英文
+4. referenceAnswers 是标准的英文翻译，必须包含 keyWords 中的单词
+5. keyWords 是从提供的单词表中挑选的关键词，学生翻译时必须用到
+6. 题目难度要适合英语学习者，中文句子要自然流畅
+7. 生成的英文翻译语法正确且自然
+8. 只返回 JSON，不要返回任何其他文字
+9. 使用 generateRandomNumber 工具来随机化题目排列和关键词选择（如果模型支持工具调用）`;
+
+  const userPrompt = `提供的单词列表（请围绕这些词生成翻译题）：
+${wordDescriptions}
+
+${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
+
+请生成符合上述要求的翻译题目 JSON。`;
+
+  const result = await callOpenAIWithTools(systemPrompt, {
+    prompt: userPrompt,
+    maxTokens: 6000,
+    tools: [randomTool],
+  });
+
+  let content = result.content.trim();
+
+  // 始终解析 think 标签（深度思考模式已强制开启）
+  let thinkingContent: string | null = null;
+  {
+    const parsed = parseThinkingContent(content);
+    thinkingContent = parsed.thinking;
+    content = parsed.content.trim();
+  }
+
+  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    content = fenceMatch[1].trim();
+  }
+
+  let parsed: TranslateQuestion;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error('AI 返回的内容不是合法的 JSON，无法解析题目');
+  }
+
+  if (!parsed.title || !parsed.questions || !Array.isArray(parsed.questions)) {
+    throw new Error('AI 返回的题目缺少必填字段：title 或 questions');
+  }
+
+  for (const q of parsed.questions) {
+    if (!q.id || !q.chinese || !q.referenceAnswers) {
+      throw new Error('翻译题目中某一题缺少必填字段');
+    }
+    q.type = q.type || 'cn_to_en';
+    q.keyWords = q.keyWords || [];
+    q.hint = q.hint || '';
+  }
+
+  const resultContent: Record<string, unknown> = { ...parsed };
+  if (thinkingContent) {
+    resultContent.thinking = thinkingContent;
+  }
+
+  return resultContent;
+}

@@ -8,13 +8,21 @@ import { Navbar } from '@/components/Navbar';
 import { WordToolbar } from '@/components/WordToolbar';
 import { WordCard } from '@/components/WordCard';
 import { WordModal } from '@/components/WordModal';
-import { AIQuestionTypeSelector, type AIQuestionType } from '@/components/AIQuestionTypeSelector';
-import { QuestionPanel } from '@/components/QuestionPanel';
-import { Word, WordTag, TagConfig, RelatedWord, QuestionQueueItem, QuestionStatus } from '@/types/word';
+import { AIQuestionTypeSelector, type QuestionGenerationOptions } from '@/components/AIQuestionTypeSelector';
+import {
+  QuestionType,
+  Word,
+  WordTag,
+  TagConfig,
+  RelatedWord,
+} from '@/types/word';
 import { DictionaryEntry } from '@/types/dict';
 import { storage } from '@/lib/storage';
 import { saveWord as saveWordAction, deleteWords as deleteWordsAction } from '@/actions/words';
-import { loadQuestionQueue as loadQuestionQueueAction, createQuestion as createQuestionAction, processQuestionQueue as processQuestionQueueAction, submitAnswer as submitAnswerAction } from '@/actions/ai-question';
+import {
+  enqueuePendingFillBlank,
+  enqueuePendingTranslate,
+} from '@/actions/ai-question';
 
 interface AuthenticatedPageProps {
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
@@ -34,9 +42,6 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   const [allTagConfigs, setAllTagConfigs] = useState<Record<WordTag, TagConfig>>({});
   const [showAISelector, setShowAISelector] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [questionQueue, setQuestionQueue] = useState<QuestionQueueItem[]>([]);
-  const [showQueuePanel, setShowQueuePanel] = useState(false);
-  const [processing, setProcessing] = useState(false);
 
   // 从服务器加载单词和标签配置
   const loadData = async () => {
@@ -178,68 +183,44 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     setShowAISelector(true);
   };
 
-  const handleSelectQuestionType = (type: AIQuestionType) => {
+  const handleSelectQuestionType = (options: QuestionGenerationOptions) => {
     setShowAISelector(false);
-    createQuestionAndProcess(type, [...selectedWordIds]);
+    createQuestionAndProcess(options, [...selectedWordIds]);
   };
 
-  // 创建题目并触发 AI 生成
-  const createQuestionAndProcess = async (type: AIQuestionType, wordIds: number[]) => {
+  // 创建题目并跳转到题目页面
+  const createQuestionAndProcess = async (options: QuestionGenerationOptions, wordIds: number[]) => {
     try {
-      await createQuestionAction(type, wordIds);
-      setShowQueuePanel(true);
+      // 1. 先创建占位题目（GENERATING 状态），让用户能在队列中看到"生成中"
+      const fillBlankOptions = options.type === 'fill-blank'
+        ? (options.fillBlank ?? { n: 5, m: 0 })
+        : { n: 5, m: 0 };
 
-      // 自动触发 AI 生成（处理队列头）
-      await processQuestion();
-    } catch (error) {
-      console.error('AI 出题异常:', error);
-    }
-  };
-
-  // 加载题目队列
-  const loadQuestionQueue = async () => {
-    try {
-      const data = await loadQuestionQueueAction();
-      setQuestionQueue(data);
-    } catch (error) {
-      console.error('加载题目队列失败:', error);
-    }
-  };
-
-  // 触发 AI 生成（处理队列头）
-  const processQuestion = async () => {
-    try {
-      setProcessing(true);
-      const result = await processQuestionQueueAction();
-
-      if (!result.success) {
-        console.error('AI 生成失败:', result);
-      } else {
-        await loadQuestionQueue();
+      let pendingItem;
+      let questionType: QuestionType;
+      switch (options.type) {
+        case 'fill-blank': {
+          pendingItem = await enqueuePendingFillBlank(wordIds, fillBlankOptions, options.deepThinking);
+          questionType = 'fill-blank';
+          break;
+        }
+        case 'translate': {
+          pendingItem = await enqueuePendingTranslate(wordIds, options.deepThinking);
+          questionType = 'translate';
+          break;
+        }
       }
-    } catch (error) {
-      console.error('AI 出题异常:', error);
-    } finally {
-      setProcessing(false);
-    }
-  };
 
-  // 提交作答
-  const handleSubmitAnswer = async (questionId: string, answers: Record<string, unknown>) => {
-    try {
-      const res = await fetch(`/api/ai-question/${questionId}/answer`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers }),
-      });
-      if (res.ok) {
-        await loadQuestionQueue();
-      } else {
-        console.error('提交作答失败:', await res.text());
-      }
+      // 2. 跳转到题目页面，practice 页面会根据 sessionStorage 中的 pendingQuestionId
+      //    触发 AI 生成，同时自动刷新队列以获取 GENERATING 状态。
+      sessionStorage.setItem('pendingQuestionId', pendingItem.id);
+      sessionStorage.setItem('pendingQuestionType', questionType);
+      sessionStorage.setItem('pendingWordIds', JSON.stringify(wordIds));
+      sessionStorage.setItem('pendingOptions', JSON.stringify(options));
+
+      window.location.href = '/practice';
     } catch (error) {
-      console.error('提交作答异常:', error);
+      console.error('创建题目异常:', error);
     }
   };
 
@@ -407,17 +388,8 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
       <AIQuestionTypeSelector
         isOpen={showAISelector}
         onClose={() => setShowAISelector(false)}
-        onSelectType={handleSelectQuestionType}
-      />
-
-      {/* AI 出题队列面板 */}
-      <QuestionPanel
-        queue={questionQueue}
-        isOpen={showQueuePanel}
-        onClose={() => setShowQueuePanel(false)}
-        onProcess={processQuestion}
-        onSubmitAnswer={handleSubmitAnswer}
-        processing={processing}
+        onGenerate={handleSelectQuestionType}
+        maxWords={selectedWordIds.length}
       />
     </div>
   );
