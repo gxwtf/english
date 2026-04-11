@@ -205,7 +205,8 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
           break;
         }
         case 'translate': {
-          pendingItem = await enqueuePendingTranslate(wordIds, options.deepThinking);
+          const translateOptions = options.translate ?? { n: 5 };
+          pendingItem = await enqueuePendingTranslate(wordIds, translateOptions, options.deepThinking);
           questionType = 'translate';
           break;
         }

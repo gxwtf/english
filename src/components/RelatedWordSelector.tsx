@@ -4,12 +4,7 @@ import { useState } from 'react';
 import { X, AlertCircle, Plus } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { RelatedWordType } from '@/types/word';
-
-interface RelatedWord {
-  text: string;
-  type: RelatedWordType;
-}
+import { RelatedWord, RelatedWordType } from '@/types/word';
 
 interface RelatedWordSelectorProps {
   currentWordText?: string;                       // 当前编辑的单词文本（排除自己）

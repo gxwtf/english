@@ -2,6 +2,12 @@
 
 export type WordTag = string;
 
+export type WordData = {
+  id: number;
+  text: string;
+  meanings: { content: string; type: string; sentence?: string }[];
+};
+
 // 关联类型
 export type RelatedWordType = 'different_form' | 'easily_confused';
 
@@ -15,12 +21,12 @@ export interface Word {
   id: number;
   text: string;
   tags: WordTag[];
-  meanings?: {
+  meanings: {
     content: string;
     type: string;
     sentence: string;
   }[];
-  relatedWords?: RelatedWord[];  // 关联单词
+  relatedWords: RelatedWord[];  // 关联单词
 }
 
 // 颜色配置接口
@@ -42,8 +48,11 @@ export interface TagConfig {
 }
 
 // AI 出题相关类型
-export type QuestionStatus = 'GENERATING' | 'GENERATED' | 'ANSWERED';
-export type QuestionType = 'fill-blank' | 'translate';
+export type QuestionStatus = 'GENERATING' | 'GENERATED' | 'ANSWERED' | 'FAILED';
+export type QuestionType =
+'fill-blank' | // 选词填空
+'translate'; // 翻译
+
 
 export interface QuestionQueueItem {
   id: string;

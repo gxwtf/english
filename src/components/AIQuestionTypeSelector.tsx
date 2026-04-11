@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { BookOpen, Type } from 'lucide-react';
 import type { QuestionType } from '@/types/word';
-import type { FillBlankOptions } from '@/types/problem';
+import type { FillBlankOptions, TranslateOptions } from '@/types/problem';
 
 
 export type QuestionGenerationOptions = {
   type: QuestionType;
   fillBlank?: FillBlankOptions;
+  translate?: TranslateOptions;
+  deepThinking?: boolean;
 };
 
 interface AIQuestionTypeSelectorProps {
@@ -23,12 +25,14 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
   const [selectedType, setSelectedType] = useState<QuestionType | null>(null);
   const [questionN, setQuestionN] = useState(5);
   const [questionM, setQuestionM] = useState(0);
+  const [translateN, setTranslateN] = useState(5);
 
   const effectiveMaxWords = maxWords ?? 11;
   const totalWords = questionN + questionM;
-  const validationError = totalWords > effectiveMaxWords
+  const isFillBlank = selectedType === 'fill-blank';
+  const validationError = isFillBlank && totalWords > effectiveMaxWords
     ? `n + m (${totalWords}) 不能超过选中的单词数量 (${effectiveMaxWords})`
-    : totalWords > 11
+    : isFillBlank && totalWords > 11
       ? `n + m (${totalWords}) 不能超过 11`
       : null;
 
@@ -54,6 +58,8 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
     const options: QuestionGenerationOptions = { type: selectedType };
     if (selectedType === 'fill-blank') {
       options.fillBlank = { n: questionN, m: questionM };
+    } else if (selectedType === 'translate') {
+      options.translate = { n: translateN };
     }
     onGenerate(options);
   };
@@ -170,6 +176,34 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
             </div>
           )}
 
+          {/* 翻译句子参数 */}
+          {selectedType === 'translate' && (
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                题目参数设置
+              </h4>
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  题目数量 n
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={11}
+                  value={translateN}
+                  onChange={(e) => {
+                    const val = Math.max(1, Math.min(11, parseInt(e.target.value) || 1));
+                    setTranslateN(val);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                将生成 {translateN} 道翻译小题，每题恰好一个必用单词
+              </p>
+            </div>
+          )}
+
           {/* 生成按钮 */}
           {selectedType && (
             <button
@@ -183,7 +217,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
             >
               {selectedType === 'fill-blank'
                 ? `生成选词填空（${questionN} 道小题，${questionM} 个干扰词）`
-                : `生成翻译句子题目`}
+                : `生成翻译句子题目（${translateN} 道小题）`}
             </button>
           )}
         </div>

@@ -38,9 +38,7 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
             </Link>
 
             <Link
-              href="https://example.com"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/practice"
               className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 currentPage === 'practice'
                   ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'

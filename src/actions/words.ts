@@ -2,25 +2,24 @@
 
 import { prisma } from '@/lib/db';
 import { getAuthUser } from './auth';
-import { RelatedWordType } from '@/types/word';
+import { Word, RelatedWordType } from '@/types/word';
+import { getWordInfo, type WordInfo } from '@/lib/word.service';
 
-export type FormattedWord = {
-  id: number;
-  text: string;
-  tags: string[];
-  meanings: { content: string; type: string; sentence: string }[];
-  relatedWords: { text: string; type: RelatedWordType }[];
-};
+export async function getWordInfoById(wordId: number): Promise<WordInfo | null> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+  return getWordInfo(user.userId, wordId);
+}
 
 function buildWordResult(
-  word: any,
+  word: { id: number; text: string; wordTags: { tag: { name: string } }[]; meanings: { content: string; type: string; sentence: string | null }[] },
   relatedWordsList: { text: string; type: string }[],
-): FormattedWord {
+): Word {
   return {
     id: word.id,
     text: word.text,
-    tags: word.wordTags.map((wt: any) => wt.tag.name),
-    meanings: word.meanings.map((m: any) => ({
+    tags: word.wordTags.map((wt) => wt.tag.name),
+    meanings: word.meanings.map((m) => ({
       content: m.content,
       type: m.type,
       sentence: m.sentence || '',
@@ -33,7 +32,7 @@ function buildWordResult(
 }
 
 // GET /api/words -> loadWords
-export async function loadWords(): Promise<FormattedWord[]> {
+export async function loadWords(): Promise<Word[]> {
   const user = await getAuthUser();
   if (!user) return [];
 
@@ -67,7 +66,7 @@ export async function saveWord(data: {
   tags?: string[];
   meanings?: { content: string; type: string; sentence?: string }[];
   relatedWords?: { text: string; type: string }[];
-}): Promise<FormattedWord> {
+}): Promise<Word> {
   const user = await getAuthUser();
   if (!user) throw new Error('未登录');
 

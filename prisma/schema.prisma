@@ -64,6 +64,7 @@ enum QuestionStatus {
   GENERATING  // AI 正在生成题目
   GENERATED   // 题目已生成完毕
   ANSWERED    // 用户已作答
+  FAILED      // 生成失败，可重试
 }
 
 // AI 出题队列

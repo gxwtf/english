@@ -1,6 +1,6 @@
 'use server';
 
-import { query as queryDict } from '@/api/dict/query';
+import { query as queryDict } from '@/lib/dict/query';
 import { DictionaryEntry } from '@/types/dict';
 
 /**
