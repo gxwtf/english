@@ -92,48 +92,33 @@ export default function PracticeQuestionPage({ params }: { params: Promise<{ que
           </div>
         )}
 
-        {(question.status === 'GENERATED' || question.status === 'ANSWERED') && question.questionContent && (
+        {(question.status === 'GENERATED' || question.status === 'ANSWERED') && question.questionContent ? (
           <div>
-            {question.questionType === 'fill-blank' && (
-              (question.questionContent.words as string[])
-                ? (
-                    <FillBlankAnswer
-                      key={question.id}
-                      questionId={question.id}
-                      words={question.questionContent.words as string[]}
-                      questions={question.questionContent.questions as { sentence: string; answer: string }[]}
-                      thinking={question.questionContent.thinking as string | null ?? undefined}
-                      onSubmitted={() => { }}
-                    />
-                  )
-                : (
-                    <QuestionDisplay
-                      content={question.questionContent}
-                      questionId={question.id}
-                    />
-                  )
-                )
-            }
-            {question.questionType === 'translate' && (
-              (question.questionContent.questions as any[])?.some(q => q.chinese)
-                ? (
-                    <TranslateAnswer
-                      key={question.id}
-                      questionId={question.id}
-                      questions={question.questionContent.questions as any[]}
-                      thinking={question.questionContent.thinking as string | null ?? undefined}
-                      onSubmitted={() => { }}
-                    />
-                  )
-                : (
-                    <QuestionDisplay
-                      content={question.questionContent}
-                      questionId={question.id}
-                    />
-                  )
+            {question.questionType === 'fill-blank' && question.questionContent.words ? (
+              <FillBlankAnswer
+                key={question.id}
+                questionId={question.id}
+                words={question.questionContent.words as string[]}
+                questions={question.questionContent.questions as { sentence: string; answer: string }[]}
+                thinking={question.questionContent.thinking as string | null ?? undefined}
+                onSubmitted={() => { }}
+              />
+            ) : question.questionType === 'translate' ? (
+              <TranslateAnswer
+                key={question.id}
+                questionId={question.id}
+                questions={question.questionContent.questions as any[]}
+                thinking={question.questionContent.thinking as string | null ?? undefined}
+                onSubmitted={() => { }}
+              />
+            ) : (
+              <QuestionDisplay
+                content={question.questionContent}
+                questionId={question.id}
+              />
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

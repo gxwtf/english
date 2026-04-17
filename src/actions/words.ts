@@ -12,18 +12,14 @@ export async function getWordInfoById(wordId: number): Promise<WordInfo | null> 
 }
 
 function buildWordResult(
-  word: { id: number; text: string; wordTags: { tag: { name: string } }[]; meanings: { content: string; type: string; sentence: string | null }[] },
+  word: { id: number; text: string; wordTags: { tag: { name: string } }[]; meanings: string[] },
   relatedWordsList: { text: string; type: string }[],
 ): Word {
   return {
     id: word.id,
     text: word.text,
     tags: word.wordTags.map((wt) => wt.tag.name),
-    meanings: word.meanings.map((m) => ({
-      content: m.content,
-      type: m.type,
-      sentence: m.sentence || '',
-    })),
+    meanings: word.meanings.map((m) => m),
     relatedWords: relatedWordsList.map((rw) => ({
       text: rw.text,
       type: rw.type as RelatedWordType,
@@ -39,7 +35,6 @@ export async function loadWords(): Promise<Word[]> {
   const words = await prisma.word.findMany({
     where: { userId: user.userId },
     include: {
-      meanings: true,
       wordTags: { include: { tag: true } },
     },
     orderBy: { createdAt: 'desc' },
@@ -64,7 +59,7 @@ export async function loadWords(): Promise<Word[]> {
 export async function saveWord(data: {
   text: string;
   tags?: string[];
-  meanings?: { content: string; type: string; sentence?: string }[];
+  meanings?: string[];  // 用户不熟悉的释义列表
   relatedWords?: { text: string; type: string }[];
 }): Promise<Word> {
   const user = await getAuthUser();
@@ -103,7 +98,7 @@ export async function saveWord(data: {
     await prisma.word.update({
       where: { id: existing.id },
       data: {
-        meanings: { deleteMany: {} },
+        meanings: meanings,
         wordTags: {
           deleteMany: {},
           create: tags.map((tag: string) => ({
@@ -117,26 +112,12 @@ export async function saveWord(data: {
         },
       },
     });
-    await prisma.meaning.createMany({
-      data: meanings.map((m) => ({
-        wordId: existing.id,
-        content: m.content,
-        type: m.type,
-        sentence: m.sentence || '',
-      })),
-    });
   } else {
     await prisma.word.create({
       data: {
         userId,
         text: textTrim,
-        meanings: {
-          create: meanings.map((m) => ({
-            content: m.content,
-            type: m.type,
-            sentence: m.sentence || '',
-          })),
-        },
+        meanings: meanings,
         wordTags: {
           create: tags.map((tag: string) => ({
             tag: {
@@ -154,7 +135,7 @@ export async function saveWord(data: {
   // Re-fetch final result
   const resultWord = await prisma.word.findFirstOrThrow({
     where: { userId, text: textTrim },
-    include: { meanings: true, wordTags: { include: { tag: true } } },
+    include: { wordTags: { include: { tag: true } } },
   });
 
   return buildWordResult(resultWord, rwData);

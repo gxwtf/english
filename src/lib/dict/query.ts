@@ -29,5 +29,3 @@ export function query(word: string): DictionaryEntry | null {
     }
     return ret;
 }
-
-console.log(query('set'));

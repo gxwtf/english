@@ -104,7 +104,7 @@ export const WordCard = ({
             {/* 单词含义 */}
           <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 break-words">
             {word.meanings && word.meanings.length > 0
-              ? word.meanings.map(m => m.content).join('; ')
+              ? word.meanings.join('; ')
               : '暂无释义数据'}
           </p>
 

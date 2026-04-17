@@ -1,8 +1,14 @@
 'use server';
 
-import { fetchEnrichedWords, enqueueQuestion, updateQuestionWithContent, enqueuePendingQuestion } from './utils';
+import { fetchEnrichedWords, enqueuePendingQuestion, updateQuestionWithContent } from './utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { TranslateOptions } from '@/types/problem';
+import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
+
+interface TranslateQuestion {
+  title: string;
+  questions: TranslateQuestionItem[];
+}
 
 interface TranslateQuestionItem {
   id: number;
@@ -13,15 +19,14 @@ interface TranslateQuestionItem {
   keyWords: string[];
 }
 
-interface TranslateQuestion {
-  title: string;
-  questions: TranslateQuestionItem[];
-}
-
 /**
  * 创建占位题目（GENERATING 状态），用于在 AI 调用前就在队列中显示。
  */
-export async function enqueuePendingTranslate(wordIds: number[], options: TranslateOptions, deepThinking?: boolean) {
+export async function enqueuePendingTranslate(
+  wordIds: number[],
+  options: TranslateOptions,
+  deepThinking?: boolean,
+) {
   if (!wordIds?.length) {
     throw new Error('缺少单词列表');
   }
@@ -33,6 +38,7 @@ export async function enqueuePendingTranslate(wordIds: number[], options: Transl
  * 生成翻译句子题目并入库。
  *
  * @param wordIds - 用户选择的单词 ID 列表
+ * @param options - 翻译题目参数
  * @param customPrompt - 可选的自定义提示词
  * @param deepThinking - 是否开启深度思考模式
  * @returns 题目内容对象
@@ -50,6 +56,7 @@ export async function generateAndEnqueueTranslate(
  * 生成翻译句子题目，并更新一个已存在的 GENERATING 状态的占位题目。
  * @param questionId - 占位题目的 ID
  * @param wordIds - 用户选择的单词 ID 列表
+ * @param options - 翻译题目参数
  * @param customPrompt - 可选的自定义提示词
  * @param deepThinking - 是否开启深度思考模式
  */
@@ -79,21 +86,16 @@ async function doGenerateTranslate(
   if (options.n < 1) {
     throw new Error('题目数量 n 必须 >= 1');
   }
+  // 前端已完成抽词，后端信任前端传递的单词数量
+  // 如果前端传递的单词数量不足，可能是前端抽词逻辑有误
   if (options.n > wordIds.length) {
-    throw new Error('题目数量 n 不能超过选中的单词数量');
+    throw new Error(`需要 ${options.n} 个单词，但前端只传递了 ${wordIds.length} 个`);
   }
 
   const wordData = await fetchEnrichedWords(wordIds);
   if (wordData.length === 0) {
     throw new Error('所选单词不存在');
   }
-
-  const wordDescriptions = wordData
-    .map(
-      (w) =>
-        `- ${w.text}: ${w.meanings.map((m) => `${m.type || '常见'}: ${m.content}`).join('; ')}`,
-    )
-    .join('\n');
 
   const randomTool = {
     type: 'function' as const,
@@ -111,11 +113,9 @@ async function doGenerateTranslate(
     },
   };
 
-  const systemPrompt = `你是一位专业的英语考试题目生成专家。请根据提供的英文单词及其含义，生成 ${options.n} 道"中译英"翻译练习题。
+  const systemPrompt = `${SYSTEM_MESSAGE}
 
-## 深度思考要求：
-在生成题目之前，请先用 <think> 和 </think> 标签包裹你的思考过程。思考内容可以包括句子难度评估、翻译策略等。
-在 </think> 之后再输出最终的 JSON 答案。注意：思考标签外的 JSON 部分必须是合法的 JSON 对象。
+你是一位专业的英语考试题目生成专家。请根据提供的单词列表，生成 ${options.n} 道"中译英"翻译练习题。
 
 ## 题目格式要求（必须返回合法的 JSON）：
 {
@@ -138,13 +138,14 @@ async function doGenerateTranslate(
 3. chinese 是中文句子，要翻译成英文
 4. referenceAnswers 是标准的英文翻译，必须包含 keyWords 中的单词
 5. keyWords 是从提供的单词表中挑选的关键词，学生翻译时必须用到，**每道题必须恰好一个单词**
-6. 题目难度要适合英语学习者，中文句子要自然流畅
-7. 生成的英文翻译语法正确且自然
-8. 只返回 JSON，不要返回任何其他文字
-9. 使用 generateRandomNumber 工具来随机化题目排列和关键词选择（如果模型支持工具调用）`;
+6. **重要：如果单词释义后面标注了【用户不熟悉，需重点练习】，请优先围绕这些不熟悉的含义出题，帮助用户针对性地练习薄弱环节**
+7. 题目难度要适合英语学习者，中文句子要自然流畅
+8. 生成的英文翻译语法正确且自然
+9. 只返回 JSON，不要返回任何其他文字
+10. 使用 generateRandomNumber 工具来随机化题目排列和关键词选择（如果模型支持工具调用）`;
 
-  const userPrompt = `提供的单词列表（请围绕这些词生成翻译题）：
-${wordDescriptions}
+  const userPrompt = `提供的单词列表（注意：【用户不熟悉，需重点练习】标注的是用户需要加强的含义）：
+${JSON.stringify(wordData, null, 2)}
 
 ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
@@ -158,7 +159,7 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
   let content = result.content.trim();
 
-  // 始终解析 think 标签（深度思考模式已强制开启）
+  // 始终解析 reason 标签（深度思考模式已强制开启）
   let thinkingContent: string | null = null;
   {
     const parsed = parseThinkingContent(content);

@@ -4,7 +4,7 @@ export type WordInfo = {
   wordId: number;
   text: string;
   userId: number;
-  meanings: { id: number; content: string; type: string; sentence: string }[];
+  meanings: string[];  // 用户不熟悉的释义列表
   tags: { id: number; name: string; colorId: string; description: string | null }[];
   relatedWords: { id: number; text: string; type: string }[];
 };
@@ -13,7 +13,6 @@ export async function getWordInfo(userId: number, wordId: number): Promise<WordI
   const word = await prisma.word.findFirst({
     where: { id: wordId, userId },
     include: {
-      meanings: true,
       wordTags: { include: { tag: true } },
     },
   });
@@ -28,12 +27,7 @@ export async function getWordInfo(userId: number, wordId: number): Promise<WordI
     wordId: word.id,
     text: word.text,
     userId: word.userId,
-    meanings: word.meanings.map((m) => ({
-      id: m.id,
-      content: m.content,
-      type: m.type,
-      sentence: m.sentence || '',
-    })),
+    meanings: word.meanings,
     tags: word.wordTags.map((wt) => ({
       id: wt.tag.id,
       name: wt.tag.name,

@@ -17,7 +17,11 @@ export {
   enqueuePendingQuestion,
   updateQuestionWithContent,
   markQuestionAsFailed,
+  markQuestionAsAnswered,
   retryQuestion,
+  resetQuestion,
   gradeTranslateAnswer,
   gradeTranslateAnswerSingle,
+  gradeTranslateAnswerBatch,
+  type GradeResult,
 } from './utils';

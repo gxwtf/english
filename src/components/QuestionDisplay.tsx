@@ -4,6 +4,7 @@ import { QuestionQueueItem } from '@/types/word';
 const STATUS_LABELS: Record<string, string> = {
   GENERATING: '生成中',
   GENERATED: '生成完毕',
+  GRADING: '批改中',
   ANSWERED: '已作答',
   FAILED: '生成失败',
 };
@@ -78,6 +79,7 @@ export function QuestionList({
 function StatusIcon({ status }: { status: string }) {
   if (status === 'GENERATING') return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
   if (status === 'GENERATED') return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+  if (status === 'GRADING') return <Loader2 className="h-4 w-4 text-purple-500 animate-spin" />;
   if (status === 'ANSWERED') return <Edit3 className="h-4 w-4 text-amber-500" />;
   if (status === 'FAILED') return <AlertCircle className="h-4 w-4 text-red-500" />;
   return null;

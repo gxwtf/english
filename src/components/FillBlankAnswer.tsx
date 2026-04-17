@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { submitAnswer } from '@/actions/ai-question';
+import { submitAnswer, resetQuestion as resetQuestionAction } from '@/actions/ai-question';
 
 interface FillBlankQuestionItem {
   sentence: string;
@@ -20,6 +20,8 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, onSubm
   const [answers, setAnswers] = useState<string[]>(Array(questions.length).fill(''));
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const handleAnswerChange = useCallback((index: number, value: string) => {
     setAnswers(prev => {
@@ -51,6 +53,22 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, onSubm
       setSubmitting(false);
     }
   }, [answers, questionId, onSubmitted]);
+
+  const handleReset = useCallback(async () => {
+    setIsResetting(true);
+    setResetError(null);
+    try {
+      await resetQuestionAction(questionId);
+      setAnswers(Array(questions.length).fill(''));
+      setSubmitted(false);
+      onSubmitted?.();
+    } catch (error) {
+      console.error('重置失败:', error);
+      setResetError('重置失败，请稍后重试');
+    } finally {
+      setIsResetting(false);
+    }
+  }, [questionId, questions.length, onSubmitted]);
 
   return (
     <div className="space-y-6">
@@ -91,6 +109,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, onSubm
               onChange={(val) => handleAnswerChange(i, val)}
               correctAnswer={submitted ? q.answer : undefined}
               userAnswer={submitted ? answers[i] : undefined}
+              questionIndex={i}
             />
           </div>
         ))}
@@ -110,14 +129,36 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, onSubm
           {submitting ? '提交中...' : '提交答案'}
         </button>
       ) : (
-        <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-          <p className="text-sm font-medium text-green-700 dark:text-green-300">答案已提交！以下是正确答案：</p>
-          <div className="mt-2 space-y-2">
-            {questions.map((q, i) => (
-              <p key={i} className="text-sm text-green-600 dark:text-green-400">
-                第 {i + 1} 题: {q.answer}
-              </p>
-            ))}
+        <div>
+          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mb-4">
+            <p className="text-sm font-medium text-green-700 dark:text-green-300">答案已提交！以下是正确答案：</p>
+            <div className="mt-2 space-y-2">
+              {questions.map((q, i) => (
+                <p key={i} className="text-sm text-green-600 dark:text-green-400">
+                  第 {i + 1} 题：{q.answer}
+                </p>
+              ))}
+            </div>
+          </div>
+          {resetError && (
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 mb-4">
+              <p className="text-sm text-red-700 dark:text-red-300">{resetError}</p>
+            </div>
+          )}
+          <div className="flex gap-3">
+            <a
+              href="/practice"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              返回题目列表
+            </a>
+            <button
+              onClick={handleReset}
+              disabled={isResetting}
+              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isResetting ? '重置中...' : '重新作答'}
+            </button>
           </div>
         </div>
       )}
@@ -131,12 +172,14 @@ function BlankInput({
   onChange,
   correctAnswer,
   userAnswer,
+  questionIndex,
 }: {
   sentence: string;
   value: string;
   onChange: (val: string) => void;
   correctAnswer?: string;
   userAnswer?: string;
+  questionIndex: number;
 }) {
   const parts = sentence.replace(/_+/g, '_').split('_');
   const isCorrect = userAnswer !== undefined && userAnswer.trim() === correctAnswer;
@@ -144,10 +187,11 @@ function BlankInput({
   return (
     <p className="text-sm leading-relaxed text-gray-800 dark:text-gray-200">
       {parts.map((part, i) => (
-        <span key={i}>
+        <span key={`q${questionIndex}-part${i}`}>
           {part}
           {i < parts.length - 1 && (
             <input
+              key={`q${questionIndex}-blank${i}`}
               type="text"
               value={value}
               onChange={(e) => onChange(e.target.value)}
@@ -165,7 +209,7 @@ function BlankInput({
         </span>
       ))}
       {userAnswer !== undefined && correctAnswer && !isCorrect && (
-        <span className="text-xs text-green-600 dark:text-green-400 ml-1">正确答案: {correctAnswer}</span>
+        <span className="text-xs text-green-600 dark:text-green-400 ml-1">正确答案：{correctAnswer}</span>
       )}
     </p>
   );

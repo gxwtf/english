@@ -5,7 +5,7 @@ export type WordTag = string;
 export type WordData = {
   id: number;
   text: string;
-  meanings: { content: string; type: string; sentence?: string }[];
+  meanings: string[];  // 用户不熟悉的释义列表
 };
 
 // 关联类型
@@ -21,11 +21,7 @@ export interface Word {
   id: number;
   text: string;
   tags: WordTag[];
-  meanings: {
-    content: string;
-    type: string;
-    sentence: string;
-  }[];
+  meanings: string[];  // 用户不熟悉的释义列表
   relatedWords: RelatedWord[];  // 关联单词
 }
 
@@ -48,7 +44,7 @@ export interface TagConfig {
 }
 
 // AI 出题相关类型
-export type QuestionStatus = 'GENERATING' | 'GENERATED' | 'ANSWERED' | 'FAILED';
+export type QuestionStatus = 'GENERATING' | 'GENERATED' | 'GRADING' | 'ANSWERED' | 'FAILED';
 export type QuestionType =
 'fill-blank' | // 选词填空
 'translate'; // 翻译

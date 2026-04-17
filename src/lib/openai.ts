@@ -12,15 +12,16 @@ interface OpenAIOptions {
   apiKey?: string;
   apiBase?: string;
   maxTokens?: number;
+  timeout?: number;
 }
 
 /**
- * 从 AI 返回的内容中解析 <think> 标签包裹的思考内容和正文。
+ * 从 AI 返回的内容中解析 <reason> 标签包裹的思考内容和正文。
  * @param content AI 返回的完整内容
  * @returns { thinking: 思考内容 | null, content: 正文 }
  */
 export function parseThinkingContent(content: string): { thinking: string | null; content: string } {
-  const match = content.match(/<think>([\s\S]*?)<\/think>([\s\S]*)/);
+  const match = content.match(/<reason>([\s\S]*?)<\/reason>([\s\S]*)/);
   if (match) {
     return { thinking: match[1].trim(), content: match[2].trim() };
   }
@@ -86,39 +87,84 @@ export async function callOpenAI(
     requestBody.messages = [{ role: 'user', content: prompt }];
   }
 
-  // 发送请求
-  const response = await fetch(`${apiBase}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(requestBody),
-  });
+  // 发送请求（带超时控制和重试机制）
+  const timeoutMs = options.timeout ?? 300000; // 默认 300 秒（5 分钟）超时
+  const maxRetries = 2;
+  let lastError: Error | null = null;
 
-  // 检查响应状态
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error');
-    throw new Error(
-      `OpenAI API 请求失败：${response.status} ${response.statusText} - ${errorText}`
-    );
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(`${apiBase}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      // 检查响应状态
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(
+          `OpenAI API 请求失败：${response.status} ${response.statusText} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+
+      // 检查 API 错误
+      if (data.error) {
+        throw new Error(`OpenAI API 错误：${JSON.stringify(data.error)}`);
+      }
+
+      const message = data.choices?.[0]?.message;
+      // 某些模型返回 reasoning 而不是 content，优先使用 content，没有则使用 reasoning
+      let content = message?.content ?? message?.reasoning ?? '';
+
+      return {
+        content,
+        usage: {
+          prompt_tokens: data.usage?.prompt_tokens || 0,
+          completion_tokens: data.usage?.completion_tokens || 0,
+          total_tokens: data.usage?.total_tokens || 0,
+        },
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error as Error;
+
+      // 如果是超时错误，重试前等待一下
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.warn(`OpenAI API 请求超时（第${attempt + 1}次），重试中...`);
+        if (attempt < maxRetries) {
+          // 等待 1 秒后重试
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+        throw new Error(`OpenAI API 请求超时（${timeoutMs / 1000}秒），已重试${maxRetries}次`);
+      }
+
+      // 504 Gateway Time-out 也重试
+      if (error instanceof Error && error.message.includes('504')) {
+        console.warn(`OpenAI API 504 错误（第${attempt + 1}次），重试中...`);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+      }
+
+      // 其他错误直接抛出
+      throw error;
+    }
   }
 
-  const data = await response.json();
-
-  // 检查 API 错误
-  if (data.error) {
-    throw new Error(`OpenAI API 错误：${JSON.stringify(data.error)}`);
-  }
-
-  return {
-    content: data.choices?.[0]?.message?.content || '',
-    usage: {
-      prompt_tokens: data.usage?.prompt_tokens || 0,
-      completion_tokens: data.usage?.completion_tokens || 0,
-      total_tokens: data.usage?.total_tokens || 0,
-    },
-  };
+  throw lastError || new Error('OpenAI API 请求失败');
 }
 
 /**

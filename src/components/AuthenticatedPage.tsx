@@ -23,6 +23,7 @@ import {
   enqueuePendingFillBlank,
   enqueuePendingTranslate,
 } from '@/actions/ai-question';
+import { selectWordsForQuestion } from '@/lib/word-selection';
 
 interface AuthenticatedPageProps {
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
@@ -66,11 +67,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   // 保存单词
   const handleSaveWord = async (wordData: {
     text: string;
-    meanings: {
-      content: string;
-      type: string;
-      sentence: string;
-    }[];
+    meanings: string[];
     tags: WordTag[];
     relatedWords?: RelatedWord[];
   }) => {
@@ -185,7 +182,24 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
 
   const handleSelectQuestionType = (options: QuestionGenerationOptions) => {
     setShowAISelector(false);
-    createQuestionAndProcess(options, [...selectedWordIds]);
+
+    // 获取选中单词的完整信息
+    const selectedWords = words.filter(w => selectedWordIds.includes(w.id));
+
+    // 计算需要的单词数量
+    let neededCount: number;
+    if (options.type === 'fill-blank') {
+      const fillBlankOptions = options.fillBlank ?? { n: 5, m: 0 };
+      neededCount = fillBlankOptions.n + fillBlankOptions.m;
+    } else {
+      const translateOptions = options.translate ?? { n: 5 };
+      neededCount = translateOptions.n;
+    }
+
+    // 使用抽词逻辑获取需要的单词 ID 列表
+    const wordIdsToUse = selectWordsForQuestion(selectedWords, neededCount);
+
+    createQuestionAndProcess(options, wordIdsToUse);
   };
 
   // 创建题目并跳转到题目页面

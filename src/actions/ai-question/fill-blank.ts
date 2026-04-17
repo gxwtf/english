@@ -3,6 +3,7 @@
 import { fetchEnrichedWords, updateQuestionWithContent, enqueuePendingQuestion } from './utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { FillBlankOptions } from '@/types/problem';
+import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
 
 interface FillBlankQuestion {
   words: string[];
@@ -85,21 +86,16 @@ async function doGenerateFillBlank(
   if (options.n + options.m > 11) {
     throw new Error('n + m 不能超过 11');
   }
+  // 前端已完成抽词，后端信任前端传递的单词数量
+  // 如果前端传递的单词数量不足，可能是前端抽词逻辑有误
   if (options.n + options.m > wordIds.length) {
-    throw new Error('n + m 不能超过选择的单词数量');
+    throw new Error(`需要 ${options.n + options.m} 个单词，但前端只传递了 ${wordIds.length} 个`);
   }
 
   const wordData = await fetchEnrichedWords(wordIds);
   if (wordData.length === 0) {
     throw new Error('所选单词不存在');
   }
-
-  const wordDescriptions = wordData
-    .map(
-      (w) =>
-        `- ${w.text}: ${w.meanings.map((m) => `${m.type || '常见'}: ${m.content}${m.sentence ? ` (例句: "${m.sentence}")` : ''}`).join('; ')}`,
-    )
-    .join('\n');
 
   const randomTool = {
     type: 'function' as const,
@@ -117,11 +113,10 @@ async function doGenerateFillBlank(
     },
   };
 
-  const systemPrompt = `你是一位专业的英语考试题目生成专家。请根据提供的单词列表，生成一道"选词填空"练习题。
-
-## 深度思考要求：
-在生成题目之前，请先用 <think> 和 </think> 标签包裹你的思考过程。思考内容可以包括题目设计思路、句子难度评估、单词随机分配策略等。
-在 </think> 之后再输出最终的 JSON 答案。注意：思考标签外的 JSON 部分必须是合法的 JSON 对象。
+  const systemPrompt = `
+总体要求：${SYSTEM_MESSAGE}  
+  
+你是一位专业的英语考试题目生成专家。请根据提供的单词列表，生成一道"选词填空"练习题。
 
 ## 题目格式要求（必须返回合法的 JSON）：
 {
@@ -146,7 +141,7 @@ async function doGenerateFillBlank(
 8. 使用 generateRandomNumber 工具来打乱单词顺序和随机化题目排列（如果模型支持工具调用）`;
 
   const userPrompt = `提供的单词列表：
-${wordDescriptions}
+${JSON.stringify(wordData, null, 2)}
 
 ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
@@ -160,7 +155,7 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
   let content = result.content.trim();
 
-  // 始终解析 think 标签（深度思考模式已强制开启）
+  // 始终解析 reason 标签（深度思考模式已强制开启）
   let thinkingContent: string | null = null;
   {
     const parsed = parseThinkingContent(content);

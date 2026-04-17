@@ -86,7 +86,7 @@ export default function PracticePage() {
   }, [loadQueue]);
 
   // 重试失败的题目
-  const handleRetryQuestion = useCallback(async (questionId: string) => {
+  const handleRetryQuestion = useCallback(async (questionId: string, questionItem?: QuestionQueueItem) => {
     try {
       const result = await retryQuestion(questionId);
       // 重新触发 AI 生成
@@ -96,15 +96,21 @@ export default function PracticePage() {
       sessionStorage.setItem('pendingQuestionId', result.id);
       sessionStorage.setItem('pendingQuestionType', result.questionType);
       sessionStorage.setItem('pendingWordIds', JSON.stringify(result.wordIds));
-      // 重试时用默认参数
+      // 重试时用默认参数 - 根据当前单词数量动态调整
       if (result.questionType === 'fill-blank') {
+        const wordCount = result.wordIds?.length || 2;
+        const n = Math.min(1, wordCount); // n 至少为 1，但不超过单词数
+        const m = Math.max(0, wordCount - n); // 剩余作为干扰词
         sessionStorage.setItem('pendingOptions', JSON.stringify({
           type: 'fill-blank',
-          fillBlank: { n: 5, m: 0 },
+          fillBlank: { n, m },
         }));
       } else {
+        const wordCount = result.wordIds?.length || 2;
+        const n = Math.min(1, wordCount); // n 至少为 1，但不超过单词数
         sessionStorage.setItem('pendingOptions', JSON.stringify({
           type: 'translate',
+          translate: { n },
         }));
       }
       window.location.href = '/practice';
@@ -126,8 +132,8 @@ export default function PracticePage() {
     return () => clearInterval(interval);
   }, [isClient, isLoggedIn, loadQueue, processPendingQuestion]);
 
-  // 加载中
-  if (!isClient || loading) {
+  // 客户端尚未初始化时，显示加载中
+  if (!isClient) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-gray-500 dark:text-gray-400">加载中...</div>
@@ -135,9 +141,18 @@ export default function PracticePage() {
     );
   }
 
-  // 未登录
+  // 未登录时，显示未授权页面（包含重定向逻辑）
   if (!isLoggedIn) {
     return <UnauthenticatedPage />;
+  }
+
+  // 已登录但加载中，显示加载中
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
+      </div>
+    );
   }
 
   return (

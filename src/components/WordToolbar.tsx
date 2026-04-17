@@ -98,7 +98,7 @@ export const WordToolbar = ({
     return [];
   }, []);
 
-  const handleTagToggle = (tag: WordTag, event?: React.MouseEvent) => {
+  const handleTagToggle = (tag: WordTag, event?: React.MouseEvent | React.ChangeEvent<HTMLInputElement>) => {
     if (event) {
       event.stopPropagation();
     }

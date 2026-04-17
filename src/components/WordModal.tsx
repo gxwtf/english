@@ -18,11 +18,7 @@ interface WordModalProps {
   onSave: (word: {
     text: string;
     tags: WordTag[];
-    meanings: {
-      content: string;
-      type: string;
-      sentence: string;
-    }[];
+    meanings: string[];  // 用户不熟悉的释义列表
     relatedWords?: RelatedWord[];
   }) => Promise<void> | void;
   initialWord?: Word;
@@ -47,12 +43,19 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
     if (initialWord) {
       setWord(initialWord.text);
       setSearchedWord(initialWord.text);
-      // 加载已保存的释义
-      const savedMeanings = initialWord.meanings?.map(m => ({
-        content: m.content,
-        type: m.type,
-        sentence: m.sentence || ''
-      })) || [];
+      // 加载已保存的释义（从 string[] 转为 Meaning[]）
+      const savedMeanings = initialWord.meanings?.map(m => {
+        // 如果已经是 string，直接转为 Meaning 对象
+        if (typeof m === 'string') {
+          return {
+            content: m,
+            type: '',
+            sentence: ''
+          };
+        }
+        // 如果是 Meaning 对象（旧格式兼容）
+        return m as Meaning;
+      }) || [];
       setSelectedMeanings(savedMeanings);
       setSelectedTags(initialWord.tags);
       // 加载已保存的关联单词
@@ -162,12 +165,8 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
       return;
     }
 
-    // 转换数据格式以匹配组件需求
-    const meaningsData = selectedMeanings.map(meaning => ({
-      content: meaning.content,
-      type: meaning.type,
-      sentence: ''
-    }));
+    // 转换数据格式：从 Meaning[] 转为 string[]
+    const meaningsData = selectedMeanings.map(meaning => meaning.content);
 
     await onSave({
       text: searchedWord.trim(),

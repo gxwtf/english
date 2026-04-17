@@ -84,18 +84,33 @@
 | `questions[].referenceAnswers` | string | 参考答案 |
 | `questions[].keyWords` | string[] | 必须使用的单词列表 |
 
-### 出题逻辑实现参考
+### 出题流程（适用于所有题目类型）
 
-你可以在 `generateAndEnqueueQuestion` TODO 处使用类似以下代码：
+假设用户需要对一些单词进行出题，选择的单词 **以及这些单词的关联词** 总共 $n$ 个，出题需要其中 $k$ 个。
 
-```typescript
-const { callOpenAI } = require('@/lib/openai');
+- 如果 $k>n$ 则红字报错；
+- 如果 $k=n$ 则用这些单词出题；
+- 如果 $k<n$，则需要在 **前端** 从 $n$ 个单词中随机选出 $k$ 个，然后向后端发送请求，**请求中只包含被抽取的 $k$ 个单词的 id**。需要注意：抽取时，如果一个单词 A **仅仅作为某个单词 B 的关联词出现，而自己没有出现在选中的单词列表中**，那么抽取 A 的时候必须抽取 B。
 
-const systemPrompt = `你是一个英语题目生成器。请以 JSON 格式返回题目内容，不要任何额外文字。`;
-const userPrompt = `请根据以下单词生成题目：...`;
+随后，抽取的单词 **将会被打乱顺序** 并发送至后台。
 
-const aiResult = await callOpenAI(systemPrompt, { prompt: userPrompt });
-const questionContent = JSON.parse(aiResult.content);
-```
+后台需要调用 OpenAI 接口进行出题。注意：
 
-注意将 `systemPrompt` 和 `userPrompt` 的构建逻辑根据你的需求完善。
+- **强制开启人工深度思考**，即让 AI 用 reason 标签包裹思考过程，在最终输出中去掉这部分内容。
+- **必须向 AI 提供这些单词的所有信息**，包括用户选择的不熟悉的释义、标签列表、所有在 IDs 列表内的关联词以及它们的关联类型。
+
+## 数据库格式
+
+对于 **每个用户** 的单词本内的单词（条目），必须 **严格遵守下列格式，不能有多余信息，也不能缺少信息**：
+
+- id: 条目 id；（任意两个不同条目的 id 不同（不同用户的 id 两两不同），且该 id **与别的信息无关，为 AUTO_INCREMENT**）
+- word: 单词（英文）
+- meanings: **用户选择的自己不熟悉的释义**，是一个字符串列表，每个字符串是一个含义。
+- tags: 用户给该单词添加的标签列表，**存储每个标签的 id 即可**。
+- relatedWords: **关联词列表**。列表内的每个元素为如下格式：
+  - word: 关联词（英文）。
+  - relationType: 关联类型，包括 **一词多义 / 不同形式** 两种。
+
+**CRITICAL: 无需存储这个单词的所有释义（词典里已经有了这些信息），只需要存储用户不熟悉的释义即可。**
+
+注意，以上格式是针对 **每个用户** 而言的，因此你可能需要记录 uid 等信息。

@@ -173,7 +173,7 @@ function findSimilarPhrases(query) {
     // 查找相似的动词
     const commonVerbs = [
         'turn', 'put', 'look', 'get', 'take', 'give', 'come', 'run', 'break',
-        'go', 'make', 'do', 'have', 'say', 'be', 'know', 'think', 'see'
+        'go', 'make', 'do', 'have', 'say', 'be', 'know', 'reason', 'see'
     ];
     // 查找相似的介词/副词
     const commonParticles = [
