@@ -42,6 +42,7 @@ model QuestionQueue {
   questionType    String
   status          QuestionStatus @default(GENERATING)
   questionContent Json?
+  gradingResult  Json?
   lastAnswer      Json?
   wordIds         Int[]
   createdAt       DateTime       @default(now())

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { submitAnswer, resetQuestion as resetQuestionAction } from '@/actions/ai-question';
+import { useRouter } from 'next/navigation';
+import { submitAnswer, markQuestionAsAnswered, resetQuestion as resetQuestionAction } from '@/actions/ai-question';
 
 interface FillBlankQuestionItem {
   sentence: string;
@@ -13,15 +14,25 @@ interface FillBlankAnswerProps {
   words: string[];
   questions: FillBlankQuestionItem[];
   thinking?: string;
+  lastAnswer?: Record<string, unknown>;
+  status?: string;
   onSubmitted?: () => void;
 }
 
-export function FillBlankAnswer({ questionId, words, questions, thinking, onSubmitted }: FillBlankAnswerProps) {
-  const [answers, setAnswers] = useState<string[]>(Array(questions.length).fill(''));
-  const [submitted, setSubmitted] = useState(false);
+export function FillBlankAnswer({ questionId, words, questions, thinking, lastAnswer, status, onSubmitted }: FillBlankAnswerProps) {
+  const router = useRouter();
+  // 如果题目已作答，从 lastAnswer 初始化答案
+  const initialAnswers = status === 'ANSWERED' && lastAnswer
+    ? questions.map((_, i) => (lastAnswer[i] as string) || '')
+    : Array(questions.length).fill('');
+
+  const [answers, setAnswers] = useState<string[]>(initialAnswers);
+  const [submitted, setSubmitted] = useState(status === 'ANSWERED');
   const [submitting, setSubmitting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
+  // 用于存储上次提交的答案，以便在已作答时显示
+  const [savedAnswers, setSavedAnswers] = useState<string[]>(initialAnswers);
 
   const handleAnswerChange = useCallback((index: number, value: string) => {
     setAnswers(prev => {
@@ -44,23 +55,33 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, onSubm
         answerMap[i] = answers[i];
       }
       await submitAnswer(questionId, answerMap);
-      setSubmitted(true);
+      await markQuestionAsAnswered(questionId);
+      // 保存当前答案以便显示
+      setSavedAnswers([...answers]);
       onSubmitted?.();
+      // 立即跳转到题目列表页面
+      router.push('/practice');
     } catch (error) {
       console.error('提交答案失败:', error);
       alert('提交答案失败，请重试');
     } finally {
       setSubmitting(false);
     }
-  }, [answers, questionId, onSubmitted]);
+  }, [answers, questionId, onSubmitted, router]);
 
   const handleReset = useCallback(async () => {
     setIsResetting(true);
     setResetError(null);
     try {
       await resetQuestionAction(questionId);
+      // Save current answers before resetting
+      setSavedAnswers([...answers]);
       setAnswers(Array(questions.length).fill(''));
       setSubmitted(false);
+      // Redirect to practice list after successful reset
+      if (status === 'ANSWERED') {
+        router.push('/practice');
+      }
       onSubmitted?.();
     } catch (error) {
       console.error('重置失败:', error);
@@ -68,7 +89,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, onSubm
     } finally {
       setIsResetting(false);
     }
-  }, [questionId, questions.length, onSubmitted]);
+  }, [questionId, questions.length, answers, status, router, onSubmitted]);
 
   return (
     <div className="space-y-6">
@@ -107,16 +128,17 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, onSubm
               sentence={q.sentence}
               value={answers[i]}
               onChange={(val) => handleAnswerChange(i, val)}
-              correctAnswer={submitted ? q.answer : undefined}
-              userAnswer={submitted ? answers[i] : undefined}
+              correctAnswer={q.answer}
+              userAnswer={submitted || status === 'ANSWERED' ? (savedAnswers[i] || answers[i]) : undefined}
               questionIndex={i}
+              disabled={status === 'ANSWERED'}
             />
           </div>
         ))}
       </div>
 
       {/* 提交按钮或正确答案展示 */}
-      {!submitted ? (
+      {!submitted && status !== 'ANSWERED' ? (
         <button
           onClick={handleSubmit}
           disabled={submitting || answers.some(a => !a.trim())}
@@ -131,13 +153,30 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, onSubm
       ) : (
         <div>
           <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mb-4">
-            <p className="text-sm font-medium text-green-700 dark:text-green-300">答案已提交！以下是正确答案：</p>
+            <p className="text-sm font-medium text-green-700 dark:text-green-300">
+              {status === 'ANSWERED' ? '上次作答结果（点击下方"重新作答"可重新回答）：' : '答案已提交！以下是正确答案：'}
+            </p>
             <div className="mt-2 space-y-2">
-              {questions.map((q, i) => (
-                <p key={i} className="text-sm text-green-600 dark:text-green-400">
-                  第 {i + 1} 题：{q.answer}
-                </p>
-              ))}
+              {questions.map((q, i) => {
+                const userAnswer = savedAnswers[i] || answers[i];
+                const isCorrect = userAnswer?.trim() === q.answer;
+                return (
+                  <div key={i} className="text-sm">
+                    <p className={`font-medium ${
+                      status === 'ANSWERED'
+                        ? isCorrect
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-red-500 dark:text-red-400 line-through'
+                        : 'text-green-600 dark:text-green-400'
+                    }`}>
+                      第 {i + 1} 题：{status === 'ANSWERED' ? (userAnswer || '(未回答)') : q.answer}
+                    </p>
+                    {status === 'ANSWERED' && !isCorrect && (
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">正确答案：{q.answer}</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
           {resetError && (
@@ -152,13 +191,23 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, onSubm
             >
               返回题目列表
             </a>
-            <button
-              onClick={handleReset}
-              disabled={isResetting}
-              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isResetting ? '重置中...' : '重新作答'}
-            </button>
+            {status === 'ANSWERED' ? (
+              <button
+                onClick={handleReset}
+                disabled={isResetting}
+                className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isResetting ? '重置中...' : '重新作答'}
+              </button>
+            ) : (
+              <button
+                onClick={handleReset}
+                disabled={isResetting}
+                className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isResetting ? '重置中...' : '重新作答'}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -173,6 +222,7 @@ function BlankInput({
   correctAnswer,
   userAnswer,
   questionIndex,
+  disabled,
 }: {
   sentence: string;
   value: string;
@@ -180,6 +230,7 @@ function BlankInput({
   correctAnswer?: string;
   userAnswer?: string;
   questionIndex: number;
+  disabled?: boolean;
 }) {
   const parts = sentence.replace(/_+/g, '_').split('_');
   const isCorrect = userAnswer !== undefined && userAnswer.trim() === correctAnswer;
@@ -195,7 +246,7 @@ function BlankInput({
               type="text"
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              disabled={userAnswer !== undefined}
+              disabled={disabled || userAnswer !== undefined}
               className={`inline-block min-w-[120px] border-b-2 text-center bg-transparent px-1 py-0.5 outline-none transition-colors
                 ${userAnswer !== undefined
                   ? isCorrect

@@ -11,7 +11,6 @@ interface OpenAIOptions {
   prompt?: string;
   apiKey?: string;
   apiBase?: string;
-  maxTokens?: number;
   timeout?: number;
 }
 
@@ -68,10 +67,9 @@ export async function callOpenAI(
 
   const {
     prompt = '',
-    maxTokens = 2000,
   } = options;
 
-  // 构建请求体
+  // 构建请求体 (移除了 max_tokens)
   const requestBody = {
     model: model,
     messages: [
@@ -79,7 +77,6 @@ export async function callOpenAI(
       ...(prompt ? [{ role: 'user', content: prompt }] : []),
     ],
     temperature: 0.7,
-    max_tokens: maxTokens,
   };
 
   // 如果 systemPrompt 为空且有 user prompt，调整消息结构
@@ -200,8 +197,9 @@ export async function callOpenAIWithTools(
   } = {}
 ): Promise<OpenAIResponse> {
   const { apiKey, apiBase } = getApiConfig();
-  const { prompt = '', maxTokens = 2000, tools } = options;
+  const { prompt = '', tools } = options;
 
+  // 构建请求体 (移除了 max_tokens)
   const requestBody: Record<string, unknown> = {
     model,
     messages: [
@@ -209,7 +207,6 @@ export async function callOpenAIWithTools(
       ...(prompt ? [{ role: 'user', content: prompt }] : []),
     ],
     temperature: 0.7,
-    max_tokens: maxTokens,
   };
 
   if (tools) {
@@ -261,6 +258,7 @@ export async function callOpenAIWithTools(
       };
     });
 
+    // 追问请求体 (移除了 max_tokens)
     const followUpBody = {
       model,
       messages: [
@@ -270,7 +268,6 @@ export async function callOpenAIWithTools(
         ...toolMessages,
       ],
       temperature: 0.7,
-      max_tokens: maxTokens,
       tool_choice: 'none',
     };
 

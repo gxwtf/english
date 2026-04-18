@@ -232,6 +232,7 @@ export async function loadQuestionById(questionId: string) {
     questionType: q.questionType as QuestionType,
     status: q.status,
     questionContent: (q.questionContent as Record<string, unknown> | undefined) ?? undefined,
+    gradingResult: (q.gradingResult as GradeResult[] | null) ?? null,
     lastAnswer: (q.lastAnswer as Record<string, unknown> | undefined) ?? undefined,
     wordIds: q.wordIds,
     createdAt: q.createdAt.toISOString(),
@@ -271,6 +272,47 @@ export interface GradeResult {
   maxScore?: number;
   feedback?: string;
   standardAnswer: string;
+}
+
+/**
+ * Save grading results to DB so they can be loaded later without re-grading.
+ */
+export async function saveGradingResult(questionId: string, results: GradeResult[]) {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const q = await prisma.questionQueue.findUnique({
+    where: { id: questionId },
+  });
+
+  if (!q) throw new Error('题目不存在');
+  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+
+  await prisma.questionQueue.update({
+    where: { id: questionId },
+    data: { gradingResult: results as any },
+  });
+}
+
+/**
+ * Load cached grading results from DB (for already-answered questions).
+ * Returns null if no cached results exist.
+ */
+export async function loadGradingResult(questionId: string): Promise<GradeResult[] | null> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const q = await prisma.questionQueue.findUnique({
+    where: { id: questionId },
+  });
+
+  if (!q) throw new Error('题目不存在');
+  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+
+  const gradingResult = q.gradingResult as any;
+  if (!gradingResult || !Array.isArray(gradingResult)) return null;
+
+  return gradingResult as GradeResult[];
 }
 
 /**
@@ -511,6 +553,13 @@ export async function gradeTranslateAnswerBatch(
       feedback: parsed.feedback,
       standardAnswer: parsed.standardAnswer || question.referenceAnswers,
     });
+  }
+
+  // Save grading results to DB so they can be loaded later without re-grading
+  try {
+    await saveGradingResult(questionId, results);
+  } catch (e) {
+    console.error('保存批改结果失败:', e);
   }
 
   return results;

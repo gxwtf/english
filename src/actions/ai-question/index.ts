@@ -12,6 +12,7 @@ export {
   fetchEnrichedWords,
   loadQuestionQueue,
   loadQuestionById,
+  loadGradingResult,
   enqueueQuestion,
   submitAnswer,
   enqueuePendingQuestion,
@@ -23,5 +24,6 @@ export {
   gradeTranslateAnswer,
   gradeTranslateAnswerSingle,
   gradeTranslateAnswerBatch,
+  saveGradingResult,
   type GradeResult,
 } from './utils';

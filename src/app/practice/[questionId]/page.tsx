@@ -101,6 +101,8 @@ export default function PracticeQuestionPage({ params }: { params: Promise<{ que
                 words={question.questionContent.words as string[]}
                 questions={question.questionContent.questions as { sentence: string; answer: string }[]}
                 thinking={question.questionContent.thinking as string | null ?? undefined}
+                lastAnswer={question.lastAnswer}
+                status={question.status}
                 onSubmitted={() => { }}
               />
             ) : question.questionType === 'translate' ? (
@@ -109,6 +111,8 @@ export default function PracticeQuestionPage({ params }: { params: Promise<{ que
                 questionId={question.id}
                 questions={question.questionContent.questions as any[]}
                 thinking={question.questionContent.thinking as string | null ?? undefined}
+                lastAnswer={question.lastAnswer}
+                status={question.status}
                 onSubmitted={() => { }}
               />
             ) : (

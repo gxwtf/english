@@ -23,20 +23,24 @@ interface AIQuestionTypeSelectorProps {
 
 export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }: AIQuestionTypeSelectorProps) => {
   const [selectedType, setSelectedType] = useState<QuestionType | null>(null);
-  const [questionN, setQuestionN] = useState(5);
-  const [questionM, setQuestionM] = useState(0);
+  const [questionN, setQuestionN] = useState<number | ''>(5);
+  const [questionM, setQuestionM] = useState<number | ''>(0);
   const [translateN, setTranslateN] = useState<number | ''>(5);
 
   const effectiveMaxWords = maxWords ?? 11;
-  const totalWords = questionN + questionM;
+  const totalWords = (typeof questionN === 'number' ? questionN : 0) + (typeof questionM === 'number' ? questionM : 0);
   const isFillBlank = selectedType === 'fill-blank';
 
   // Fill-blank validation
-  const fillBlankValidationError = isFillBlank && totalWords > effectiveMaxWords
-    ? `n + m (${totalWords}) 不能超过选中的单词数量 (${effectiveMaxWords})`
-    : isFillBlank && totalWords > 11
-      ? `n + m (${totalWords}) 不能超过 11`
-      : null;
+  const fillBlankValidationError = !isFillBlank
+    ? null
+    : typeof questionN !== 'number' || questionN < 1
+      ? '至少要有 1 道题'
+      : totalWords > effectiveMaxWords
+        ? `n + m (${totalWords}) 不能超过选中的单词数量 (${effectiveMaxWords})`
+        : totalWords > 11
+          ? `n + m (${totalWords}) 不能超过 11`
+          : null;
 
   // Translate validation
   const translateValidationError = isFillBlank
@@ -72,7 +76,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
     if (!selectedType || validationError) return;
     const options: QuestionGenerationOptions = { type: selectedType };
     if (selectedType === 'fill-blank') {
-      options.fillBlank = { n: questionN, m: questionM };
+      options.fillBlank = { n: typeof questionN === 'number' ? questionN : 1, m: typeof questionM === 'number' ? questionM : 0 };
     } else if (selectedType === 'translate') {
       options.translate = { n: typeof translateN === 'number' ? translateN : 5 };
     }
@@ -153,13 +157,21 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
                     题目数量 n（需回答的句子数）
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     min={1}
                     max={11}
                     value={questionN}
                     onChange={(e) => {
-                      const val = Math.max(1, Math.min(11, parseInt(e.target.value) || 1));
-                      setQuestionN(val);
+                      const val = e.target.value;
+                      // Allow empty string or valid positive integers
+                      if (val === '') {
+                        setQuestionN('');
+                      } else if (/^\d+$/.test(val)) {
+                        const numVal = Math.max(1, Math.min(11, parseInt(val) || 1));
+                        setQuestionN(numVal);
+                      }
+                      // Ignore invalid input (non-numeric characters)
                     }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
@@ -169,13 +181,21 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
                     干扰词数量 m（多余单词数）
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     min={0}
                     max={11}
                     value={questionM}
                     onChange={(e) => {
-                      const val = Math.max(0, Math.min(11, parseInt(e.target.value) || 0));
-                      setQuestionM(val);
+                      const val = e.target.value;
+                      // Allow empty string or valid non-negative integers
+                      if (val === '') {
+                        setQuestionM('');
+                      } else if (/^\d+$/.test(val)) {
+                        const numVal = Math.max(0, Math.min(11, parseInt(val) || 0));
+                        setQuestionM(numVal);
+                      }
+                      // Ignore invalid input (non-numeric characters)
                     }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
@@ -202,19 +222,21 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
                   题目数量 n
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   min={1}
                   max={5}
                   value={translateN ?? ''}
                   onChange={(e) => {
                     const val = e.target.value;
-                    // 空输入时设置为空字符串，数字输入时解析为数字
+                    // 空输入时设置为空字符串，有效数字输入时解析为数字
                     if (val === '') {
                       setTranslateN('');
-                    } else {
+                    } else if (/^\d+$/.test(val)) {
                       const numVal = parseInt(val) || 1;
                       setTranslateN(numVal);
                     }
+                    // 忽略无效输入（非数字字符）
                   }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
@@ -240,7 +262,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
               }`}
             >
               {selectedType === 'fill-blank'
-                ? `生成选词填空（${questionN} 道小题，${questionM} 个干扰词）`
+                ? `生成选词填空（${typeof questionN === 'number' ? questionN : 0} 道小题，${typeof questionM === 'number' ? questionM : 0} 个干扰词）`
                 : `生成翻译句子题目（${typeof translateN === 'number' ? translateN : 0} 道小题）`}
             </button>
           )}
