@@ -182,6 +182,7 @@ export async function chat(
 /**
  * 调用 OpenAI API with tool use support.
  * Auto-executes tool calls and returns final content.
+ * 包含超时和重试机制，与 callOpenAI 一致
  */
 export async function callOpenAIWithTools(
   systemPrompt: string,
@@ -199,115 +200,156 @@ export async function callOpenAIWithTools(
   const { apiKey, apiBase } = getApiConfig();
   const { prompt = '', tools } = options;
 
-  // 构建请求体 (移除了 max_tokens)
-  const requestBody: Record<string, unknown> = {
-    model,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      ...(prompt ? [{ role: 'user', content: prompt }] : []),
-    ],
-    temperature: 0.7,
-  };
+  const timeoutMs = options.timeout ?? 300000; // 默认 300 秒（5 分钟）超时
+  const maxRetries = 2;
+  let lastError: Error | null = null;
 
-  if (tools) {
-    requestBody.tools = tools;
-    requestBody.tool_choice = 'auto';
-  }
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const response = await fetch(`${apiBase}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error');
-    throw new Error(
-      `OpenAI API 请求失败：${response.status} ${response.statusText} - ${errorText}`
-    );
-  }
-
-  const data = await response.json();
-  if (data.error) {
-    throw new Error(`OpenAI API 错误：${JSON.stringify(data.error)}`);
-  }
-
-  const message = data.choices?.[0]?.message;
-  let content = message?.content || '';
-  const toolCalls = message?.tool_calls;
-
-  // Auto-execute tool calls
-  if (toolCalls && toolCalls.length > 0) {
-    const toolMessages = toolCalls.map((toolCall: { id: string; function: { name: string; arguments: string } }) => {
-      const args = JSON.parse(toolCall.function.arguments);
-      let result: unknown;
-      if (toolCall.function.name === 'generateRandomNumber') {
-        const min = Math.ceil(args.min || 0);
-        const max = Math.floor(args.max || 100);
-        result = Math.floor(Math.random() * (max - min + 1)) + min;
-      } else {
-        result = null;
-      }
-      return {
-        role: 'tool' as const,
-        tool_call_id: toolCall.id,
-        content: JSON.stringify({ result }),
+    try {
+      // 构建请求体 (移除了 max_tokens)
+      const requestBody: Record<string, unknown> = {
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...(prompt ? [{ role: 'user', content: prompt }] : []),
+        ],
+        temperature: 0.7,
       };
-    });
 
-    // 追问请求体 (移除了 max_tokens)
-    const followUpBody = {
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...(prompt ? [{ role: 'user', content: prompt }] : []),
-        { role: 'assistant', content: content, tool_calls: toolCalls },
-        ...toolMessages,
-      ],
-      temperature: 0.7,
-      tool_choice: 'none',
-    };
+      if (tools) {
+        requestBody.tools = tools;
+        requestBody.tool_choice = 'auto';
+      }
 
-    const followUpResponse = await fetch(`${apiBase}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(followUpBody),
-    });
+      const response = await fetch(`${apiBase}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
 
-    if (!followUpResponse.ok) {
-      const errorText = await followUpResponse.text().catch(() => 'Unknown error');
-      throw new Error(
-        `OpenAI API 请求失败：${followUpResponse.status} ${followUpResponse.statusText} - ${errorText}`
-      );
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(
+          `OpenAI API 请求失败：${response.status} ${response.statusText} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(`OpenAI API 错误：${JSON.stringify(data.error)}`);
+      }
+
+      const message = data.choices?.[0]?.message;
+      let content = message?.content || '';
+      const toolCalls = message?.tool_calls;
+
+      // Auto-execute tool calls
+      if (toolCalls && toolCalls.length > 0) {
+        const toolMessages = toolCalls.map((toolCall: { id: string; function: { name: string; arguments: string } }) => {
+          const args = JSON.parse(toolCall.function.arguments);
+          let result: unknown;
+          if (toolCall.function.name === 'generateRandomNumber') {
+            const min = Math.ceil(args.min || 0);
+            const max = Math.floor(args.max || 100);
+            result = Math.floor(Math.random() * (max - min + 1)) + min;
+          } else {
+            result = null;
+          }
+          return {
+            role: 'tool' as const,
+            tool_call_id: toolCall.id,
+            content: JSON.stringify({ result }),
+          };
+        });
+
+        // 追问请求体 (移除了 max_tokens)
+        const followUpBody = {
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...(prompt ? [{ role: 'user', content: prompt }] : []),
+            { role: 'assistant', content: content, tool_calls: toolCalls },
+            ...toolMessages,
+          ],
+          temperature: 0.7,
+          tool_choice: 'none',
+        };
+
+        const followUpResponse = await fetch(`${apiBase}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(followUpBody),
+        });
+
+        if (!followUpResponse.ok) {
+          const errorText = await followUpResponse.text().catch(() => 'Unknown error');
+          throw new Error(
+            `OpenAI API 请求失败：${followUpResponse.status} ${followUpResponse.statusText} - ${errorText}`
+          );
+        }
+
+        const followUpData = await followUpResponse.json();
+        if (followUpData.error) {
+          throw new Error(`OpenAI API 错误：${JSON.stringify(followUpData.error)}`);
+        }
+        content = followUpData.choices?.[0]?.message?.content || content;
+
+        // Merge token usage
+        const usage = {
+          prompt_tokens: (data.usage?.prompt_tokens || 0) + (followUpData.usage?.prompt_tokens || 0),
+          completion_tokens: (data.usage?.completion_tokens || 0) + (followUpData.usage?.completion_tokens || 0),
+          total_tokens: (data.usage?.total_tokens || 0) + (followUpData.usage?.total_tokens || 0),
+        };
+        return { content, usage };
+      }
+
+      return {
+        content,
+        usage: {
+          prompt_tokens: data.usage?.prompt_tokens || 0,
+          completion_tokens: data.usage?.completion_tokens || 0,
+          total_tokens: data.usage?.total_tokens || 0,
+        },
+      };
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error as Error;
+
+      // 如果是超时错误，重试前等待一下
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.warn(`OpenAI API (with tools) 请求超时（第${attempt + 1}次），重试中...`);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+        throw new Error(`OpenAI API 请求超时（${timeoutMs / 1000}秒），已重试${maxRetries}次`);
+      }
+
+      // 504 Gateway Time-out 也重试
+      if (error instanceof Error && error.message.includes('504')) {
+        console.warn(`OpenAI API (with tools) 504 错误（第${attempt + 1}次），重试中...`);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+      }
+
+      // 其他错误直接抛出
+      throw error;
     }
-
-    const followUpData = await followUpResponse.json();
-    if (followUpData.error) {
-      throw new Error(`OpenAI API 错误：${JSON.stringify(followUpData.error)}`);
-    }
-    content = followUpData.choices?.[0]?.message?.content || content;
-
-    // Merge token usage
-    const usage = {
-      prompt_tokens: (data.usage?.prompt_tokens || 0) + (followUpData.usage?.prompt_tokens || 0),
-      completion_tokens: (data.usage?.completion_tokens || 0) + (followUpData.usage?.completion_tokens || 0),
-      total_tokens: (data.usage?.total_tokens || 0) + (followUpData.usage?.total_tokens || 0),
-    };
-    return { content, usage };
   }
 
-  return {
-    content,
-    usage: {
-      prompt_tokens: data.usage?.prompt_tokens || 0,
-      completion_tokens: data.usage?.completion_tokens || 0,
-      total_tokens: data.usage?.total_tokens || 0,
-    },
-  };
+  throw lastError || new Error('OpenAI API 请求失败');
 }
