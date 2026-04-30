@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { submitAnswer, markQuestionAsAnswered, resetQuestion as resetQuestionAction } from '@/actions/ai-question';
 
 interface FillBlankQuestionItem {
   sentence: string;
   answer: string;
+  originalWord?: string;
 }
 
 interface FillBlankAnswerProps {
@@ -20,7 +20,6 @@ interface FillBlankAnswerProps {
 }
 
 export function FillBlankAnswer({ questionId, words, questions, thinking, lastAnswer, status, onSubmitted }: FillBlankAnswerProps) {
-  const router = useRouter();
   // 如果题目已作答，从 lastAnswer 初始化答案
   const initialAnswers = status === 'ANSWERED' && lastAnswer
     ? questions.map((_, i) => (lastAnswer[i] as string) || '')
@@ -56,18 +55,21 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
       }
       await submitAnswer(questionId, answerMap);
       await markQuestionAsAnswered(questionId);
+      
       // 保存当前答案以便显示
       setSavedAnswers([...answers]);
+      
+      // 【关键修改】设置 submitted 为 true，立即在当前页面展示评分结果
+      setSubmitted(true);
+      
       onSubmitted?.();
-      // 立即跳转到题目列表页面
-      router.push('/practice');
     } catch (error) {
       console.error('提交答案失败:', error);
       alert('提交答案失败，请重试');
     } finally {
       setSubmitting(false);
     }
-  }, [answers, questionId, onSubmitted, router]);
+  }, [answers, questionId, onSubmitted]);
 
   const handleReset = useCallback(async () => {
     setIsResetting(true);
@@ -78,10 +80,8 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
       setSavedAnswers([...answers]);
       setAnswers(Array(questions.length).fill(''));
       setSubmitted(false);
-      // Redirect to practice list after successful reset
-      if (status === 'ANSWERED') {
-        router.push('/practice');
-      }
+      
+      // 【关键修改】去掉了重置后的页面跳转，允许用户留在当前页重新作答
       onSubmitted?.();
     } catch (error) {
       console.error('重置失败:', error);
@@ -89,7 +89,10 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
     } finally {
       setIsResetting(false);
     }
-  }, [questionId, questions.length, answers, status, router, onSubmitted]);
+  }, [questionId, questions.length, answers, onSubmitted]);
+
+  // 判断是否处于展示结果的阶段
+  const isShowingResults = submitted || status === 'ANSWERED';
 
   return (
     <div className="space-y-6">
@@ -116,6 +119,12 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
               {word}
             </span>
           ))}
+          {/* Show changed forms as hints */}
+          {questions.some(q => q.originalWord) && (
+            <span className="text-xs text-gray-500 dark:text-gray-400 self-center ml-1">
+              (部分题目可能需要填写单词的不同形式)
+            </span>
+          )}
         </div>
       </div>
 
@@ -129,16 +138,17 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
               value={answers[i]}
               onChange={(val) => handleAnswerChange(i, val)}
               correctAnswer={q.answer}
-              userAnswer={submitted || status === 'ANSWERED' ? (savedAnswers[i] || answers[i]) : undefined}
+              originalWord={q.originalWord}
+              userAnswer={isShowingResults ? (savedAnswers[i] || answers[i]) : undefined}
               questionIndex={i}
-              disabled={status === 'ANSWERED'}
+              disabled={isShowingResults} // 提交后立即禁用输入框
             />
           </div>
         ))}
       </div>
 
       {/* 提交按钮或正确答案展示 */}
-      {!submitted && status !== 'ANSWERED' ? (
+      {!isShowingResults ? (
         <button
           onClick={handleSubmit}
           disabled={submitting || answers.some(a => !a.trim())}
@@ -154,36 +164,37 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
         <div>
           <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mb-4">
             <p className="text-sm font-medium text-green-700 dark:text-green-300">
-              {status === 'ANSWERED' ? '上次作答结果（点击下方"重新作答"可重新回答）：' : '答案已提交！以下是正确答案：'}
+              {status === 'ANSWERED' ? '上次作答结果（点击下方"重新作答"可重新回答）：' : '答案已提交！评分结果如下：'}
             </p>
             <div className="mt-2 space-y-2">
+              {/* 【关键修改】统一评分结果的展示逻辑，即便是刚提交也展示对错及订正 */}
               {questions.map((q, i) => {
                 const userAnswer = savedAnswers[i] || answers[i];
                 const isCorrect = userAnswer?.trim() === q.answer;
                 return (
                   <div key={i} className="text-sm">
                     <p className={`font-medium ${
-                      status === 'ANSWERED'
-                        ? isCorrect
-                          ? 'text-green-600 dark:text-green-400'
-                          : 'text-red-500 dark:text-red-400 line-through'
-                        : 'text-green-600 dark:text-green-400'
+                      isCorrect
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-500 dark:text-red-400 line-through'
                     }`}>
-                      第 {i + 1} 题：{status === 'ANSWERED' ? (userAnswer || '(未回答)') : q.answer}
+                      第 {i + 1} 题：{userAnswer || '(未回答)'}
                     </p>
-                    {status === 'ANSWERED' && !isCorrect && (
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">正确答案：{q.answer}</p>
+                    {!isCorrect && (
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">正确答案：{q.answer}{q.originalWord && q.originalWord !== q.answer ? `（原词：${q.originalWord}）` : ''}</p>
                     )}
                   </div>
                 );
               })}
             </div>
           </div>
+          
           {resetError && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 mb-4">
               <p className="text-sm text-red-700 dark:text-red-300">{resetError}</p>
             </div>
           )}
+          
           <div className="flex gap-3">
             <a
               href="/practice"
@@ -191,23 +202,17 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
             >
               返回题目列表
             </a>
-            {status === 'ANSWERED' ? (
-              <button
-                onClick={handleReset}
-                disabled={isResetting}
-                className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isResetting ? '重置中...' : '重新作答'}
-              </button>
-            ) : (
-              <button
-                onClick={handleReset}
-                disabled={isResetting}
-                className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isResetting ? '重置中...' : '重新作答'}
-              </button>
-            )}
+            <button
+              onClick={handleReset}
+              disabled={isResetting}
+              className={`flex-1 py-3 font-semibold rounded-xl transition-all shadow-md text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+                status === 'ANSWERED'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
+                  : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+              }`}
+            >
+              {isResetting ? '重置中...' : '重新作答'}
+            </button>
           </div>
         </div>
       )}
@@ -220,6 +225,7 @@ function BlankInput({
   value,
   onChange,
   correctAnswer,
+  originalWord,
   userAnswer,
   questionIndex,
   disabled,
@@ -228,6 +234,7 @@ function BlankInput({
   value: string;
   onChange: (val: string) => void;
   correctAnswer?: string;
+  originalWord?: string;
   userAnswer?: string;
   questionIndex: number;
   disabled?: boolean;
@@ -260,7 +267,7 @@ function BlankInput({
         </span>
       ))}
       {userAnswer !== undefined && correctAnswer && !isCorrect && (
-        <span className="text-xs text-green-600 dark:text-green-400 ml-1">正确答案：{correctAnswer}</span>
+        <span className="text-xs text-green-600 dark:text-green-400 ml-1">正确答案：{correctAnswer}{originalWord && originalWord !== correctAnswer ? `（原词：${originalWord}）` : ''}</span>
       )}
     </p>
   );

@@ -22,8 +22,9 @@ import { saveWord as saveWordAction, deleteWords as deleteWordsAction } from '@/
 import {
   enqueuePendingFillBlank,
   enqueuePendingTranslate,
+  enqueuePendingMeaningSelect,
 } from '@/actions/ai-question';
-import { selectWordsForQuestion } from '@/lib/word-selection';
+import { selectWordsForQuestion, type RelatedWordEntry } from '@/lib/word-selection';
 
 interface AuthenticatedPageProps {
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
@@ -191,19 +192,26 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     if (options.type === 'fill-blank') {
       const fillBlankOptions = options.fillBlank ?? { n: 5, m: 0 };
       neededCount = fillBlankOptions.n + fillBlankOptions.m;
-    } else {
+    } else if (options.type === 'translate') {
       const translateOptions = options.translate ?? { n: 5 };
       neededCount = translateOptions.n;
+    } else if (options.type === 'meaning-select') {
+      const meaningSelectOptions = options.meaningSelect ?? { n: 5 };
+      neededCount = meaningSelectOptions.n ?? 5;
+    } else {
+      neededCount = 5;
     }
 
-    // 使用抽词逻辑获取需要的单词 ID 列表
-    const wordIdsToUse = selectWordsForQuestion(selectedWords, neededCount);
+    // 使用抽词逻辑获取需要的单词 ID 列表和关联词信息
+    const { wordIds, relatedWordEntries } = selectWordsForQuestion(
+      selectedWords, neededCount, options.includeRelatedWords
+    );
 
-    createQuestionAndProcess(options, wordIdsToUse);
+    createQuestionAndProcess(options, wordIds, relatedWordEntries);
   };
 
   // 创建题目并跳转到题目页面
-  const createQuestionAndProcess = async (options: QuestionGenerationOptions, wordIds: number[]) => {
+  const createQuestionAndProcess = async (options: QuestionGenerationOptions, wordIds: number[], relatedWordEntries: RelatedWordEntry[]) => {
     try {
       // 1. 先创建占位题目（GENERATING 状态），让用户能在队列中看到"生成中"
       const fillBlankOptions = options.type === 'fill-blank'
@@ -224,6 +232,11 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
           questionType = 'translate';
           break;
         }
+        case 'meaning-select': {
+          pendingItem = await enqueuePendingMeaningSelect(wordIds, options.deepThinking);
+          questionType = 'meaning-select';
+          break;
+        }
       }
 
       // 2. 跳转到题目页面，practice 页面会根据 sessionStorage 中的 pendingQuestionId
@@ -232,6 +245,9 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
       sessionStorage.setItem('pendingQuestionType', questionType);
       sessionStorage.setItem('pendingWordIds', JSON.stringify(wordIds));
       sessionStorage.setItem('pendingOptions', JSON.stringify(options));
+      if (relatedWordEntries.length > 0) {
+        sessionStorage.setItem('pendingRelatedWords', JSON.stringify(relatedWordEntries));
+      }
 
       window.location.href = '/practice';
     } catch (error) {

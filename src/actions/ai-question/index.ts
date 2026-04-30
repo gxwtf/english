@@ -9,6 +9,11 @@ export {
   enqueuePendingTranslate,
 } from './translate';
 export {
+  generateAndEnqueueMeaningSelect,
+  generateMeaningSelectWithQuestion,
+  enqueuePendingMeaningSelect,
+} from './meaning-select';
+export {
   fetchEnrichedWords,
   loadQuestionQueue,
   loadQuestionById,
@@ -19,6 +24,7 @@ export {
   updateQuestionWithContent,
   markQuestionAsFailed,
   markQuestionAsAnswered,
+  markQuestionAsGradingFailed,
   retryQuestion,
   resetQuestion,
   gradeTranslateAnswer,

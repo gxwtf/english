@@ -200,7 +200,7 @@ export async function submitAnswer(questionId: string, answers: Record<string, u
 
   if (!q) throw new Error('题目不存在');
   if (q.userId !== user.userId) throw new Error('无权访问此题目');
-  if (q.status !== 'GENERATED' && q.status !== 'GRADING' && q.status !== 'ANSWERED') throw new Error('题目尚未生成完毕或已作答');
+  if (q.status !== 'GENERATED' && q.status !== 'GRADING' && q.status !== 'ANSWERED' && q.status !== 'GRADING_FAILED') throw new Error('题目尚未生成完毕或已作答');
 
   const updated = await prisma.questionQueue.update({
     where: { id: questionId },
@@ -338,6 +338,28 @@ export async function markQuestionAsAnswered(questionId: string) {
 }
 
 /**
+ * Mark a GRADING question as GRADING_FAILED when grading encounters an error.
+ */
+export async function markQuestionAsGradingFailed(questionId: string) {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const q = await prisma.questionQueue.findUnique({
+    where: { id: questionId },
+  });
+
+  if (!q) throw new Error('题目不存在');
+  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+
+  return prisma.questionQueue.update({
+    where: { id: questionId },
+    data: {
+      status: 'GRADING_FAILED',
+    },
+  });
+}
+
+/**
  * AI 批量批改翻译句子答案（统一提交模式）.
  * 如果用户放弃了某道题（空答案），只返回标准答案不评分.
  */
@@ -354,7 +376,7 @@ export async function gradeTranslateAnswerBatch(
 
   if (!q) throw new Error('题目不存在');
   if (q.userId !== user.userId) throw new Error('无权访问此题目');
-  if (q.status !== 'GRADING' && q.status !== 'ANSWERED') throw new Error('题目状态不允许批改');
+  if (q.status !== 'GRADING' && q.status !== 'ANSWERED' && q.status !== 'GRADING_FAILED') throw new Error('题目状态不允许批改');
 
   const questionContent = q.questionContent as any;
   if (!questionContent?.questions) {
@@ -377,12 +399,7 @@ export async function gradeTranslateAnswerBatch(
 
   const results: GradeResult[] = [];
 
-  // After grading is complete, mark the question as ANSWERED
-  try {
-    await markQuestionAsAnswered(questionId);
-  } catch (e) {
-    console.error('更新题目状态失败:', e);
-  }
+  let gradingSuccess = true;
 
   for (const question of questions) {
     const userAnswer = answers[question.id]?.trim() || '';
@@ -428,6 +445,7 @@ export async function gradeTranslateAnswerBatch(
       });
     } catch (apiError) {
       console.error('AI 评分 API 调用失败:', apiError);
+      gradingSuccess = false;
       // API 调用失败时，直接返回标准答案，不提供评分
       results.push({
         questionId: question.id,
@@ -560,6 +578,22 @@ export async function gradeTranslateAnswerBatch(
     await saveGradingResult(questionId, results);
   } catch (e) {
     console.error('保存批改结果失败:', e);
+    gradingSuccess = false;
+  }
+
+  // Update status based on grading success
+  if (gradingSuccess) {
+    try {
+      await markQuestionAsAnswered(questionId);
+    } catch (e) {
+      console.error('更新题目状态为已作答失败:', e);
+    }
+  } else {
+    try {
+      await markQuestionAsGradingFailed(questionId);
+    } catch (e) {
+      console.error('更新题目状态为批改失败失败:', e);
+    }
   }
 
   return results;

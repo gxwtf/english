@@ -8,3 +8,7 @@ export interface FillBlankOptions {
 export interface TranslateOptions {
   n: number; // 翻译句子的题目数量
 }
+
+export interface MeaningSelectOptions {
+  n?: number; // 英译中的题目数量（每个单词一道题）
+}

@@ -10,6 +10,7 @@ import {
   loadQuestionQueue as loadQuestionQueueAction,
   generateFillBlankWithQuestion,
   generateTranslateWithQuestion,
+  generateMeaningSelectWithQuestion,
   markQuestionAsFailed,
   retryQuestion,
 } from '@/actions/ai-question';
@@ -45,11 +46,16 @@ export default function PracticePage() {
     const wordIds: number[] = JSON.parse(wordIdsRaw);
     const options = JSON.parse(optionsRaw);
 
+    // 读取关联词信息
+    const relatedWordsRaw = sessionStorage.getItem('pendingRelatedWords');
+    const relatedWordEntries = relatedWordsRaw ? JSON.parse(relatedWordsRaw) : [];
+
     // 清理 sessionStorage
     sessionStorage.removeItem('pendingQuestionId');
     sessionStorage.removeItem('pendingQuestionType');
     sessionStorage.removeItem('pendingWordIds');
     sessionStorage.removeItem('pendingOptions');
+    sessionStorage.removeItem('pendingRelatedWords');
 
     // 触发 AI 生成
     const generate = async () => {
@@ -57,12 +63,28 @@ export default function PracticePage() {
         switch (questionType) {
           case 'fill-blank': {
             const fillBlankOptions = options.fillBlank ?? { n: 5, m: 0 };
-            await generateFillBlankWithQuestion(pendingQuestionId, wordIds, fillBlankOptions, undefined, options.deepThinking);
+            await generateFillBlankWithQuestion(
+              pendingQuestionId, wordIds, fillBlankOptions,
+              undefined, options.deepThinking,
+              relatedWordEntries, options.allowFormChange
+            );
             break;
           }
           case 'translate': {
             const translateOptions = options.translate ?? { n: 5 };
-            await generateTranslateWithQuestion(pendingQuestionId, wordIds, translateOptions, undefined, options.deepThinking);
+            await generateTranslateWithQuestion(
+              pendingQuestionId, wordIds, translateOptions,
+              undefined, options.deepThinking,
+              relatedWordEntries
+            );
+            break;
+          }
+          case 'meaning-select': {
+            await generateMeaningSelectWithQuestion(
+              pendingQuestionId, wordIds,
+              options.deepThinking,
+              relatedWordEntries
+            );
             break;
           }
         }
@@ -105,12 +127,18 @@ export default function PracticePage() {
           type: 'fill-blank',
           fillBlank: { n, m },
         }));
-      } else {
+      } else if (result.questionType === 'translate') {
         const wordCount = result.wordIds?.length || 2;
         const n = Math.min(1, wordCount); // n 至少为 1，但不超过单词数
         sessionStorage.setItem('pendingOptions', JSON.stringify({
           type: 'translate',
           translate: { n },
+        }));
+      } else if (result.questionType === 'meaning-select') {
+        const wordCount = result.wordIds?.length || 2;
+        const n = Math.min(1, wordCount); // n 至少为 1，但不超过单词数
+        sessionStorage.setItem('pendingOptions', JSON.stringify({
+          type: 'meaning-select',
         }));
       }
       window.location.href = '/practice';

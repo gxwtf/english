@@ -3,6 +3,7 @@
 import { fetchEnrichedWords, enqueuePendingQuestion, updateQuestionWithContent } from './utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { TranslateOptions } from '@/types/problem';
+import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
 
 interface TranslateQuestion {
@@ -59,6 +60,7 @@ export async function generateAndEnqueueTranslate(
  * @param options - 翻译题目参数
  * @param customPrompt - 可选的自定义提示词
  * @param deepThinking - 是否开启深度思考模式
+ * @param relatedWordEntries - 关联词信息列表（不在选中列表中的关联词）
  */
 export async function generateTranslateWithQuestion(
   questionId: string,
@@ -66,8 +68,9 @@ export async function generateTranslateWithQuestion(
   options: TranslateOptions,
   customPrompt?: string,
   deepThinking?: boolean,
+  relatedWordEntries?: RelatedWordEntry[],
 ) {
-  const parsed = await doGenerateTranslate(wordIds, options, customPrompt, deepThinking);
+  const parsed = await doGenerateTranslate(wordIds, options, customPrompt, deepThinking, relatedWordEntries);
   return await updateQuestionWithContent(questionId, parsed, 'translate', wordIds);
 }
 
@@ -76,6 +79,7 @@ async function doGenerateTranslate(
   options: TranslateOptions,
   customPrompt?: string,
   deepThinking?: boolean,
+  relatedWordEntries?: RelatedWordEntry[],
 ) {
   if (!wordIds?.length) {
     throw new Error('缺少单词列表');
@@ -138,15 +142,18 @@ async function doGenerateTranslate(
 3. chinese 是中文句子，要翻译成英文
 4. referenceAnswers 是标准的英文翻译，必须包含 keyWords 中的单词
 5. keyWords 是从提供的单词表中挑选的关键词，学生翻译时必须用到，**每道题必须恰好一个单词**
-6. **重要：如果单词释义后面标注了【用户不熟悉，需重点练习】，请优先围绕这些不熟悉的含义出题，帮助用户针对性地练习薄弱环节**
+6. **重要：每个单词的 meanings 字段包含了用户不熟悉、需要重点练习的释义，请优先围绕这些释义出题，帮助用户针对性地练习薄弱环节**
 7. 题目难度要适合英语学习者，中文句子要自然流畅
 8. 生成的英文翻译语法正确且自然
 9. 只返回 JSON，不要返回任何其他文字
-10. 使用 generateRandomNumber 工具来随机化题目排列和关键词选择（如果模型支持工具调用）`;
+10. 使用 generateRandomNumber 工具来随机化题目排列和关键词选择（如果模型支持工具调用）
+11. **重要：你可以任意改变这些单词的时态语态（例：run -> ran; run -> to run）**`;
 
-  const userPrompt = `提供的单词列表（注意：【用户不熟悉，需重点练习】标注的是用户需要加强的含义）：
+  const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：
 ${JSON.stringify(wordData, null, 2)}
-
+${relatedWordEntries && relatedWordEntries.length > 0 ? `\n## 关联词（补充单词池）：
+以下关联词来自选中单词的关联词列表，它们没有标注特定释义，AI 可以考察其任意释义。请将这些关联词也纳入可选单词池，可以作为 keyWords 使用：
+${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}` : ''}
 ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
 请生成符合上述要求的翻译题目 JSON。`;

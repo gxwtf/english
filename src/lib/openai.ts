@@ -5,7 +5,7 @@
  * const result = await callOpenAI('你的问题', { prompt: '附加说明' });
  */
 
-const model = 'Qwen3.5-397B-A17B-NVFP4';
+const model = process.env.OPENAI_MODEL || 'Qwen3.5-397B-A17B-NVFP4';
 
 interface OpenAIOptions {
   prompt?: string;
@@ -43,12 +43,16 @@ function getApiConfig(): { apiKey: string; apiBase: string } {
   const apiKey = process.env.OPENAI_API_KEY;
   const apiBase = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
 
+  console.log('key: ', apiKey, 'base: ', apiBase, 'model:', model);
+
   if (!apiKey) {
     throw new Error('缺少 OPENAI_API_KEY 环境变量配置');
   }
 
   return { apiKey, apiBase };
 }
+
+getApiConfig();
 
 /**
  * 调用 OpenAI API
@@ -147,11 +151,11 @@ export async function callOpenAI(
         throw new Error(`OpenAI API 请求超时（${timeoutMs / 1000}秒），已重试${maxRetries}次`);
       }
 
-      // 504 Gateway Time-out 也重试
-      if (error instanceof Error && error.message.includes('504')) {
-        console.warn(`OpenAI API 504 错误（第${attempt + 1}次），重试中...`);
+      // 503 Service Unavailable 或 504 Gateway Time-out 也重试
+      if (error instanceof Error && (error.message.includes('503') || error.message.includes('504'))) {
+        console.warn(`OpenAI API ${error.message.includes('503') ? '503' : '504'} 错误（第${attempt + 1}次），重试中...`);
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 3000));
           continue;
         }
       }
@@ -337,11 +341,11 @@ export async function callOpenAIWithTools(
         throw new Error(`OpenAI API 请求超时（${timeoutMs / 1000}秒），已重试${maxRetries}次`);
       }
 
-      // 504 Gateway Time-out 也重试
-      if (error instanceof Error && error.message.includes('504')) {
-        console.warn(`OpenAI API (with tools) 504 错误（第${attempt + 1}次），重试中...`);
+      // 503 Service Unavailable 或 504 Gateway Time-out 也重试
+      if (error instanceof Error && (error.message.includes('503') || error.message.includes('504'))) {
+        console.warn(`OpenAI API (with tools) ${error.message.includes('503') ? '503' : '504'} 错误（第${attempt + 1}次），重试中...`);
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 3000));
           continue;
         }
       }

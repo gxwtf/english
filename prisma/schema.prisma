@@ -102,4 +102,5 @@ enum QuestionStatus {
   ANSWERED
   FAILED
   GRADING
+  GRADING_FAILED
 }

@@ -44,10 +44,11 @@ export interface TagConfig {
 }
 
 // AI 出题相关类型
-export type QuestionStatus = 'GENERATING' | 'GENERATED' | 'GRADING' | 'ANSWERED' | 'FAILED';
+export type QuestionStatus = 'GENERATING' | 'GENERATED' | 'GRADING' | 'ANSWERED' | 'FAILED' | 'GRADING_FAILED';
 export type QuestionType =
 'fill-blank' | // 选词填空
-'translate'; // 翻译
+'translate' | // 翻译句子
+'meaning-select'; // 英译中（选释义）
 
 
 export interface QuestionQueueItem {

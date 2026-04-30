@@ -3,11 +3,12 @@
 import { fetchEnrichedWords, updateQuestionWithContent, enqueuePendingQuestion } from './utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { FillBlankOptions } from '@/types/problem';
+import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
 
 interface FillBlankQuestion {
   words: string[];
-  questions: { sentence: string; answer: string }[];
+  questions: { sentence: string; answer: string; originalWord?: string }[];
 }
 
 /**
@@ -53,6 +54,8 @@ export async function generateAndEnqueueFillBlank(
  * @param options - 选词填空参数
  * @param customPrompt - 可选的自定义提示词
  * @param deepThinking - 是否开启深度思考模式
+ * @param relatedWordEntries - 关联词信息列表（不在选中列表中的关联词）
+ * @param allowFormChange - 是否允许改变单词形式
  */
 export async function generateFillBlankWithQuestion(
   questionId: string,
@@ -60,8 +63,10 @@ export async function generateFillBlankWithQuestion(
   options: FillBlankOptions,
   customPrompt?: string,
   deepThinking?: boolean,
+  relatedWordEntries?: RelatedWordEntry[],
+  allowFormChange?: boolean,
 ) {
-  const parsed = await doGenerateFillBlank(wordIds, options, customPrompt, deepThinking);
+  const parsed = await doGenerateFillBlank(wordIds, options, customPrompt, deepThinking, relatedWordEntries, allowFormChange);
   return await updateQuestionWithContent(questionId, parsed, 'fill-blank', wordIds);
 }
 
@@ -70,6 +75,8 @@ async function doGenerateFillBlank(
   options: FillBlankOptions,
   customPrompt?: string,
   deepThinking?: boolean,
+  relatedWordEntries?: RelatedWordEntry[],
+  allowFormChange?: boolean,
 ) {
   if (!wordIds?.length) {
     throw new Error('缺少单词列表');
@@ -114,8 +121,8 @@ async function doGenerateFillBlank(
   };
 
   const systemPrompt = `
-总体要求：${SYSTEM_MESSAGE}  
-  
+总体要求：${SYSTEM_MESSAGE}
+
 你是一位专业的英语考试题目生成专家。请根据提供的单词列表，生成一道"选词填空"练习题。
 
 ## 题目格式要求（必须返回合法的 JSON）：
@@ -124,7 +131,8 @@ async function doGenerateFillBlank(
   "questions": [
     {
       "sentence": "包含 _ 的一个句子",
-      "answer": "答案单词"
+      "answer": "答案单词",
+      "originalWord": "原始单词（仅当答案不是原文时填写）"
     },
     ...
   ]
@@ -134,15 +142,25 @@ async function doGenerateFillBlank(
 1. words 数组包含 ${options.n + options.m} 个可供选择的单词（从提供的单词列表中选取）
 2. questions 数组包含 ${options.n} 道小题
 3. 每个 question 的 sentence 中必须包含一个 _ （下划线）表示填空位置
-4. answer 必须是 words 数组中的某个单词原文
+4. answer 必须是填空处实际需要的单词形式（如果需要变体形式，answer 就写变体形式）
 5. 如果有多个答案，answer 字段用英文分号 ; 分隔
 6. 句子要自然流畅，难度适合英语学习者
-7. 只返回 JSON，不要返回任何其他文字
-8. 使用 generateRandomNumber 工具来打乱单词顺序和随机化题目排列（如果模型支持工具调用）`;
+7. **重要：每个单词的 meanings 字段包含了用户不熟悉、需要重点练习的释义，请优先围绕这些释义出题，帮助用户针对性地练习薄弱环节**
+${allowFormChange ? `8. **重要：允许改变形式模式已开启** — 约 2/3 的题目中，你必须将单词变为不同形式出现在句子的填空处（例如：不同时态、动词/名词形式转换等）。此时 answer 字段应填写实际需要的变体形式（如 "tendency"），同时必须填写 originalWord 字段为原始单词（如 "tend"），以便前端识别这是形式变化。` : `8. 每个填空处的答案必须是 words 数组中某个单词的原文，originalWord 字段不需要填写`}
+9. 只返回 JSON，不要返回任何其他文字
+10. 使用 generateRandomNumber 工具来打乱单词顺序和随机化题目排列（如果模型支持工具调用）`;
 
-  const userPrompt = `提供的单词列表：
+  // Build the user prompt with optional related words section
+  let relatedWordsSection = '';
+  if (relatedWordEntries && relatedWordEntries.length > 0) {
+    relatedWordsSection = `\n## 关联词（补充单词池）：
+以下关联词来自选中单词的关联词列表，它们没有标注特定释义，AI 可以考察其任意释义。请将这些关联词也纳入可选单词池：
+${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}`;
+  }
+
+  const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：
 ${JSON.stringify(wordData, null, 2)}
-
+${relatedWordsSection}
 ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
 请生成符合上述要求的选词填空题目 JSON。`;
@@ -170,6 +188,7 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
   let parsed: FillBlankQuestion;
   try {
+    console.log('AI response:', content);
     parsed = JSON.parse(content);
   } catch {
     throw new Error('AI 返回的内容不是合法的 JSON，无法解析题目');
@@ -203,13 +222,20 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
   }
 
   // Collect all unique answers from questions and verify each is in the words array
+  // When allowFormChange is true, answers may be variant forms not in words array,
+  // but must have originalWord pointing to a word in the array
   const missingWords = new Set<string>();
   for (let i = 0; i < parsed.questions.length; i++) {
     const q = parsed.questions[i];
     if (!q.sentence || !q.answer) {
       throw new Error(`第 ${i + 1} 道小题缺少 sentence 或 answer 字段`);
     }
-    if (!uniqueWords.has(q.answer)) {
+    if (allowFormChange && q.originalWord) {
+      // Form change mode: answer can be a variant form, but originalWord must be in words array
+      if (!uniqueWords.has(q.originalWord)) {
+        missingWords.add(q.originalWord);
+      }
+    } else if (!uniqueWords.has(q.answer)) {
       missingWords.add(q.answer);
     }
   }

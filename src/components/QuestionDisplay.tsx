@@ -7,6 +7,7 @@ const STATUS_LABELS: Record<string, string> = {
   GRADING: '批改中',
   ANSWERED: '已作答',
   FAILED: '生成失败',
+  GRADING_FAILED: '批改失败',
 };
 
 export function QuestionList({
@@ -32,7 +33,7 @@ export function QuestionList({
               {STATUS_LABELS[q.status]}
             </span>
             <span className="text-xs text-gray-400 ml-auto">
-              {q.questionType === 'fill-blank' ? '选词填空' : '翻译句子'}
+              {q.questionType === 'fill-blank' ? '选词填空' : q.questionType === 'meaning-select' ? '英译中' : '翻译句子'}
             </span>
             <span className="text-xs text-gray-400">
               {new Date(q.updatedAt).toLocaleString('zh-CN')}
@@ -54,6 +55,24 @@ export function QuestionList({
                 className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 查看作答 <Eye className="h-3 w-3" />
+              </a>
+            )}
+
+            {q.status === 'GRADING' && (
+              <a
+                href={`/practice/${q.id}`}
+                className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
+              >
+                查看进度 <Eye className="h-3 w-3" />
+              </a>
+            )}
+
+            {q.status === 'GRADING_FAILED' && (
+              <a
+                href={`/practice/${q.id}`}
+                className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+              >
+                重新批改 <ArrowRight className="h-3 w-3" />
               </a>
             )}
 
@@ -82,6 +101,7 @@ function StatusIcon({ status }: { status: string }) {
   if (status === 'GRADING') return <Loader2 className="h-4 w-4 text-purple-500 animate-spin" />;
   if (status === 'ANSWERED') return <Edit3 className="h-4 w-4 text-amber-500" />;
   if (status === 'FAILED') return <AlertCircle className="h-4 w-4 text-red-500" />;
+  if (status === 'GRADING_FAILED') return <AlertCircle className="h-4 w-4 text-orange-500" />;
   return null;
 }
 
