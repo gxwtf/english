@@ -42,4 +42,10 @@ next-env.d.ts
 
 # 词典文件
 src/dict/*
+
+# prisma
 /src/generated/prisma
+/prisma/migrations
+
+# package-lock.json
+package-lock.json
