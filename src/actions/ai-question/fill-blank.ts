@@ -18,6 +18,7 @@ export async function enqueuePendingFillBlank(
   wordIds: number[],
   options: FillBlankOptions,
   deepThinking?: boolean,
+  relatedWordEntries?: RelatedWordEntry[],
 ) {
   if (!wordIds?.length) {
     throw new Error('缺少单词列表');
@@ -26,7 +27,7 @@ export async function enqueuePendingFillBlank(
     throw new Error('缺少题目参数：n 和 m 为必填项');
   }
 
-  return await enqueuePendingQuestion('fill-blank', wordIds);
+  return await enqueuePendingQuestion('fill-blank', wordIds, relatedWordEntries);
 }
 
 /**
@@ -93,10 +94,9 @@ async function doGenerateFillBlank(
   if (options.n + options.m > 11) {
     throw new Error('n + m 不能超过 11');
   }
-  // 前端已完成抽词，后端信任前端传递的单词数量
-  // 如果前端传递的单词数量不足，可能是前端抽词逻辑有误
-  if (options.n + options.m > wordIds.length) {
-    throw new Error(`需要 ${options.n + options.m} 个单词，但前端只传递了 ${wordIds.length} 个`);
+  const totalAvailable = wordIds.length + (relatedWordEntries?.length || 0);
+  if (options.n + options.m > totalAvailable) {
+    throw new Error(`需要 ${options.n + options.m} 个单词，但前端只传递了 ${wordIds.length} 个核心词和 ${relatedWordEntries?.length || 0} 个关联词`);
   }
 
   const wordData = await fetchEnrichedWords(wordIds);
@@ -153,9 +153,17 @@ ${allowFormChange ? `8. **重要：允许改变形式模式已开启** — 约 2
   // Build the user prompt with optional related words section
   let relatedWordsSection = '';
   if (relatedWordEntries && relatedWordEntries.length > 0) {
+    const differentFormWords = relatedWordEntries.filter(rw => rw.types.includes('different_form'));
+    const easilyConfusedWords = relatedWordEntries.filter(rw => rw.types.includes('easily_confused'));
+
     relatedWordsSection = `\n## 关联词（补充单词池）：
-以下关联词来自选中单词的关联词列表，它们没有标注特定释义，AI 可以考察其任意释义。请将这些关联词也纳入可选单词池：
-${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}`;
+以下关联词来自选中单词的关联词列表，请将它们纳入可选单词池：
+${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}
+
+### 关联词出题指导：
+- 关联词没有标注特定释义，你可以考察其任意释义
+${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${differentFormWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词是同一词的不同形式（如名词/动词形式转换），你可以设计考察词形变化的题目` : ''}
+${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，你可以设计辨析类题目，让填空处需要仔细区分才能选对` : ''}`;
   }
 
   const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：

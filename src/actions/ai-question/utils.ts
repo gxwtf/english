@@ -24,27 +24,31 @@ export async function fetchEnrichedWords(wordIds: number[]) {
     },
   });
 
-  // 批量获取所有单词的关联词
-  const relatedWordsMap = new Map<number, { relatedText: string; type: string }[]>();
-  for (const word of words) {
-    const relatedWords = await prisma.relatedWord.findMany({
-      where: { wordText: word.text },
-    });
-    relatedWordsMap.set(word.id, relatedWords);
+  const allTexts = words.map(w => w.text);
+  const allRelated = await prisma.relatedWord.findMany({
+    where: { wordText: { in: allTexts } },
+  });
+
+  const relatedByWordText = new Map<string, { relatedText: string; type: string }[]>();
+  for (const rw of allRelated) {
+    if (!relatedByWordText.has(rw.wordText)) {
+      relatedByWordText.set(rw.wordText, []);
+    }
+    relatedByWordText.get(rw.wordText)!.push({ relatedText: rw.relatedText, type: rw.type });
   }
 
   return words.map((w) => ({
     id: w.id,
     text: w.text,
-    meanings: w.meanings, // 用户不熟悉的释义
+    meanings: w.meanings,
     tags: w.wordTags.map((wt) => ({
       id: wt.tag.id,
       name: wt.tag.name,
       colorId: wt.tag.colorId,
     })),
-    relatedWords: (relatedWordsMap.get(w.id) || []).map((rw) => ({
+    relatedWords: (relatedByWordText.get(w.text) || []).map((rw) => ({
       text: rw.relatedText,
-      type: rw.type, // 一词多义 / 不同形式
+      type: rw.type,
     })),
   }));
 }
@@ -68,6 +72,7 @@ export async function loadQuestionQueue() {
     questionContent: (q.questionContent as Record<string, unknown> | undefined) ?? undefined,
     lastAnswer: (q.lastAnswer as Record<string, unknown> | undefined) ?? undefined,
     wordIds: q.wordIds,
+    relatedWordEntries: (q.relatedWordEntries as object[] | null) ?? [],
     createdAt: q.createdAt.toISOString(),
     updatedAt: q.updatedAt.toISOString(),
   }));
@@ -115,7 +120,8 @@ export async function enqueueQuestion(
  */
 export async function enqueuePendingQuestion(
   questionType: QuestionType,
-  wordIds: number[]
+  wordIds: number[],
+  relatedWordEntries?: object[]
 ) {
   const user = await getAuthUser();
   if (!user) throw new Error('未登录');
@@ -130,6 +136,7 @@ export async function enqueuePendingQuestion(
       questionType: questionType as any,
       status: 'GENERATING',
       wordIds,
+      relatedWordEntries: relatedWordEntries && relatedWordEntries.length > 0 ? relatedWordEntries as any : undefined,
     },
   });
 
@@ -139,6 +146,7 @@ export async function enqueuePendingQuestion(
     status: question.status,
     questionContent: null as null | undefined,
     wordIds,
+    relatedWordEntries: relatedWordEntries || [],
     createdAt: question.createdAt.toISOString(),
     updatedAt: question.updatedAt.toISOString(),
   };
@@ -235,15 +243,16 @@ export async function loadQuestionById(questionId: string) {
     gradingResult: (q.gradingResult as GradeResult[] | null) ?? null,
     lastAnswer: (q.lastAnswer as Record<string, unknown> | undefined) ?? undefined,
     wordIds: q.wordIds,
+    relatedWordEntries: (q.relatedWordEntries as object[] | null) ?? [],
     createdAt: q.createdAt.toISOString(),
     updatedAt: q.updatedAt.toISOString(),
   };
-}
-
-/**
- * Mark a GENERATING question as FAILED.
- */
-export async function markQuestionAsFailed(questionId: string) {
+  }
+  
+  /**
+   * Mark a GENERATING question as FAILED.
+   */
+  export async function markQuestionAsFailed(questionId: string) {
   const user = await getAuthUser();
   if (!user) throw new Error('未登录');
 

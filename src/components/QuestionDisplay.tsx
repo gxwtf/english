@@ -130,16 +130,6 @@ export function QuestionDisplay({
 
   return (
     <>
-      {thinkingContent && (
-        <details className="mb-4 text-xs">
-          <summary className="cursor-pointer text-amber-600 dark:text-amber-400 font-medium">
-            查看 AI 思考过程
-          </summary>
-          <pre className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
-            {thinkingContent}
-          </pre>
-        </details>
-      )}
       <div className="space-y-4">
         {title && <h3 className="text-base font-bold text-gray-900 dark:text-white">{title}</h3>}
 

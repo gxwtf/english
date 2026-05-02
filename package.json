@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "fuser -k 3003/tcp; next dev -p 3003",
     "build": "tsc --downlevelIteration && next build",
-    "start": "next start"
+    "start": "next start -p 3003"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.6.0",

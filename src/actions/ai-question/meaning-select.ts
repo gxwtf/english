@@ -4,6 +4,7 @@ import { fetchEnrichedWords, enqueuePendingQuestion, updateQuestionWithContent }
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
+import { query as queryDict } from '@/lib/dict/query';
 
 interface MeaningSelectQuestion {
   title: string;
@@ -19,27 +20,20 @@ interface MeaningSelectQuestionItem {
   correctAnswer: string;
 }
 
-/**
- * 创建占位题目（GENERATING 状态），用于在 AI 调用前就在队列中显示。
- */
+const MAX_RETRIES = 3;
+
 export async function enqueuePendingMeaningSelect(
   wordIds: number[],
   deepThinking?: boolean,
+  relatedWordEntries?: RelatedWordEntry[],
 ) {
   if (!wordIds?.length) {
     throw new Error('缺少单词列表');
   }
 
-  return await enqueuePendingQuestion('meaning-select', wordIds);
+  return await enqueuePendingQuestion('meaning-select', wordIds, relatedWordEntries);
 }
 
-/**
- * 生成英译中（选词义）题目并入库。
- *
- * @param wordIds - 用户选择的单词 ID 列表
- * @param deepThinking - 是否开启深度思考模式
- * @returns 题目内容对象
- */
 export async function generateAndEnqueueMeaningSelect(
   wordIds: number[],
   deepThinking?: boolean,
@@ -47,13 +41,6 @@ export async function generateAndEnqueueMeaningSelect(
   return await doGenerateMeaningSelect(wordIds, deepThinking);
 }
 
-/**
- * 生成英译中（选词义）题目，并更新一个已存在的 GENERATING 状态的占位题目。
- * @param questionId - 占位题目的 ID
- * @param wordIds - 用户选择的单词 ID 列表
- * @param deepThinking - 是否开启深度思考模式
- * @param relatedWordEntries - 关联词信息列表（不在选中列表中的关联词）
- */
 export async function generateMeaningSelectWithQuestion(
   questionId: string,
   wordIds: number[],
@@ -64,11 +51,51 @@ export async function generateMeaningSelectWithQuestion(
   return await updateQuestionWithContent(questionId, parsed, 'meaning-select', wordIds);
 }
 
+async function getWordAllMeanings(word: string): Promise<string[]> {
+  const dictEntry = await queryDict(word);
+  if (!dictEntry || !dictEntry.meaning) {
+    return [];
+  }
+  return dictEntry.meaning.map(m => m.content.toLowerCase().trim());
+}
+
+function isOptionInMeanings(option: string, meanings: string[]): boolean {
+  const normalizedOption = option.toLowerCase().trim();
+  return meanings.some(m => {
+    const normalizedMeaning = m.toLowerCase().trim();
+    return normalizedOption === normalizedMeaning ||
+           normalizedOption.includes(normalizedMeaning) ||
+           normalizedMeaning.includes(normalizedOption);
+  });
+}
+
+async function validateQuestion(
+  q: MeaningSelectQuestionItem,
+): Promise<{ valid: boolean; reason: string }> {
+  const allMeanings = await getWordAllMeanings(q.word);
+  if (allMeanings.length === 0) {
+    return { valid: true, reason: '词典中未找到该单词，跳过验证' };
+  }
+
+  const distractors = q.options.filter(o => o !== q.correctAnswer);
+
+  for (const distractor of distractors) {
+    if (isOptionInMeanings(distractor, allMeanings)) {
+      return {
+        valid: false,
+        reason: `干扰选项 "${distractor}" 是单词 "${q.word}" 的释义之一，需要重新生成`,
+      };
+    }
+  }
+
+  return { valid: true, reason: '验证通过' };
+}
+
 async function doGenerateMeaningSelect(
   wordIds: number[],
   deepThinking?: boolean,
   relatedWordEntries?: RelatedWordEntry[],
-) {
+): Promise<Record<string, unknown>> {
   if (!wordIds?.length) {
     throw new Error('缺少单词列表');
   }
@@ -78,6 +105,38 @@ async function doGenerateMeaningSelect(
     throw new Error('所选单词不存在');
   }
 
+  let lastError: string | null = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const result = await generateQuestionsWithAI(wordData, relatedWordEntries);
+
+      const validationResults = await Promise.all(
+        result.questions.map(q => validateQuestion(q))
+      );
+
+      const invalidResults = validationResults.filter(r => !r.valid);
+
+      if (invalidResults.length === 0) {
+        return result as unknown as Record<string, unknown>;
+      }
+
+      lastError = invalidResults.map(r => r.reason).join('; ');
+      console.log(`[英译中] 第 ${attempt} 次生成验证失败: ${lastError}`);
+
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+      console.log(`[英译中] 第 ${attempt} 次生成失败: ${lastError}`);
+    }
+  }
+
+  throw new Error(`AI 生成英译中题目失败，已重试 ${MAX_RETRIES} 次。最后错误: ${lastError}`);
+}
+
+async function generateQuestionsWithAI(
+  wordData: any[],
+  relatedWordEntries?: RelatedWordEntry[],
+): Promise<MeaningSelectQuestion> {
   const randomTool = {
     type: 'function' as const,
     function: {
@@ -121,16 +180,24 @@ async function doGenerateMeaningSelect(
 5. options 必须包含恰好 4 个选项，其中只有 1 个是正确的
 6. correctAnswer 必须与 options 中的某个选项完全一致
 7. **重要：每个单词的 meanings 字段包含了用户不熟悉、需要重点练习的释义，请优先考察这些释义**
-8. 干扰选项应该是其他单词的释义，或者是容易混淆的释义
+8. **极其重要：干扰选项（即除正确答案外的 3 个选项）绝对不能是目标单词的任何释义！** 干扰选项必须来自单词列表中**其他单词**的释义，或者与目标单词无关的常见中文释义。这样可以确保用户必须真正理解单词含义才能选出正确答案，而不是仅凭排除同义词就能猜对。
 9. 只返回 JSON，不要返回任何其他文字
 10. 使用 generateRandomNumber 工具来随机化选项顺序（如果模型支持工具调用）`;
 
-  // Build the user prompt with optional related words section
   let relatedWordsSection = '';
   if (relatedWordEntries && relatedWordEntries.length > 0) {
+    const differentFormWords = relatedWordEntries.filter(rw => rw.types.includes('different_form'));
+    const easilyConfusedWords = relatedWordEntries.filter(rw => rw.types.includes('easily_confused'));
+
     relatedWordsSection = `\n## 关联词（补充单词池）：
-以下关联词来自选中单词的关联词列表，它们没有标注特定释义，AI 可以考察其任意释义。请将这些关联词也纳入可选单词池：
-${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}`;
+以下关联词来自选中单词的关联词列表，请将它们纳入可选单词池：
+${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}
+
+### 关联词出题指导：
+- 关联词没有标注特定释义，你可以考察其任意释义
+- 关联词也可以作为干扰选项的来源（用其释义作为错误选项）
+${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${differentFormWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词是同一词的不同形式，你可以用其释义作为干扰选项` : ''}
+${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，你可以用其释义作为极具迷惑性的干扰选项` : ''}`;
   }
 
   const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：
@@ -146,7 +213,6 @@ ${relatedWordsSection}
 
   let content = result.content.trim();
 
-  // 始终解析 reason 标签（深度思考模式已强制开启）
   let thinkingContent: string | null = null;
   {
     const parsed = parseThinkingContent(content);
@@ -170,13 +236,11 @@ ${relatedWordsSection}
     throw new Error('AI 返回的题目缺少必填字段：title 或 questions');
   }
 
-  // Generate questions for each word if not already done
   const expectedQuestions = wordData.length;
   if (parsed.questions.length !== expectedQuestions) {
     throw new Error(`AI 返回的题目数量不正确，期望 ${expectedQuestions} 道，实际 ${parsed.questions.length} 道`);
   }
 
-  // Validate each question
   for (const q of parsed.questions) {
     if (!q.id || !q.word || !q.chinese || !q.options || !q.correctAnswer) {
       throw new Error('翻译题目中某一题缺少必填字段');
@@ -195,5 +259,5 @@ ${relatedWordsSection}
     resultContent.thinking = thinkingContent;
   }
 
-  return resultContent;
+  return resultContent as unknown as MeaningSelectQuestion;
 }

@@ -27,12 +27,13 @@ export async function enqueuePendingTranslate(
   wordIds: number[],
   options: TranslateOptions,
   deepThinking?: boolean,
+  relatedWordEntries?: RelatedWordEntry[],
 ) {
   if (!wordIds?.length) {
     throw new Error('缺少单词列表');
   }
 
-  return await enqueuePendingQuestion('translate', wordIds);
+  return await enqueuePendingQuestion('translate', wordIds, relatedWordEntries);
 }
 
 /**
@@ -90,10 +91,9 @@ async function doGenerateTranslate(
   if (options.n < 1) {
     throw new Error('题目数量 n 必须 >= 1');
   }
-  // 前端已完成抽词，后端信任前端传递的单词数量
-  // 如果前端传递的单词数量不足，可能是前端抽词逻辑有误
-  if (options.n > wordIds.length) {
-    throw new Error(`需要 ${options.n} 个单词，但前端只传递了 ${wordIds.length} 个`);
+  const totalAvailable = wordIds.length + (relatedWordEntries?.length || 0);
+  if (options.n > totalAvailable) {
+    throw new Error(`需要 ${options.n} 个单词，但前端只传递了 ${wordIds.length} 个核心词和 ${relatedWordEntries?.length || 0} 个关联词`);
   }
 
   const wordData = await fetchEnrichedWords(wordIds);
@@ -151,9 +151,18 @@ async function doGenerateTranslate(
 
   const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：
 ${JSON.stringify(wordData, null, 2)}
-${relatedWordEntries && relatedWordEntries.length > 0 ? `\n## 关联词（补充单词池）：
-以下关联词来自选中单词的关联词列表，它们没有标注特定释义，AI 可以考察其任意释义。请将这些关联词也纳入可选单词池，可以作为 keyWords 使用：
-${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}` : ''}
+${relatedWordEntries && relatedWordEntries.length > 0 ? (() => {
+    const differentFormWords = relatedWordEntries.filter(rw => rw.types.includes('different_form'));
+    const easilyConfusedWords = relatedWordEntries.filter(rw => rw.types.includes('easily_confused'));
+    return `\n## 关联词（补充单词池）：
+以下关联词来自选中单词的关联词列表，可以作为 keyWords 使用：
+${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}
+
+### 关联词出题指导：
+- 关联词没有标注特定释义，你可以考察其任意释义
+${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${differentFormWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词是同一词的不同形式，你可以设计考察词形变化的翻译题` : ''}
+${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，你可以设计辨析类翻译题` : ''}`;
+  })() : ''}
 ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
 请生成符合上述要求的翻译题目 JSON。`;

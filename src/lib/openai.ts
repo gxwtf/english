@@ -43,8 +43,6 @@ function getApiConfig(): { apiKey: string; apiBase: string } {
   const apiKey = process.env.OPENAI_API_KEY;
   const apiBase = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
 
-  console.log('key: ', apiKey, 'base: ', apiBase, 'model:', model);
-
   if (!apiKey) {
     throw new Error('缺少 OPENAI_API_KEY 环境变量配置');
   }

@@ -53,18 +53,35 @@ export function selectWordsForQuestion(
   }
 
   if (!includeRelatedWords || relatedWordEntries.length === 0) {
-    // 不包含关联词，走原有逻辑
     const wordIds = selectCoreWords(selectedWords, neededCount, wordTextToId);
     return { wordIds, relatedWordEntries: [] };
   }
 
-  // 包含关联词：先随机决定关联词的抽取数量（较低概率）
-  // 关联词抽取数量 = min(关联词池大小, floor(neededCount * 0.3))
-  // 至少预留 1 个给核心词
-  const maxRelatedCount = Math.min(relatedWordEntries.length, Math.floor(neededCount * 0.3));
-  const relatedCountNeeded = neededCount > 1
-    ? Math.floor(Math.random() * (maxRelatedCount + 1))
+  const softMaxRelated = Math.floor(neededCount * 0.3);
+  const mustIncludeRelated = selectedWords.length < neededCount;
+  const minRelatedNeeded = mustIncludeRelated
+    ? Math.min(neededCount - selectedWords.length, relatedWordEntries.length)
     : 0;
+  const maxRelatedCount = Math.min(
+    relatedWordEntries.length,
+    mustIncludeRelated ? neededCount - 1 : softMaxRelated
+  );
+
+  let relatedCountNeeded: number;
+  if (neededCount <= 1 || maxRelatedCount === 0) {
+    relatedCountNeeded = 0;
+  } else if (mustIncludeRelated) {
+    relatedCountNeeded = Math.max(minRelatedNeeded, Math.min(maxRelatedCount, Math.random() < 0.4 ? 1 : Math.min(2, maxRelatedCount)));
+  } else {
+    const roll = Math.random();
+    if (roll < 0.6) {
+      relatedCountNeeded = 0;
+    } else if (roll < 0.9) {
+      relatedCountNeeded = Math.min(1, maxRelatedCount);
+    } else {
+      relatedCountNeeded = Math.min(2, maxRelatedCount);
+    }
+  }
 
   // 核心词数量 = neededCount - 关联词数量
   const coreCountNeeded = neededCount - relatedCountNeeded;
@@ -91,6 +108,9 @@ export type RelatedWordEntry = {
 
 /**
  * 从选中的单词中抽取核心词（原有逻辑）
+ *
+ * 贪心抽取 + 依赖闭包，但会在加入前检查是否会超出 neededCount，
+ * 如果超出则跳过该词（避免截断导致依赖关系被破坏）。
  */
 function selectCoreWords(
   selectedWords: Word[],
@@ -99,13 +119,10 @@ function selectCoreWords(
 ): number[] {
   const selectedCount = selectedWords.length;
 
-  // 如果不需要抽取（选中的单词数量 <= 需要的数量），直接返回所有选中单词的 ID
   if (selectedCount <= neededCount) {
     return selectedWords.map(w => w.id);
   }
 
-  // 构建关联依赖图：如果 A 的 relatedWords 包含 B，且 B 也在选中列表中
-  // 则 A 依赖于 B（选中 A 时必须同时选中 B）
   const dependencyMap = new Map<number, Set<number>>();
 
   for (const word of selectedWords) {
@@ -124,14 +141,12 @@ function selectCoreWords(
     }
   }
 
-  // Fisher-Yates 随机打乱
   const shuffled = [...selectedWords];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  // 贪心抽取 + 依赖闭包
   const result = new Set<number>();
 
   for (const word of shuffled) {
@@ -142,16 +157,19 @@ function selectCoreWords(
     if (result.has(wordId)) continue;
 
     const deps = dependencyMap.get(wordId);
-    if (deps) {
-      for (const depId of deps) {
-        if (!result.has(depId)) {
-          result.add(depId);
-        }
-      }
+    const newDeps = deps ? Array.from(deps).filter(d => !result.has(d)) : [];
+    const totalAfterAdd = result.size + 1 + newDeps.length;
+
+    if (totalAfterAdd > neededCount) {
+      continue;
+    }
+
+    for (const depId of newDeps) {
+      result.add(depId);
     }
 
     result.add(wordId);
   }
 
-  return Array.from(result).slice(0, neededCount);
+  return Array.from(result);
 }

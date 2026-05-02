@@ -37,17 +37,18 @@ model Word {
 }
 
 model QuestionQueue {
-  id              String         @id @default(cuid())
-  userId          Int
-  questionType    String
-  status          QuestionStatus @default(GENERATING)
-  questionContent Json?
-  gradingResult  Json?
-  lastAnswer      Json?
-  wordIds         Int[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  user            User           @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  id                String         @id @default(cuid())
+  userId            Int
+  questionType      String
+  status            QuestionStatus @default(GENERATING)
+  questionContent   Json?
+  gradingResult    Json?
+  lastAnswer        Json?
+  wordIds           Int[]
+  relatedWordEntries Json?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  user              User           @relation(fields: [userId], references: [userId], onDelete: Cascade)
 }
 
 model Tag {

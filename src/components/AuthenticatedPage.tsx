@@ -45,6 +45,20 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   const [showAISelector, setShowAISelector] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const relatedWordsCount = useMemo(() => {
+    const selectedWords = words.filter(w => selectedWordIds.includes(w.id));
+    const selectedTexts = new Set(selectedWords.map(w => w.text.toLowerCase()));
+    const relatedTexts = new Set<string>();
+    for (const word of selectedWords) {
+      for (const rw of word.relatedWords || []) {
+        if (!selectedTexts.has(rw.text.toLowerCase())) {
+          relatedTexts.add(rw.text.toLowerCase());
+        }
+      }
+    }
+    return relatedTexts.size;
+  }, [words, selectedWordIds]);
+
   // 从服务器加载单词和标签配置
   const loadData = async () => {
     try {
@@ -222,18 +236,18 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
       let questionType: QuestionType;
       switch (options.type) {
         case 'fill-blank': {
-          pendingItem = await enqueuePendingFillBlank(wordIds, fillBlankOptions, options.deepThinking);
+          pendingItem = await enqueuePendingFillBlank(wordIds, fillBlankOptions, options.deepThinking, relatedWordEntries);
           questionType = 'fill-blank';
           break;
         }
         case 'translate': {
           const translateOptions = options.translate ?? { n: 5 };
-          pendingItem = await enqueuePendingTranslate(wordIds, translateOptions, options.deepThinking);
+          pendingItem = await enqueuePendingTranslate(wordIds, translateOptions, options.deepThinking, relatedWordEntries);
           questionType = 'translate';
           break;
         }
         case 'meaning-select': {
-          pendingItem = await enqueuePendingMeaningSelect(wordIds, options.deepThinking);
+          pendingItem = await enqueuePendingMeaningSelect(wordIds, options.deepThinking, relatedWordEntries);
           questionType = 'meaning-select';
           break;
         }
@@ -421,6 +435,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
         onClose={() => setShowAISelector(false)}
         onGenerate={handleSelectQuestionType}
         maxWords={selectedWordIds.length}
+        relatedWordsCount={relatedWordsCount}
       />
     </div>
   );

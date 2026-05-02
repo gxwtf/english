@@ -22,11 +22,11 @@ interface AIQuestionTypeSelectorProps {
   isOpen: boolean;
   onClose: () => void;
   onGenerate: (options: QuestionGenerationOptions) => void;
-  /** 选中的单词数量，用于限制 n+m */
   maxWords?: number;
+  relatedWordsCount?: number;
 }
 
-export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }: AIQuestionTypeSelectorProps) => {
+export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, relatedWordsCount }: AIQuestionTypeSelectorProps) => {
   const [selectedType, setSelectedType] = useState<QuestionType | null>(null);
   const [questionN, setQuestionN] = useState<number | ''>(5);
   const [questionM, setQuestionM] = useState<number | ''>(0);
@@ -54,41 +54,40 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
   }, [allowFormChange]);
 
   const effectiveMaxWords = maxWords ?? 11;
+  const effectiveRelatedCount = relatedWordsCount ?? 0;
+  const effectiveTotalPool = includeRelatedWords ? effectiveMaxWords + effectiveRelatedCount : effectiveMaxWords;
   const totalWords = (typeof questionN === 'number' ? questionN : 0) + (typeof questionM === 'number' ? questionM : 0);
   const isFillBlank = selectedType === 'fill-blank';
 
-  // Fill-blank validation
   const fillBlankValidationError = !isFillBlank
     ? null
     : typeof questionN !== 'number' || questionN < 1
       ? '至少要有 1 道题'
-      : totalWords > effectiveMaxWords
-        ? `n + m (${totalWords}) 不能超过选中的单词数量 (${effectiveMaxWords})`
+      : totalWords > effectiveTotalPool
+        ? `n + m (${totalWords}) 不能超过可用单词数量 (${effectiveTotalPool})`
         : totalWords > 11
           ? `n + m (${totalWords}) 不能超过 11`
           : null;
 
-  // Translate validation (only for translate type)
   const isTranslate = selectedType === 'translate';
   const translateValidationError = isTranslate
     ? translateN === '' || translateN < 1
       ? '至少要有 1 道题'
       : translateN > 5
         ? '最多只能出 5 道题'
-        : translateN > effectiveMaxWords
-          ? `题目数量不能超过当前单词数量 (${effectiveMaxWords})`
+        : translateN > effectiveTotalPool
+          ? `题目数量不能超过可用单词数量 (${effectiveTotalPool})`
           : null
     : null;
 
-  // Meaning-select validation
   const isMeaningSelect = selectedType === 'meaning-select';
   const meaningSelectValidationError = isMeaningSelect
     ? meaningSelectN === '' || meaningSelectN < 1
       ? '至少要有 1 道题'
       : meaningSelectN > 5
         ? '最多只能出 5 道题'
-        : meaningSelectN > effectiveMaxWords
-          ? `题目数量不能超过当前单词数量 (${effectiveMaxWords})`
+        : meaningSelectN > effectiveTotalPool
+          ? `题目数量不能超过可用单词数量 (${effectiveTotalPool})`
           : null
     : null;
 
@@ -182,6 +181,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
               </span>
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 — 关联词会以较低概率被随机抽取加入单词列表，AI 可考察其任意释义
+                {effectiveRelatedCount > 0 && `（当前有 ${effectiveRelatedCount} 个关联词可用）`}
               </span>
             </label>
           </div>
@@ -293,7 +293,9 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords }
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 共需 n + m = {totalWords} 个单词（n 道题，m 个干扰词）
-                {effectiveMaxWords < 11 && `，当前选中 ${effectiveMaxWords} 个单词`}
+                {includeRelatedWords && effectiveRelatedCount > 0
+                  ? `，可用单词池：${effectiveMaxWords} + ${effectiveRelatedCount} 关联词 = ${effectiveTotalPool}`
+                  : `，当前选中 ${effectiveMaxWords} 个单词`}
               </p>
               {validationError && (
                 <p className="text-xs text-red-500 mt-1">{validationError}</p>

@@ -58,6 +58,7 @@ export interface QuestionQueueItem {
   questionContent?: Record<string, unknown>;
   lastAnswer?: Record<string, unknown>;
   wordIds: number[];
+  relatedWordEntries?: object[];
   createdAt: string;
   updatedAt: string;
 }

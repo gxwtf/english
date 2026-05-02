@@ -111,32 +111,28 @@ export default function PracticePage() {
   const handleRetryQuestion = useCallback(async (questionId: string, questionItem?: QuestionQueueItem) => {
     try {
       const result = await retryQuestion(questionId);
-      // 重新触发 AI 生成
-      // 由于我们不知道之前的 options，从现有 item 无法恢复，
-      // 所以需要用户重新选择参数。但我们可以直接调用生成
-      // 通过 sessionStorage 传递
       sessionStorage.setItem('pendingQuestionId', result.id);
       sessionStorage.setItem('pendingQuestionType', result.questionType);
       sessionStorage.setItem('pendingWordIds', JSON.stringify(result.wordIds));
-      // 重试时用默认参数 - 根据当前单词数量动态调整
+      if (questionItem?.relatedWordEntries && questionItem.relatedWordEntries.length > 0) {
+        sessionStorage.setItem('pendingRelatedWords', JSON.stringify(questionItem.relatedWordEntries));
+      }
       if (result.questionType === 'fill-blank') {
         const wordCount = result.wordIds?.length || 2;
-        const n = Math.min(1, wordCount); // n 至少为 1，但不超过单词数
-        const m = Math.max(0, wordCount - n); // 剩余作为干扰词
+        const n = Math.min(1, wordCount);
+        const m = Math.max(0, wordCount - n);
         sessionStorage.setItem('pendingOptions', JSON.stringify({
           type: 'fill-blank',
           fillBlank: { n, m },
         }));
       } else if (result.questionType === 'translate') {
         const wordCount = result.wordIds?.length || 2;
-        const n = Math.min(1, wordCount); // n 至少为 1，但不超过单词数
+        const n = Math.min(1, wordCount);
         sessionStorage.setItem('pendingOptions', JSON.stringify({
           type: 'translate',
           translate: { n },
         }));
       } else if (result.questionType === 'meaning-select') {
-        const wordCount = result.wordIds?.length || 2;
-        const n = Math.min(1, wordCount); // n 至少为 1，但不超过单词数
         sessionStorage.setItem('pendingOptions', JSON.stringify({
           type: 'meaning-select',
         }));

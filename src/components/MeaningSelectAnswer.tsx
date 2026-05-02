@@ -89,7 +89,7 @@ export function MeaningSelectAnswer({ questionId, questions, thinking, lastAnswe
 
   return (
     <div className="space-y-6">
-      {thinking && (
+      {thinking && isShowingResults && (
         <details className="text-xs">
           <summary className="cursor-pointer text-amber-600 dark:text-amber-400 font-medium">
             查看 AI 思考过程
