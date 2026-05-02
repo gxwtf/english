@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "fuser -k 3003/tcp; next dev -p 3003",
-    "build": "tsc --downlevelIteration && next build",
+    "build": "next build",
     "start": "next start -p 3003"
   },
   "dependencies": {
