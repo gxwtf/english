@@ -449,7 +449,6 @@ export async function gradeTranslateAnswerBatch(
     try {
       result = await callOpenAI(systemPrompt, {
         prompt: userPrompt,
-        maxTokens: 6000,
         timeout: 180000,
       });
     } catch (apiError) {
@@ -670,7 +669,6 @@ export async function gradeTranslateAnswerSingle(questionId: string, questionIte
 
   const result = await callOpenAI(systemPrompt, {
     prompt: userPrompt,
-    maxTokens: 2000,
   });
 
   let content = result.content.trim();
@@ -830,7 +828,6 @@ ${answersList.map((item, i) => `第 ${i + 1} 题:
 
   const result = await callOpenAI(systemPrompt, {
     prompt: userPrompt,
-    maxTokens: 2000,
   });
 
   let content = result.content.trim();

@@ -169,7 +169,6 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
   const result = await callOpenAIWithTools(systemPrompt, {
     prompt: userPrompt,
-    maxTokens: 6000,
     tools: [randomTool],
   });
 
