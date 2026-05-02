@@ -12,5 +12,5 @@ export function GET(request: NextRequest) {
     system
   )}&back=${encodeURIComponent(back)}`;
 
-  return NextResponse.redirect(loginUrl);
+  return NextResponse.redirect(loginUrl, 302);
 }
