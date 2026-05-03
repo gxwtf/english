@@ -5,10 +5,11 @@ const GXACCOUNT_URL = process.env.GXACCOUNT_URL || "https://account.gxwtf.cn";
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const token = url.searchParams.get("token");
+  const host = request.headers.get('host');
   const back = url.searchParams.get("back") || "/";
 
   if (!token) {
-    return NextResponse.redirect(new URL("/", url.origin));
+    return NextResponse.redirect(new URL("/", "http://"+host), 302);
   }
 
   try {
@@ -22,14 +23,14 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       console.error("Token 验证失败，状态码:", response.status);
-      return NextResponse.redirect(new URL("/", url.origin));
+      return NextResponse.redirect(new URL("/", "http://"+host), 302);
     }
 
     const data = await response.json();
 
     if (!data.success) {
       console.error("验证失败:", data.error);
-      return NextResponse.redirect(new URL("/", url.origin));
+      return NextResponse.redirect(new URL("/", "http://"+host), 302);
     }
 
     const userInfo = {
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
       realName: data.userRealName,
     };
 
-    const response_with_cookie = NextResponse.redirect(new URL(back, url.origin));
+    const response_with_cookie = NextResponse.redirect(new URL(back, "http://"+host), 302);
     response_with_cookie.cookies.set("gxwtf_auth", JSON.stringify(userInfo), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -52,6 +53,6 @@ export async function GET(request: NextRequest) {
     return response_with_cookie;
   } catch (e) {
     console.error("SSO Callback Error:", e);
-    return NextResponse.redirect(new URL("/", url.origin));
+    return NextResponse.redirect(new URL("/", "http://"+host), 302);
   }
 }
