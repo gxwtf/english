@@ -6,14 +6,15 @@ import { getQuestionWordMeanings, type QuestionWordMeaning } from '@/actions/ai-
 interface WordMeaningsDisplayProps {
   questionId: string;
   status: string;
+  isShowingResults?: boolean;
 }
 
-export function WordMeaningsDisplay({ questionId, status }: WordMeaningsDisplayProps) {
+export function WordMeaningsDisplay({ questionId, status, isShowingResults }: WordMeaningsDisplayProps) {
   const [wordMeanings, setWordMeanings] = useState<QuestionWordMeaning[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const shouldShow = status === 'ANSWERED';
+  const shouldShow = status === 'ANSWERED' || isShowingResults;
 
   useEffect(() => {
     if (!shouldShow) return;

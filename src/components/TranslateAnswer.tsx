@@ -453,7 +453,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
             </div>
           )}
 
-          <WordMeaningsDisplay questionId={questionId} status={currentStatus || ''} />
+          <WordMeaningsDisplay questionId={questionId} status={currentStatus || ''} isShowingResults={!!displayGradingResults || currentStatus === 'ANSWERED'} />
 
           {/* 错误提示 */}
           {resetError && (

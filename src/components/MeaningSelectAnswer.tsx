@@ -199,7 +199,7 @@ export function MeaningSelectAnswer({ questionId, questions, thinking, lastAnswe
             </div>
           </div>
 
-          <WordMeaningsDisplay questionId={questionId} status={status || ''} />
+          <WordMeaningsDisplay questionId={questionId} status={status || ''} isShowingResults={isShowingResults} />
 
           {resetError && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 mb-4">
