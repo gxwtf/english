@@ -888,6 +888,82 @@ export async function retryQuestion(questionId: string) {
   };
 }
 
+export type QuestionWordMeaning = {
+  text: string;
+  meanings: string[];
+  isRelatedWord: boolean;
+  sourceWords?: string[];
+};
+
+export async function getQuestionWordMeanings(questionId: string): Promise<QuestionWordMeaning[]> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const q = await prisma.questionQueue.findUnique({
+    where: { id: questionId },
+  });
+
+  if (!q) throw new Error('题目不存在');
+  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+
+  const wordIds = q.wordIds as number[];
+  const relatedWordEntries = (q.relatedWordEntries as Array<{ text: string; types: string[]; sourceWords: string[] }> | null) ?? [];
+
+  const result: QuestionWordMeaning[] = [];
+
+  const coreWords = await prisma.word.findMany({
+    where: { id: { in: wordIds } },
+  });
+
+  const coreWordTexts = new Set(coreWords.map(w => w.text.toLowerCase()));
+
+  for (const word of coreWords) {
+    result.push({
+      text: word.text,
+      meanings: word.meanings,
+      isRelatedWord: false,
+    });
+  }
+
+  for (const relatedEntry of relatedWordEntries) {
+    const existingWord = await prisma.word.findFirst({
+      where: { userId: user.userId, text: { equals: relatedEntry.text, mode: 'insensitive' } },
+    });
+
+    if (existingWord) {
+      if (!coreWordTexts.has(existingWord.text.toLowerCase())) {
+        result.push({
+          text: existingWord.text,
+          meanings: existingWord.meanings,
+          isRelatedWord: true,
+          sourceWords: relatedEntry.sourceWords,
+        });
+      }
+    } else {
+      const sourceWordTexts = relatedEntry.sourceWords;
+      const sourceWordMeanings: string[] = [];
+
+      for (const sourceText of sourceWordTexts) {
+        const sourceWord = await prisma.word.findFirst({
+          where: { userId: user.userId, text: { equals: sourceText, mode: 'insensitive' } },
+        });
+        if (sourceWord && sourceWord.meanings.length > 0) {
+          sourceWordMeanings.push(...sourceWord.meanings);
+        }
+      }
+
+      result.push({
+        text: relatedEntry.text,
+        meanings: sourceWordMeanings.length > 0 ? [...new Set(sourceWordMeanings)] : [],
+        isRelatedWord: true,
+        sourceWords: relatedEntry.sourceWords,
+      });
+    }
+  }
+
+  return result;
+}
+
 /**
  * Reset an ANSWERED or GENERATED question back to GENERATED state for retry.
  * This allows users to re-attempt a question they've already answered.

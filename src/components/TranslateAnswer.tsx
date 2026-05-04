@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitAnswer, gradeTranslateAnswerBatch, loadGradingResult, GradeResult, resetQuestion as resetQuestionAction, markQuestionAsGradingFailed } from '@/actions/ai-question';
+import { WordMeaningsDisplay } from '@/components/WordMeaningsDisplay';
 
 interface TranslateQuestionItem {
   id: number;
@@ -451,6 +452,8 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
               })}
             </div>
           )}
+
+          <WordMeaningsDisplay questionId={questionId} status={currentStatus || ''} />
 
           {/* 错误提示 */}
           {resetError && (

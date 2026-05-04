@@ -31,5 +31,7 @@ export {
   gradeTranslateAnswerSingle,
   gradeTranslateAnswerBatch,
   saveGradingResult,
+  getQuestionWordMeanings,
   type GradeResult,
+  type QuestionWordMeaning,
 } from './utils';

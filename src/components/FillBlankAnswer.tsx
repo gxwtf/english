@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { submitAnswer, markQuestionAsAnswered, resetQuestion as resetQuestionAction } from '@/actions/ai-question';
+import { WordMeaningsDisplay } from '@/components/WordMeaningsDisplay';
 
 interface FillBlankQuestionItem {
   sentence: string;
@@ -188,6 +189,8 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
               })}
             </div>
           </div>
+          
+          <WordMeaningsDisplay questionId={questionId} status={status || ''} />
           
           {resetError && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 mb-4">
