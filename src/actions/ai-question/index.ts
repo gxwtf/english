@@ -14,6 +14,11 @@ export {
   enqueuePendingMeaningSelect,
 } from './meaning-select';
 export {
+  generateAndEnqueueMeaningSelectEn,
+  generateMeaningSelectEnWithQuestion,
+  enqueuePendingMeaningSelectEn,
+} from './meaning-select-en';
+export {
   fetchEnrichedWords,
   loadQuestionQueue,
   loadQuestionById,

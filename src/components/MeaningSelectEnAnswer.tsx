@@ -4,26 +4,25 @@ import { useState, useCallback } from 'react';
 import { submitAnswer, markQuestionAsAnswered, resetQuestion as resetQuestionAction } from '@/actions/ai-question';
 import { WordMeaningsDisplay } from '@/components/WordMeaningsDisplay';
 
-interface MeaningSelectQuestionItem {
+interface MeaningSelectEnQuestionItem {
   id: number;
   type: string;
   word: string;
-  chinese: string;
+  english: string;
   options: string[];
   correctAnswer: string;
 }
 
-interface MeaningSelectAnswerProps {
+interface MeaningSelectEnAnswerProps {
   questionId: string;
-  questions: MeaningSelectQuestionItem[];
+  questions: MeaningSelectEnQuestionItem[];
   thinking?: string;
   lastAnswer?: Record<string, unknown>;
   status?: string;
   onSubmitted?: () => void;
 }
 
-export function MeaningSelectAnswer({ questionId, questions, thinking, lastAnswer, status, onSubmitted }: MeaningSelectAnswerProps) {
-  // 如果题目已作答，从 lastAnswer 初始化答案
+export function MeaningSelectEnAnswer({ questionId, questions, thinking, lastAnswer, status, onSubmitted }: MeaningSelectEnAnswerProps) {
   const initialAnswers = status === 'ANSWERED' && lastAnswer
     ? questions.map((_, i) => (lastAnswer[i] as string) || '')
     : Array(questions.length).fill('');
@@ -85,7 +84,6 @@ export function MeaningSelectAnswer({ questionId, questions, thinking, lastAnswe
     }
   }, [questionId, questions.length, answers, onSubmitted]);
 
-  // 判断是否处于展示结果的阶段
   const isShowingResults = submitted || status === 'ANSWERED';
 
   return (
@@ -101,21 +99,18 @@ export function MeaningSelectAnswer({ questionId, questions, thinking, lastAnswe
         </details>
       )}
 
-      {/* 题目列表 */}
       <div className="space-y-4">
         {questions.map((q, i) => (
           <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">第 {i + 1} 题</p>
 
-            {/* 单词显示 */}
             <div className="mb-4">
               <p className="text-lg font-bold text-center text-gray-900 dark:text-white py-2">
                 {q.word}
               </p>
             </div>
 
-            {/* 选项列表 */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               {q.options.map((option, optionIndex) => {
                 const isSelected = answers[i] === option;
                 const isCorrect = option === q.correctAnswer;
@@ -151,7 +146,6 @@ export function MeaningSelectAnswer({ questionId, questions, thinking, lastAnswe
               })}
             </div>
 
-            {/* 答案显示 */}
             {isShowingResults && (
               <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">正确答案：</p>
@@ -173,7 +167,6 @@ export function MeaningSelectAnswer({ questionId, questions, thinking, lastAnswe
         ))}
       </div>
 
-      {/* 提交按钮或结果展示 */}
       {!isShowingResults ? (
         <button
           onClick={handleSubmit}

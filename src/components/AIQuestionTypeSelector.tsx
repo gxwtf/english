@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Type, ListFilter } from 'lucide-react';
 import type { QuestionType } from '@/types/word';
-import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions } from '@/types/problem';
+import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions, MeaningSelectEnOptions } from '@/types/problem';
 
 const STORAGE_KEY_INCLUDE_RELATED = 'ai-question-include-related';
 const STORAGE_KEY_ALLOW_FORM_CHANGE = 'ai-question-allow-form-change';
@@ -13,6 +13,7 @@ export type QuestionGenerationOptions = {
   fillBlank?: FillBlankOptions;
   translate?: TranslateOptions;
   meaningSelect?: MeaningSelectOptions;
+  meaningSelectEn?: MeaningSelectEnOptions;
   deepThinking?: boolean;
   includeRelatedWords?: boolean;
   allowFormChange?: boolean;
@@ -32,6 +33,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
   const [questionM, setQuestionM] = useState<number | ''>(0);
   const [translateN, setTranslateN] = useState<number | ''>(5);
   const [meaningSelectN, setMeaningSelectN] = useState<number | ''>(5);
+  const [meaningSelectEnN, setMeaningSelectEnN] = useState<number | ''>(5);
   const [includeRelatedWords, setIncludeRelatedWords] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     const stored = localStorage.getItem(STORAGE_KEY_INCLUDE_RELATED);
@@ -91,7 +93,18 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
           : null
     : null;
 
-  const validationError = fillBlankValidationError || translateValidationError || meaningSelectValidationError;
+  const isMeaningSelectEn = selectedType === 'meaning-select-en';
+  const meaningSelectEnValidationError = isMeaningSelectEn
+    ? meaningSelectEnN === '' || meaningSelectEnN < 1
+      ? '至少要有 1 道题'
+      : meaningSelectEnN > 5
+        ? '最多只能出 5 道题'
+        : meaningSelectEnN > effectiveTotalPool
+          ? `题目数量不能超过可用单词数量 (${effectiveTotalPool})`
+          : null
+    : null;
+
+  const validationError = fillBlankValidationError || translateValidationError || meaningSelectValidationError || meaningSelectEnValidationError;
 
   if (!isOpen) return null;
 
@@ -114,6 +127,12 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
       description: '从 4 个中文释义中选择正确的意思',
       icon: ListFilter,
     },
+    {
+      id: 'meaning-select-en' as const,
+      title: '英英释义',
+      description: '从 4 个英文释义中选择正确的意思',
+      icon: ListFilter,
+    },
   ];
 
   const handleGenerate = () => {
@@ -128,8 +147,9 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     } else if (selectedType === 'translate') {
       options.translate = { n: typeof translateN === 'number' ? translateN : 5 };
     } else if (selectedType === 'meaning-select') {
-      // meaning-select uses n as the number of questions
       options.meaningSelect = { n: typeof meaningSelectN === 'number' ? meaningSelectN : 5 };
+    } else if (selectedType === 'meaning-select-en') {
+      options.meaningSelectEn = { n: typeof meaningSelectEnN === 'number' ? meaningSelectEnN : 5 };
     }
     onGenerate(options);
   };
@@ -360,14 +380,12 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   value={meaningSelectN ?? ''}
                   onChange={(e) => {
                     const val = e.target.value;
-                    // 空输入时设置为空字符串，有效数字输入时解析为数字
                     if (val === '') {
                       setMeaningSelectN('');
                     } else if (/^\d+$/.test(val)) {
                       const numVal = parseInt(val) || 1;
                       setMeaningSelectN(numVal);
                     }
-                    // 忽略无效输入（非数字字符）
                   }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
@@ -377,6 +395,43 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 将生成 {typeof meaningSelectN === 'number' ? meaningSelectN : 0} 道英译中小题，每题 4 个选项
+              </p>
+            </div>
+          )}
+
+          {/* 英英释义参数 */}
+          {selectedType === 'meaning-select-en' && (
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                题目参数设置
+              </h4>
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  题目数量 n
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  min={1}
+                  max={5}
+                  value={meaningSelectEnN ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setMeaningSelectEnN('');
+                    } else if (/^\d+$/.test(val)) {
+                      const numVal = parseInt(val) || 1;
+                      setMeaningSelectEnN(numVal);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+                {meaningSelectEnValidationError && (
+                  <p className="text-xs text-red-500 mt-1">{meaningSelectEnValidationError}</p>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                将生成 {typeof meaningSelectEnN === 'number' ? meaningSelectEnN : 0} 道英英释义小题，每题 4 个选项
               </p>
             </div>
           )}
@@ -396,7 +451,9 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 ? `生成选词填空（${typeof questionN === 'number' ? questionN : 0} 道小题，${typeof questionM === 'number' ? questionM : 0} 个干扰词）`
                 : selectedType === 'meaning-select'
                   ? `生成英译中（${typeof meaningSelectN === 'number' ? meaningSelectN : 0} 道小题）`
-                  : `生成翻译句子题目（${typeof translateN === 'number' ? translateN : 0} 道小题）`}
+                  : selectedType === 'meaning-select-en'
+                    ? `生成英英释义（${typeof meaningSelectEnN === 'number' ? meaningSelectEnN : 0} 道小题）`
+                    : `生成翻译句子题目（${typeof translateN === 'number' ? translateN : 0} 道小题）`}
             </button>
           )}
         </div>

@@ -48,7 +48,8 @@ export type QuestionStatus = 'GENERATING' | 'GENERATED' | 'GRADING' | 'ANSWERED'
 export type QuestionType =
 'fill-blank' | // 选词填空
 'translate' | // 翻译句子
-'meaning-select'; // 英译中（选释义）
+'meaning-select' | // 英译中（选释义）
+'meaning-select-en'; // 英英释义（选英文释义）
 
 
 export interface QuestionQueueItem {

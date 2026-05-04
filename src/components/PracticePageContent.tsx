@@ -11,6 +11,7 @@ import {
   generateFillBlankWithQuestion,
   generateTranslateWithQuestion,
   generateMeaningSelectWithQuestion,
+  generateMeaningSelectEnWithQuestion,
   markQuestionAsFailed,
   retryQuestion,
 } from '@/actions/ai-question';
@@ -82,6 +83,14 @@ export function PracticePageContent() {
             );
             break;
           }
+          case 'meaning-select-en': {
+            await generateMeaningSelectEnWithQuestion(
+              pendingQuestionId, wordIds,
+              options.deepThinking,
+              relatedWordEntries
+            );
+            break;
+          }
         }
         setTimeout(() => loadQueue(), 200);
       } catch (error) {
@@ -125,6 +134,10 @@ export function PracticePageContent() {
       } else if (result.questionType === 'meaning-select') {
         sessionStorage.setItem('pendingOptions', JSON.stringify({
           type: 'meaning-select',
+        }));
+      } else if (result.questionType === 'meaning-select-en') {
+        sessionStorage.setItem('pendingOptions', JSON.stringify({
+          type: 'meaning-select-en',
         }));
       }
       window.location.href = '/practice';

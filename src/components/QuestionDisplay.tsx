@@ -33,7 +33,7 @@ export function QuestionList({
               {STATUS_LABELS[q.status]}
             </span>
             <span className="text-xs text-gray-400 ml-auto">
-              {q.questionType === 'fill-blank' ? '选词填空' : q.questionType === 'meaning-select' ? '英译中' : '翻译句子'}
+              {q.questionType === 'fill-blank' ? '选词填空' : q.questionType === 'meaning-select' ? '英译中' : q.questionType === 'meaning-select-en' ? '英英释义' : '翻译句子'}
             </span>
             <span className="text-xs text-gray-400">
               {new Date(q.updatedAt).toLocaleString('zh-CN')}

@@ -7,6 +7,7 @@ import { loadQuestionById } from '@/actions/ai-question';
 import { FillBlankAnswer } from '@/components/FillBlankAnswer';
 import { TranslateAnswer } from '@/components/TranslateAnswer';
 import { MeaningSelectAnswer } from '@/components/MeaningSelectAnswer';
+import { MeaningSelectEnAnswer } from '@/components/MeaningSelectEnAnswer';
 import { QuestionDisplay } from '@/components/QuestionDisplay';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
@@ -69,7 +70,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
             &larr; 返回题目列表
           </a>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white mt-2">
-            {question.questionType === 'fill-blank' ? '选词填空' : question.questionType === 'meaning-select' ? '英译中' : '翻译句子'}
+            {question.questionType === 'fill-blank' ? '选词填空' : question.questionType === 'meaning-select' ? '英译中' : question.questionType === 'meaning-select-en' ? '英英释义' : '翻译句子'}
           </h1>
           <p className="text-xs text-gray-400 mt-1">
             创建于 {new Date(question.createdAt).toLocaleString('zh-CN')}
@@ -106,6 +107,16 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
               />
             ) : question.questionType === 'meaning-select' && question.questionContent.questions ? (
               <MeaningSelectAnswer
+                key={question.id}
+                questionId={question.id}
+                questions={question.questionContent.questions as any[]}
+                thinking={question.questionContent.thinking as string | null ?? undefined}
+                lastAnswer={question.lastAnswer}
+                status={question.status}
+                onSubmitted={() => { }}
+              />
+            ) : question.questionType === 'meaning-select-en' && question.questionContent.questions ? (
+              <MeaningSelectEnAnswer
                 key={question.id}
                 questionId={question.id}
                 questions={question.questionContent.questions as any[]}

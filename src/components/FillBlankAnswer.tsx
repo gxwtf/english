@@ -190,8 +190,10 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
             </div>
           </div>
           
-          <WordMeaningsDisplay questionId={questionId} status={status || ''} isShowingResults={isShowingResults} />
-          
+          <div className="mt-8">
+            <WordMeaningsDisplay questionId={questionId} status={status || ''} isShowingResults={isShowingResults} />
+          </div>
+
           {resetError && (
             <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 mb-4">
               <p className="text-sm text-red-700 dark:text-red-300">{resetError}</p>

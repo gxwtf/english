@@ -23,6 +23,7 @@ import {
   enqueuePendingFillBlank,
   enqueuePendingTranslate,
   enqueuePendingMeaningSelect,
+  enqueuePendingMeaningSelectEn,
 } from '@/actions/ai-question';
 import { selectWordsForQuestion, type RelatedWordEntry } from '@/lib/word-selection';
 
@@ -212,6 +213,9 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     } else if (options.type === 'meaning-select') {
       const meaningSelectOptions = options.meaningSelect ?? { n: 5 };
       neededCount = meaningSelectOptions.n ?? 5;
+    } else if (options.type === 'meaning-select-en') {
+      const meaningSelectEnOptions = options.meaningSelectEn ?? { n: 5 };
+      neededCount = meaningSelectEnOptions.n ?? 5;
     } else {
       neededCount = 5;
     }
@@ -249,6 +253,11 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
         case 'meaning-select': {
           pendingItem = await enqueuePendingMeaningSelect(wordIds, options.deepThinking, relatedWordEntries);
           questionType = 'meaning-select';
+          break;
+        }
+        case 'meaning-select-en': {
+          pendingItem = await enqueuePendingMeaningSelectEn(wordIds, options.deepThinking, relatedWordEntries);
+          questionType = 'meaning-select-en';
           break;
         }
       }

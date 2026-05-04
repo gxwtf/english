@@ -12,3 +12,7 @@ export interface TranslateOptions {
 export interface MeaningSelectOptions {
   n?: number; // 英译中的题目数量（每个单词一道题）
 }
+
+export interface MeaningSelectEnOptions {
+  n?: number; // 英英释义的题目数量（每个单词一道题）
+}
