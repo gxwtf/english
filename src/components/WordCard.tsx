@@ -43,6 +43,25 @@ export const WordCard = ({
     }
   };
 
+  const groupedMeanings = useMemo(() => {
+    if (!word.meanings || word.meanings.length === 0) return [];
+    
+    const groups: { [key: string]: string[] } = {};
+    
+    word.meanings.forEach(meaning => {
+      const type = meaning.type || '';
+      if (!groups[type]) {
+        groups[type] = [];
+      }
+      groups[type].push(meaning.content);
+    });
+    
+    return Object.entries(groups).map(([type, contents]) => ({
+      type,
+      contents
+    }));
+  }, [word.meanings]);
+
   const handleDelete = () => {
     if (showDeleteConfirm) {
       onDelete(word.id);
@@ -103,15 +122,15 @@ export const WordCard = ({
           <div className="space-y-2">
             {/* 单词含义 - 显示词性 */}
             <div className="space-y-1">
-              {word.meanings && word.meanings.length > 0 ? (
-                word.meanings.map((meaning, index) => (
+              {groupedMeanings.length > 0 ? (
+                groupedMeanings.map((group, index) => (
                   <p key={index} className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 break-words">
-                    {meaning.type && (
+                    {group.type && (
                       <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">
-                        {meaning.type}
+                        {group.type}
                       </span>
                     )}
-                    {meaning.content}
+                    {group.contents.join('; ')}
                   </p>
                 ))
               ) : (
