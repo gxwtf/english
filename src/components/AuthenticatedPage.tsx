@@ -16,7 +16,7 @@ import {
   TagConfig,
   RelatedWord,
 } from '@/types/word';
-import { DictionaryEntry } from '@/types/dict';
+import { DictionaryEntry, Meaning } from '@/types/dict';
 import { storage } from '@/lib/storage';
 import { saveWord as saveWordAction, deleteWords as deleteWordsAction } from '@/actions/words';
 import {
@@ -83,7 +83,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   // 保存单词
   const handleSaveWord = async (wordData: {
     text: string;
-    meanings: string[];
+    meanings: Meaning[];
     tags: WordTag[];
     relatedWords?: RelatedWord[];
   }) => {

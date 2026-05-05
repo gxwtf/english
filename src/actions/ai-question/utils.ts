@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db';
 import { getAuthUser } from '../auth';
 import { QuestionType } from '@/types/word';
+import { Meaning } from '@/types/dict';
 import { callOpenAI, parseThinkingContent } from '@/lib/openai';
 
 /**
@@ -920,7 +921,7 @@ export async function getQuestionWordMeanings(questionId: string): Promise<Quest
   for (const word of coreWords) {
     result.push({
       text: word.text,
-      meanings: word.meanings,
+      meanings: word.meanings as unknown as Meaning[],
       isRelatedWord: false,
     });
   }
@@ -934,21 +935,21 @@ export async function getQuestionWordMeanings(questionId: string): Promise<Quest
       if (!coreWordTexts.has(existingWord.text.toLowerCase())) {
         result.push({
           text: existingWord.text,
-          meanings: existingWord.meanings,
+          meanings: existingWord.meanings as unknown as Meaning[],
           isRelatedWord: true,
           sourceWords: relatedEntry.sourceWords,
         });
       }
     } else {
       const sourceWordTexts = relatedEntry.sourceWords;
-      const sourceWordMeanings: string[] = [];
+      const sourceWordMeanings: Meaning[] = [];
 
       for (const sourceText of sourceWordTexts) {
         const sourceWord = await prisma.word.findFirst({
           where: { userId: user.userId, text: { equals: sourceText, mode: 'insensitive' } },
         });
         if (sourceWord && sourceWord.meanings.length > 0) {
-          sourceWordMeanings.push(...sourceWord.meanings);
+          sourceWordMeanings.push(...(sourceWord.meanings as unknown as Meaning[]));
         }
       }
 
