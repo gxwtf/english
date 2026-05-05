@@ -112,7 +112,7 @@ async function batchUpdateMeanings() {
         batch.map(data =>
           prisma.word.update({
             where: { id: data.id },
-            data: { meanings: data.newMeanings }
+            data: { meanings: data.newMeanings as any }
           })
         )
       );
