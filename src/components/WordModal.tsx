@@ -18,11 +18,11 @@ interface WordModalProps {
   onSave: (word: {
     text: string;
     tags: WordTag[];
-    meanings: string[];  // 用户不熟悉的释义列表
+    meanings: Meaning[];
     relatedWords?: RelatedWord[];
   }) => Promise<void> | void;
   initialWord?: Word;
-  allWords?: Word[];  // 所有单词列表，用于关联单词选择
+  allWords?: Word[];
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
   allTagConfigs: Record<WordTag, TagConfig>;
   onTagsUpdate?: (newTagConfigs: Record<WordTag, TagConfig>) => void;
@@ -43,24 +43,9 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
     if (initialWord) {
       setWord(initialWord.text);
       setSearchedWord(initialWord.text);
-      // 加载已保存的释义（从 string[] 转为 Meaning[]）
-      const savedMeanings = initialWord.meanings?.map(m => {
-        // 如果已经是 string，直接转为 Meaning 对象
-        if (typeof m === 'string') {
-          return {
-            content: m,
-            type: '',
-            sentence: ''
-          };
-        }
-        // 如果是 Meaning 对象（旧格式兼容）
-        return m as Meaning;
-      }) || [];
-      setSelectedMeanings(savedMeanings);
+      setSelectedMeanings(initialWord.meanings || []);
       setSelectedTags(initialWord.tags);
-      // 加载已保存的关联单词
       setSelectedRelatedWords(initialWord.relatedWords || []);
-      // 编辑模式不预设词典数据，需要重新查询以显示所有释义
       setDictionaryData(null);
     } else {
       setWord('');
@@ -165,12 +150,9 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
       return;
     }
 
-    // 转换数据格式：从 Meaning[] 转为 string[]
-    const meaningsData = selectedMeanings.map(meaning => meaning.content);
-
     await onSave({
       text: searchedWord.trim(),
-      meanings: meaningsData,
+      meanings: selectedMeanings,
       tags: selectedTags,
       relatedWords: selectedRelatedWords
     });

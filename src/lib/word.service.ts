@@ -1,10 +1,11 @@
 import { prisma } from './db';
+import { Meaning } from '@/types/dict';
 
 export type WordInfo = {
   wordId: number;
   text: string;
   userId: number;
-  meanings: string[];  // 用户不熟悉的释义列表
+  meanings: Meaning[];
   tags: { id: number; name: string; colorId: string; description: string | null }[];
   relatedWords: { id: number; text: string; type: string }[];
 };
