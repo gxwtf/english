@@ -28,7 +28,7 @@ export async function getWordInfo(userId: number, wordId: number): Promise<WordI
     wordId: word.id,
     text: word.text,
     userId: word.userId,
-    meanings: word.meanings,
+    meanings: word.meanings as unknown as Meaning[],
     tags: word.wordTags.map((wt) => ({
       id: wt.tag.id,
       name: wt.tag.name,

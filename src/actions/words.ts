@@ -13,14 +13,14 @@ export async function getWordInfoById(wordId: number): Promise<WordInfo | null> 
 }
 
 function buildWordResult(
-  word: { id: number; text: string; wordTags: { tag: { name: string } }[]; meanings: Meaning[] },
+  word: { id: number; text: string; wordTags: { tag: { name: string } }[]; meanings: any[] },
   relatedWordsList: { text: string; type: string }[],
 ): Word {
   return {
     id: word.id,
     text: word.text,
     tags: word.wordTags.map((wt) => wt.tag.name),
-    meanings: word.meanings,
+    meanings: word.meanings as Meaning[],
     relatedWords: relatedWordsList.map((rw) => ({
       text: rw.text,
       type: rw.type as RelatedWordType,
@@ -99,7 +99,7 @@ export async function saveWord(data: {
     await prisma.word.update({
       where: { id: existing.id },
       data: {
-        meanings: meanings,
+        meanings: meanings as any,
         wordTags: {
           deleteMany: {},
           create: tags.map((tag: string) => ({
@@ -118,7 +118,7 @@ export async function saveWord(data: {
       data: {
         userId,
         text: textTrim,
-        meanings: meanings,
+        meanings: meanings as any,
         wordTags: {
           create: tags.map((tag: string) => ({
             tag: {
