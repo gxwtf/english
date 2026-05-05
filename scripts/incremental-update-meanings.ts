@@ -68,7 +68,7 @@ async function incrementalUpdate() {
 
         await prisma.word.update({
           where: { id: word.id },
-          data: { meanings: updatedMeanings }
+          data: { meanings: updatedMeanings as any }
         });
 
         updated++;
