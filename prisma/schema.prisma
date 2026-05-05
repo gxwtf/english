@@ -28,7 +28,7 @@ model Word {
   text         String
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  meanings     String[]
+  meanings     Json[]
   relatedWords Json?
   user         User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
   wordTags     WordTag[]

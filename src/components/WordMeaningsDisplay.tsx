@@ -80,7 +80,12 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                     key={mIndex}
                     className="text-xs px-2 py-0.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-600"
                   >
-                    {meaning}
+                    {meaning.type && (
+                      <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">
+                        {meaning.type}
+                      </span>
+                    )}
+                    {meaning.content}
                   </span>
                 ))
               ) : (

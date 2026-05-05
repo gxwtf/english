@@ -1,17 +1,17 @@
 // 此文件包含词汇和标签的类型定义
 
+import { Meaning } from './dict';
+
 export type WordTag = string;
 
 export type WordData = {
   id: number;
   text: string;
-  meanings: string[];  // 用户不熟悉的释义列表
+  meanings: Meaning[];  // 用户不熟悉的释义列表
 };
 
-// 关联类型
 export type RelatedWordType = 'different_form' | 'easily_confused';
 
-// 关联单词接口 - 存储单词文本而不是 ID
 export interface RelatedWord {
   text: string;         // 关联单词的文本
   type: RelatedWordType; // 关联类型
@@ -21,7 +21,7 @@ export interface Word {
   id: number;
   text: string;
   tags: WordTag[];
-  meanings: string[];  // 用户不熟悉的释义列表
+  meanings: Meaning[];  // 用户不熟悉的释义列表
   relatedWords: RelatedWord[];  // 关联单词
 }
 

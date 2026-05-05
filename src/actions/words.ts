@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db';
 import { getAuthUser } from './auth';
 import { Word, RelatedWordType } from '@/types/word';
+import { Meaning } from '@/types/dict';
 import { getWordInfo, type WordInfo } from '@/lib/word.service';
 
 export async function getWordInfoById(wordId: number): Promise<WordInfo | null> {
@@ -12,14 +13,14 @@ export async function getWordInfoById(wordId: number): Promise<WordInfo | null> 
 }
 
 function buildWordResult(
-  word: { id: number; text: string; wordTags: { tag: { name: string } }[]; meanings: string[] },
+  word: { id: number; text: string; wordTags: { tag: { name: string } }[]; meanings: Meaning[] },
   relatedWordsList: { text: string; type: string }[],
 ): Word {
   return {
     id: word.id,
     text: word.text,
     tags: word.wordTags.map((wt) => wt.tag.name),
-    meanings: word.meanings.map((m) => m),
+    meanings: word.meanings,
     relatedWords: relatedWordsList.map((rw) => ({
       text: rw.text,
       type: rw.type as RelatedWordType,
@@ -59,7 +60,7 @@ export async function loadWords(): Promise<Word[]> {
 export async function saveWord(data: {
   text: string;
   tags?: string[];
-  meanings?: string[];  // 用户不熟悉的释义列表
+  meanings?: Meaning[];
   relatedWords?: { text: string; type: string }[];
 }): Promise<Word> {
   const user = await getAuthUser();

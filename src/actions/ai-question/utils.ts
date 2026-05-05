@@ -890,7 +890,7 @@ export async function retryQuestion(questionId: string) {
 
 export type QuestionWordMeaning = {
   text: string;
-  meanings: string[];
+  meanings: Meaning[];
   isRelatedWord: boolean;
   sourceWords?: string[];
 };

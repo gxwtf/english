@@ -101,12 +101,23 @@ export const WordCard = ({
 
           {/* 含义和标签区域 */}
           <div className="space-y-2">
-            {/* 单词含义 */}
-          <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 break-words">
-            {word.meanings && word.meanings.length > 0
-              ? word.meanings.join('; ')
-              : '暂无释义数据'}
-          </p>
+            {/* 单词含义 - 显示词性 */}
+            <div className="space-y-1">
+              {word.meanings && word.meanings.length > 0 ? (
+                word.meanings.map((meaning, index) => (
+                  <p key={index} className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 break-words">
+                    {meaning.type && (
+                      <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">
+                        {meaning.type}
+                      </span>
+                    )}
+                    {meaning.content}
+                  </p>
+                ))
+              ) : (
+                <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">暂无释义数据</p>
+              )}
+            </div>
 
           {/* 关联单词 */}
           {relatedWordsInfo.length > 0 && (
