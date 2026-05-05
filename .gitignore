@@ -45,7 +45,6 @@ src/dict/*
 
 # prisma
 /src/generated/prisma
-/prisma/migrations
 
 # package-lock.json
 package-lock.json
