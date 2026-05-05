@@ -1,11 +1,37 @@
-import { prisma } from '@/lib/db';
+import { config } from 'dotenv';
+config({ path: '.env.local' });
+config(); // 也尝试加载 .env
+
+import { PrismaClient } from '../src/generated/prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 import { query as queryDict } from '@/lib/dict/query';
 import { Meaning } from '@/types/dict';
+
+const { Pool } = pg;
+
+// 检查环境变量
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error('❌ 错误: DATABASE_URL 环境变量未设置');
+  console.error('请在 .env.local 或 .env 文件中设置 DATABASE_URL');
+  process.exit(1);
+}
+
+console.log('📊 数据库连接字符串:', connectionString.replace(/:[^:@]+@/, ':****@'));
+
+const pool = new Pool({ connectionString });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function incrementalUpdate() {
   console.log('🔄 增量更新：只更新缺少词性的单词...\n');
 
   try {
+    // 测试数据库连接
+    await prisma.$connect();
+    console.log('✅ 数据库连接成功\n');
+
     // 查找所有 meanings 中有 type 为空的单词
     const allWords = await prisma.word.findMany({
       select: { id: true, text: true, meanings: true },
@@ -91,6 +117,7 @@ async function incrementalUpdate() {
     throw error;
   } finally {
     await prisma.$disconnect();
+    await pool.end();
   }
 }
 
