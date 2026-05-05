@@ -1,3 +1,6 @@
+-- CreateEnum
+CREATE TYPE "QuestionStatus" AS ENUM ('GENERATING', 'GENERATED', 'ANSWERED', 'FAILED', 'GRADING', 'GRADING_FAILED');
+
 -- CreateTable
 CREATE TABLE "User" (
     "id" SERIAL NOT NULL,
@@ -19,21 +22,27 @@ CREATE TABLE "Word" (
     "text" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "meanings" TEXT[],
+    "relatedWords" JSONB,
 
     CONSTRAINT "Word_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "Meaning" (
-    "id" SERIAL NOT NULL,
-    "wordId" INTEGER NOT NULL,
-    "content" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
-    "sentence" TEXT,
+CREATE TABLE "QuestionQueue" (
+    "id" TEXT NOT NULL,
+    "userId" INTEGER NOT NULL,
+    "questionType" TEXT NOT NULL,
+    "status" "QuestionStatus" NOT NULL DEFAULT 'GENERATING',
+    "questionContent" JSONB,
+    "gradingResult" JSONB,
+    "lastAnswer" JSONB,
+    "wordIds" INTEGER[],
+    "relatedWordEntries" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Meaning_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "QuestionQueue_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -105,13 +114,13 @@ CREATE UNIQUE INDEX "TagConfig_userId_name_key" ON "TagConfig"("userId", "name")
 ALTER TABLE "Word" ADD CONSTRAINT "Word_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("userId") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Meaning" ADD CONSTRAINT "Meaning_wordId_fkey" FOREIGN KEY ("wordId") REFERENCES "Word"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "WordTag" ADD CONSTRAINT "WordTag_wordId_fkey" FOREIGN KEY ("wordId") REFERENCES "Word"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "QuestionQueue" ADD CONSTRAINT "QuestionQueue_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("userId") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "WordTag" ADD CONSTRAINT "WordTag_tagId_fkey" FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "WordTag" ADD CONSTRAINT "WordTag_wordId_fkey" FOREIGN KEY ("wordId") REFERENCES "Word"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "RelatedWord" ADD CONSTRAINT "RelatedWord_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("userId") ON DELETE CASCADE ON UPDATE CASCADE;
