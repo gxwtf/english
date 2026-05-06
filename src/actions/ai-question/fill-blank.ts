@@ -237,6 +237,9 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
     if (!q.sentence || !q.answer) {
       throw new Error(`第 ${i + 1} 道小题缺少 sentence 或 answer 字段`);
     }
+    if (!q.sentence.includes('_')) {
+      throw new Error(`第 ${i + 1} 道小题的句子中没有填空位置（缺少下划线 _），请重新生成包含填空的句子`);
+    }
     if (allowFormChange && q.originalWord) {
       // Form change mode: answer can be a variant form, but originalWord must be in words array
       if (!uniqueWords.has(q.originalWord)) {
