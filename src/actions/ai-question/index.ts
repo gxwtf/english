@@ -35,6 +35,7 @@ export {
   gradeTranslateAnswer,
   gradeTranslateAnswerSingle,
   gradeTranslateAnswerBatch,
+  gradeFillBlankAnswerBatch,
   saveGradingResult,
   getQuestionWordMeanings,
   type GradeResult,

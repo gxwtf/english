@@ -370,6 +370,156 @@ export async function markQuestionAsGradingFailed(questionId: string) {
 }
 
 /**
+ * AI 批量批改选词填空答案.
+ * 为每道题生成 AI 点评，包括翻译和解释。
+ */
+export async function gradeFillBlankAnswerBatch(
+  questionId: string,
+  answers: Record<number, string>
+): Promise<GradeResult[]> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const q = await prisma.questionQueue.findUnique({
+    where: { id: questionId },
+  });
+
+  if (!q) throw new Error('题目不存在');
+  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+  if (q.status !== 'GRADING' && q.status !== 'ANSWERED' && q.status !== 'GRADING_FAILED') throw new Error('题目状态不允许批改');
+
+  const questionContent = q.questionContent as any;
+  if (!questionContent?.questions) {
+    throw new Error('题目内容不完整');
+  }
+
+  const questions: Array<{
+    sentence: string;
+    answer: string;
+    originalWord?: string;
+  }> = Array.isArray(questionContent.questions)
+    ? questionContent.questions
+    : [];
+
+  const results: GradeResult[] = [];
+  let gradingSuccess = true;
+
+  for (let i = 0; i < questions.length; i++) {
+    const question = questions[i];
+    const userAnswer = answers[i]?.trim() || '';
+    const isCorrect = userAnswer === question.answer;
+
+    const systemPrompt = `你是一位专业的英语老师。请根据题目句子、标准答案和用户答案，生成一句点评。
+
+## 点评要求：
+- 至少需要翻译这句话（中文）
+- 解释为什么用这个词（包括词性、语境、搭配等）
+- 如果用户答错了，还需要解释为什么用户错了（可能的原因：词义混淆、语法错误、语境理解偏差等）
+- 点评要简洁明了，1-2 句话即可
+
+## 重要：
+- 在生成点评之前，请先用 <reason> 和 </reason> 标签包裹你的思考过程
+- 思考内容包括：句子分析、答案分析、用户错误分析（如果有）
+- 在 </reason> 之后再输出最终的 JSON 答案
+- JSON 格式：{"feedback": "点评内容"}
+- 只返回 JSON，不要其他文字`;
+
+    const userPrompt = `题目句子：${question.sentence}
+标准答案：${question.answer}${question.originalWord && question.originalWord !== question.answer ? `（原词：${question.originalWord}）` : ''}
+用户答案：${userAnswer}
+是否正确：${isCorrect ? '正确' : '错误'}`;
+
+    let result: Awaited<ReturnType<typeof callOpenAI>>;
+    try {
+      result = await callOpenAI(systemPrompt, {
+        prompt: userPrompt,
+        timeout: 180000,
+      });
+    } catch (apiError) {
+      console.error('AI 点评 API 调用失败:', apiError);
+      gradingSuccess = false;
+      results.push({
+        questionId: i,
+        standardAnswer: question.answer,
+        feedback: 'AI 点评生成失败',
+      });
+      continue;
+    }
+
+    let content = result?.content?.trim();
+    if (!content) {
+      console.error('AI 返回内容为空');
+      results.push({
+        questionId: i,
+        standardAnswer: question.answer,
+        feedback: 'AI 点评生成失败',
+      });
+      continue;
+    }
+
+    const parsed = parseThinkingContent(content);
+    content = parsed.content.trim();
+
+    const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) {
+      content = fenceMatch[1].trim();
+    } else {
+      const jsonMatch = content.match(/\{[\s\S]*"feedback"[\s\S]*\}/);
+      if (jsonMatch) {
+        content = jsonMatch[0];
+      }
+    }
+
+    let parsedFeedback: { feedback: string };
+    try {
+      parsedFeedback = JSON.parse(content);
+    } catch (e) {
+      console.error('JSON 解析失败，原始内容:', result.content?.substring(0, 500));
+      const feedbackMatch = content.match(/"feedback" *: *"([^"]*)"/);
+      if (feedbackMatch) {
+        parsedFeedback = { feedback: feedbackMatch[1] };
+      } else {
+        results.push({
+          questionId: i,
+          standardAnswer: question.answer,
+          feedback: 'AI 点评生成失败',
+        });
+        continue;
+      }
+    }
+
+    results.push({
+      questionId: i,
+      standardAnswer: question.answer,
+      feedback: parsedFeedback.feedback,
+    });
+  }
+
+  try {
+    await saveGradingResult(questionId, results);
+  } catch (e) {
+    console.error('保存批改结果失败:', e);
+    gradingSuccess = false;
+  }
+
+  if (gradingSuccess) {
+    try {
+      await markQuestionAsAnswered(questionId);
+    } catch (e) {
+      console.error('更新题目状态为已作答失败:', e);
+    }
+  } else {
+    try {
+      await markQuestionAsGradingFailed(questionId);
+    } catch (e) {
+      console.error('更新题目状态为批改失败失败:', e);
+    }
+  }
+
+  return results;
+}
+
+/**
  * AI 批量批改翻译句子答案（统一提交模式）.
  * 如果用户放弃了某道题（空答案），只返回标准答案不评分.
  */
