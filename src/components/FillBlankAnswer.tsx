@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { submitAnswer, markQuestionAsAnswered, resetQuestion as resetQuestionAction } from '@/actions/ai-question';
+import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { submitAnswer, gradeFillBlankAnswerBatch, loadGradingResult, GradeResult, resetQuestion as resetQuestionAction, markQuestionAsGradingFailed } from '@/actions/ai-question';
 import { WordMeaningsDisplay } from '@/components/WordMeaningsDisplay';
 
 interface FillBlankQuestionItem {
@@ -21,18 +22,76 @@ interface FillBlankAnswerProps {
 }
 
 export function FillBlankAnswer({ questionId, words, questions, thinking, lastAnswer, status, onSubmitted }: FillBlankAnswerProps) {
-  // 如果题目已作答，从 lastAnswer 初始化答案
-  const initialAnswers = status === 'ANSWERED' && lastAnswer
+  const router = useRouter();
+
+  const [isReset, setIsReset] = useState(false);
+  const currentStatus = isReset ? 'UNANSWERED' : status;
+
+  const initialAnswers = currentStatus === 'ANSWERED' && lastAnswer
     ? questions.map((_, i) => (lastAnswer[i] as string) || '')
     : Array(questions.length).fill('');
 
   const [answers, setAnswers] = useState<string[]>(initialAnswers);
-  const [submitted, setSubmitted] = useState(status === 'ANSWERED');
+  const [gradingResults, setGradingResults] = useState<GradeResult[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
-  // 用于存储上次提交的答案，以便在已作答时显示
+  const [isLoadingGrading, setIsLoadingGrading] = useState(false);
+  const [savedGradingResults, setSavedGradingResults] = useState<GradeResult[] | null>(null);
+  const [isRetryingGrading, setIsRetryingGrading] = useState(false);
   const [savedAnswers, setSavedAnswers] = useState<string[]>(initialAnswers);
+
+  useEffect(() => {
+    if (currentStatus === 'ANSWERED' && lastAnswer && !savedGradingResults && !isLoadingGrading) {
+      setIsLoadingGrading(true);
+      loadGradingResult(questionId)
+        .then(cachedResults => {
+          if (cachedResults && cachedResults.length > 0) {
+            setGradingResults(cachedResults);
+            setSavedGradingResults(cachedResults);
+          } else {
+            return gradeFillBlankAnswerBatch(questionId, initialAnswers.reduce((acc, ans, i) => {
+              acc[i] = ans;
+              return acc;
+            }, {} as Record<number, string>))
+              .then(results => {
+                setGradingResults(results);
+                setSavedGradingResults(results);
+              });
+          }
+        })
+        .catch(error => {
+          console.error('加载批改结果失败:', error);
+        })
+        .finally(() => {
+          setIsLoadingGrading(false);
+        });
+    }
+  }, [currentStatus, lastAnswer, savedGradingResults, isLoadingGrading, questionId, initialAnswers]);
+
+  useEffect(() => {
+    if (currentStatus === 'GRADING' && lastAnswer && !savedGradingResults && !isLoadingGrading) {
+      setIsLoadingGrading(true);
+      const gradingAnswers = Object.fromEntries(
+        Object.entries(lastAnswer).map(([key, value]) => [Number(key), value as string])
+      );
+      gradeFillBlankAnswerBatch(questionId, gradingAnswers)
+        .then(results => {
+          setGradingResults(results);
+          setSavedGradingResults(results);
+          router.refresh();
+        })
+        .catch(error => {
+          console.error('批改失败:', error);
+          markQuestionAsGradingFailed(questionId)
+            .then(() => router.refresh())
+            .catch(e => console.error('标记批改失败状态失败:', e));
+        })
+        .finally(() => {
+          setIsLoadingGrading(false);
+        });
+    }
+  }, [currentStatus, lastAnswer, savedGradingResults, isLoadingGrading, questionId, router]);
 
   const handleAnswerChange = useCallback((index: number, value: string) => {
     setAnswers(prev => {
@@ -55,13 +114,26 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
         answerMap[i] = answers[i];
       }
       await submitAnswer(questionId, answerMap);
-      await markQuestionAsAnswered(questionId);
       
-      // 保存当前答案以便显示
       setSavedAnswers([...answers]);
+      setSavedGradingResults(null);
       
-      // 【关键修改】设置 submitted 为 true，立即在当前页面展示评分结果
-      setSubmitted(true);
+      setIsLoadingGrading(true);
+      gradeFillBlankAnswerBatch(questionId, answerMap)
+        .then(results => {
+          setGradingResults(results);
+          setSavedGradingResults(results);
+          router.refresh();
+        })
+        .catch(error => {
+          console.error('批改失败:', error);
+          markQuestionAsGradingFailed(questionId)
+            .then(() => router.refresh())
+            .catch(e => console.error('标记批改失败状态失败:', e));
+        })
+        .finally(() => {
+          setIsLoadingGrading(false);
+        });
       
       onSubmitted?.();
     } catch (error) {
@@ -70,19 +142,18 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
     } finally {
       setSubmitting(false);
     }
-  }, [answers, questionId, onSubmitted]);
+  }, [answers, questionId, onSubmitted, router]);
 
   const handleReset = useCallback(async () => {
     setIsResetting(true);
     setResetError(null);
     try {
       await resetQuestionAction(questionId);
-      // Save current answers before resetting
-      setSavedAnswers([...answers]);
+      setIsReset(true);
       setAnswers(Array(questions.length).fill(''));
-      setSubmitted(false);
-      
-      // 【关键修改】去掉了重置后的页面跳转，允许用户留在当前页重新作答
+      setGradingResults(null);
+      setSavedGradingResults(null);
+      router.refresh();
       onSubmitted?.();
     } catch (error) {
       console.error('重置失败:', error);
@@ -90,14 +161,47 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
     } finally {
       setIsResetting(false);
     }
-  }, [questionId, questions.length, answers, onSubmitted]);
+  }, [questionId, questions.length, onSubmitted, router]);
 
-  // 判断是否处于展示结果的阶段
-  const isShowingResults = submitted || status === 'ANSWERED';
+  const handleRetryGrading = useCallback(async () => {
+    setIsRetryingGrading(true);
+    try {
+      await submitAnswer(questionId, lastAnswer || {});
+      setSavedGradingResults(null);
+      setGradingResults(null);
+      setIsLoadingGrading(true);
+      
+      const gradingAnswers = Object.fromEntries(
+        Object.entries(lastAnswer || {}).map(([key, value]) => [Number(key), value as string])
+      );
+      
+      gradeFillBlankAnswerBatch(questionId, gradingAnswers)
+        .then(results => {
+          setGradingResults(results);
+          setSavedGradingResults(results);
+          router.refresh();
+        })
+        .catch(error => {
+          console.error('批改失败:', error);
+          markQuestionAsGradingFailed(questionId)
+            .then(() => router.refresh())
+            .catch(e => console.error('标记批改失败状态失败:', e));
+        })
+        .finally(() => {
+          setIsLoadingGrading(false);
+        });
+    } catch (error) {
+      console.error('重试批改失败:', error);
+    } finally {
+      setIsRetryingGrading(false);
+    }
+  }, [questionId, lastAnswer, router]);
+
+  const displayGradingResults = gradingResults || savedGradingResults;
 
   return (
     <div className="space-y-6">
-      {thinking && isShowingResults && (
+      {thinking && (currentStatus === 'ANSWERED' || currentStatus === 'GRADING' || currentStatus === 'GRADING_FAILED' || displayGradingResults) && (
         <details className="text-xs">
           <summary className="cursor-pointer text-amber-600 dark:text-amber-400 font-medium">
             查看 AI 思考过程
@@ -108,90 +212,141 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
         </details>
       )}
 
-      {/* 单词池 */}
-      <div>
-        <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">可选单词：</p>
-        <div className="flex flex-wrap gap-2">
-          {words.map((word, i) => (
-            <span
-              key={i}
-              className="text-sm px-3 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full border border-green-200 dark:border-green-800"
-            >
-              {word}
-            </span>
-          ))}
-          {/* Show changed forms as hints */}
-          {questions.some(q => q.originalWord) && (
-            <span className="text-xs text-gray-500 dark:text-gray-400 self-center ml-1">
-              (部分题目可能需要填写单词的不同形式)
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* 题目列表 */}
-      <div className="space-y-4">
-        {questions.map((q, i) => (
-          <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">第 {i + 1} 题</p>
-            <BlankInput
-              sentence={q.sentence}
-              value={answers[i]}
-              onChange={(val) => handleAnswerChange(i, val)}
-              correctAnswer={q.answer}
-              originalWord={q.originalWord}
-              userAnswer={isShowingResults ? (savedAnswers[i] || answers[i]) : undefined}
-              questionIndex={i}
-              disabled={isShowingResults} // 提交后立即禁用输入框
-            />
+      {currentStatus === 'GRADING' && !displayGradingResults ? (
+        <>
+          <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200 mb-2">
+              批改中
+            </h3>
+            <p className="text-blue-700 dark:text-blue-300">
+              正在为您生成 AI 点评，请稍候...
+            </p>
           </div>
-        ))}
-      </div>
 
-      {/* 提交按钮或正确答案展示 */}
-      {!isShowingResults ? (
-        <button
-          onClick={handleSubmit}
-          disabled={submitting || answers.some(a => !a.trim())}
-          className={`w-full py-3 font-semibold rounded-xl transition-all shadow-md ${
-            submitting || answers.some(a => !a.trim())
-              ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
-              : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white hover:shadow-lg'
-          }`}
-        >
-          {submitting ? '提交中...' : '提交答案'}
-        </button>
-      ) : (
-        <div>
+          <div className="space-y-4">
+            {questions.map((q, i) => {
+              const userAnswer = lastAnswer ? (lastAnswer[i] as string) : '';
+              return (
+                <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">第 {i + 1} 题</p>
+                  <p className="text-sm text-gray-800 dark:text-gray-200 mb-2">{q.sentence}</p>
+                  <div className="mb-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">你的答案：</p>
+                    <p className="text-sm bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+                      {userAnswer || '(未作答)'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-3">
+            <a
+              href="/practice"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              返回题目列表
+            </a>
+          </div>
+        </>
+      ) : currentStatus === 'GRADING_FAILED' ? (
+        <>
+          <div className="p-6 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+            <h3 className="text-lg font-bold text-red-800 dark:text-red-200 mb-2">
+              批改失败
+            </h3>
+            <p className="text-red-700 dark:text-red-300">
+              AI 点评生成过程中遇到了错误，请重新尝试。
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {questions.map((q, i) => {
+              const userAnswer = lastAnswer ? (lastAnswer[i] as string) : '';
+              return (
+                <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">第 {i + 1} 题</p>
+                  <p className="text-sm text-gray-800 dark:text-gray-200 mb-2">{q.sentence}</p>
+                  <div className="mb-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">你的答案：</p>
+                    <p className="text-sm bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+                      {userAnswer || '(未作答)'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-3">
+            <a
+              href="/practice"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+            >
+              返回题目列表
+            </a>
+            <button
+              onClick={handleRetryGrading}
+              disabled={isRetryingGrading}
+              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isRetryingGrading ? '重试中...' : '重新批改'}
+            </button>
+          </div>
+        </>
+      ) : displayGradingResults || currentStatus === 'ANSWERED' ? (
+        <>
           <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 mb-4">
             <p className="text-sm font-medium text-green-700 dark:text-green-300">
-              {status === 'ANSWERED' ? '上次作答结果（点击下方"重新作答"可重新回答）：' : '答案已提交！评分结果如下：'}
+              {currentStatus === 'ANSWERED' && !gradingResults ? '正在加载批改结果...' : '答案已提交！评分结果如下：'}
             </p>
-            <div className="mt-2 space-y-2">
-              {/* 【关键修改】统一评分结果的展示逻辑，即便是刚提交也展示对错及订正 */}
-              {questions.map((q, i) => {
-                const userAnswer = savedAnswers[i] || answers[i];
-                const isCorrect = userAnswer?.trim() === q.answer;
-                return (
-                  <div key={i} className="text-sm">
-                    <p className={`font-medium ${
-                      isCorrect
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-500 dark:text-red-400 line-through'
-                    }`}>
-                      第 {i + 1} 题：{userAnswer || '(未回答)'}
-                    </p>
-                    {!isCorrect && (
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">正确答案：{q.answer}{q.originalWord && q.originalWord !== q.answer ? `（原词：${q.originalWord}）` : ''}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
           </div>
-          
+
+          <div className="space-y-4">
+            {questions.map((q, i) => {
+              const userAnswer = savedAnswers[i] || answers[i];
+              const isCorrect = userAnswer?.trim() === q.answer;
+              const result = displayGradingResults?.find(r => r.questionId === i);
+
+              return (
+                <div key={i} className={`p-4 rounded-lg border ${
+                  isCorrect
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                }`}>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">第 {i + 1} 题</p>
+                  <p className="text-sm text-gray-800 dark:text-gray-200 mb-2">{q.sentence}</p>
+                  
+                  <div className="mb-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">你的答案：</p>
+                    <p className={`text-sm ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400 line-through'}`}>
+                      {userAnswer || '(未回答)'}
+                    </p>
+                  </div>
+
+                  {!isCorrect && (
+                    <div className="mb-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">正确答案：</p>
+                      <p className="text-sm text-green-600 dark:text-green-400">
+                        {q.answer}{q.originalWord && q.originalWord !== q.answer ? `（原词：${q.originalWord}）` : ''}
+                      </p>
+                    </div>
+                  )}
+
+                  {result?.feedback && (
+                    <div className="mt-3 p-3 rounded-lg text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                      <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">AI 点评：</p>
+                      <p className="text-gray-600 dark:text-gray-400">{result.feedback}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
           <div className="mt-8">
-            <WordMeaningsDisplay questionId={questionId} status={status || ''} isShowingResults={isShowingResults} />
+            <WordMeaningsDisplay questionId={questionId} status={currentStatus || ''} isShowingResults={!!displayGradingResults || currentStatus === 'ANSWERED'} />
           </div>
 
           {resetError && (
@@ -199,7 +354,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
               <p className="text-sm text-red-700 dark:text-red-300">{resetError}</p>
             </div>
           )}
-          
+
           <div className="flex gap-3">
             <a
               href="/practice"
@@ -211,7 +366,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
               onClick={handleReset}
               disabled={isResetting}
               className={`flex-1 py-3 font-semibold rounded-xl transition-all shadow-md text-white disabled:opacity-50 disabled:cursor-not-allowed ${
-                status === 'ANSWERED'
+                currentStatus === 'ANSWERED'
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
                   : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
               }`}
@@ -219,7 +374,55 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
               {isResetting ? '重置中...' : '重新作答'}
             </button>
           </div>
-        </div>
+        </>
+      ) : (
+        <>
+          <div>
+            <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">可选单词：</p>
+            <div className="flex flex-wrap gap-2">
+              {words.map((word, i) => (
+                <span
+                  key={i}
+                  className="text-sm px-3 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full border border-green-200 dark:border-green-800"
+                >
+                  {word}
+                </span>
+              ))}
+              {questions.some(q => q.originalWord) && (
+                <span className="text-xs text-gray-500 dark:text-gray-400 self-center ml-1">
+                  (部分题目可能需要填写单词的不同形式)
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {questions.map((q, i) => (
+              <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">第 {i + 1} 题</p>
+                <BlankInput
+                  sentence={q.sentence}
+                  value={answers[i]}
+                  onChange={(val) => handleAnswerChange(i, val)}
+                  questionIndex={i}
+                  disabled={false}
+                />
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || answers.some(a => !a.trim())}
+            className={`w-full py-3 font-semibold rounded-xl transition-all shadow-md ${
+              submitting || answers.some(a => !a.trim())
+                ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white hover:shadow-lg'
+            }`}
+          >
+            {submitting ? '提交中...' : '提交答案'}
+          </button>
+        </>
       )}
     </div>
   );
@@ -229,23 +432,16 @@ function BlankInput({
   sentence,
   value,
   onChange,
-  correctAnswer,
-  originalWord,
-  userAnswer,
   questionIndex,
   disabled,
 }: {
   sentence: string;
   value: string;
   onChange: (val: string) => void;
-  correctAnswer?: string;
-  originalWord?: string;
-  userAnswer?: string;
   questionIndex: number;
   disabled?: boolean;
 }) {
   const parts = sentence.replace(/_+/g, '_').split('_');
-  const isCorrect = userAnswer !== undefined && userAnswer.trim() === correctAnswer;
 
   return (
     <p className="text-sm leading-relaxed text-gray-800 dark:text-gray-200">
@@ -258,22 +454,13 @@ function BlankInput({
               type="text"
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              disabled={disabled || userAnswer !== undefined}
-              className={`inline-block min-w-[120px] border-b-2 text-center bg-transparent px-1 py-0.5 outline-none transition-colors
-                ${userAnswer !== undefined
-                  ? isCorrect
-                    ? 'border-green-500 text-green-600 dark:text-green-400'
-                    : 'border-red-400 text-red-500 dark:text-red-400 line-through'
-                  : 'border-dashed border-green-400 dark:border-green-600 focus:border-blue-500'
-                }`}
+              disabled={disabled}
+              className="inline-block min-w-[120px] border-b-2 text-center bg-transparent px-1 py-0.5 outline-none transition-colors border-dashed border-green-400 dark:border-green-600 focus:border-blue-500"
               placeholder="填入单词"
             />
           )}
         </span>
       ))}
-      {userAnswer !== undefined && correctAnswer && !isCorrect && (
-        <span className="text-xs text-green-600 dark:text-green-400 ml-1">正确答案：{correctAnswer}{originalWord && originalWord !== correctAnswer ? `（原词：${originalWord}）` : ''}</span>
-      )}
     </p>
   );
 }

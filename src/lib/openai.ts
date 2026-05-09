@@ -149,9 +149,10 @@ export async function callOpenAI(
         throw new Error(`OpenAI API 请求超时（${timeoutMs / 1000}秒），已重试${maxRetries}次`);
       }
 
-      // 503 Service Unavailable 或 504 Gateway Time-out 也重试
-      if (error instanceof Error && (error.message.includes('503') || error.message.includes('504'))) {
-        console.warn(`OpenAI API ${error.message.includes('503') ? '503' : '504'} 错误（第${attempt + 1}次），重试中...`);
+      // 500、503、504 错误也重试
+      if (error instanceof Error && (error.message.includes('500') || error.message.includes('503') || error.message.includes('504'))) {
+        const errorCode = error.message.includes('500') ? '500' : error.message.includes('503') ? '503' : '504';
+        console.warn(`OpenAI API ${errorCode} 错误（第${attempt + 1}次），重试中...`);
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 3000));
           continue;
@@ -286,35 +287,47 @@ export async function callOpenAIWithTools(
           tool_choice: 'none',
         };
 
-        const followUpResponse = await fetch(`${apiBase}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify(followUpBody),
-        });
+        // 为追问请求创建新的 AbortController
+        const followUpController = new AbortController();
+        const followUpTimeoutId = setTimeout(() => followUpController.abort(), timeoutMs);
 
-        if (!followUpResponse.ok) {
-          const errorText = await followUpResponse.text().catch(() => 'Unknown error');
-          throw new Error(
-            `OpenAI API 请求失败：${followUpResponse.status} ${followUpResponse.statusText} - ${errorText}`
-          );
+        try {
+          const followUpResponse = await fetch(`${apiBase}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify(followUpBody),
+            signal: followUpController.signal,
+          });
+
+          clearTimeout(followUpTimeoutId);
+
+          if (!followUpResponse.ok) {
+            const errorText = await followUpResponse.text().catch(() => 'Unknown error');
+            throw new Error(
+              `OpenAI API 请求失败：${followUpResponse.status} ${followUpResponse.statusText} - ${errorText}`
+            );
+          }
+
+          const followUpData = await followUpResponse.json();
+          if (followUpData.error) {
+            throw new Error(`OpenAI API 错误：${JSON.stringify(followUpData.error)}`);
+          }
+          content = followUpData.choices?.[0]?.message?.content || content;
+
+          // Merge token usage
+          const usage = {
+            prompt_tokens: (data.usage?.prompt_tokens || 0) + (followUpData.usage?.prompt_tokens || 0),
+            completion_tokens: (data.usage?.completion_tokens || 0) + (followUpData.usage?.completion_tokens || 0),
+            total_tokens: (data.usage?.total_tokens || 0) + (followUpData.usage?.total_tokens || 0),
+          };
+          return { content, usage };
+        } catch (followUpError) {
+          clearTimeout(followUpTimeoutId);
+          throw followUpError;
         }
-
-        const followUpData = await followUpResponse.json();
-        if (followUpData.error) {
-          throw new Error(`OpenAI API 错误：${JSON.stringify(followUpData.error)}`);
-        }
-        content = followUpData.choices?.[0]?.message?.content || content;
-
-        // Merge token usage
-        const usage = {
-          prompt_tokens: (data.usage?.prompt_tokens || 0) + (followUpData.usage?.prompt_tokens || 0),
-          completion_tokens: (data.usage?.completion_tokens || 0) + (followUpData.usage?.completion_tokens || 0),
-          total_tokens: (data.usage?.total_tokens || 0) + (followUpData.usage?.total_tokens || 0),
-        };
-        return { content, usage };
       }
 
       return {
@@ -339,9 +352,10 @@ export async function callOpenAIWithTools(
         throw new Error(`OpenAI API 请求超时（${timeoutMs / 1000}秒），已重试${maxRetries}次`);
       }
 
-      // 503 Service Unavailable 或 504 Gateway Time-out 也重试
-      if (error instanceof Error && (error.message.includes('503') || error.message.includes('504'))) {
-        console.warn(`OpenAI API (with tools) ${error.message.includes('503') ? '503' : '504'} 错误（第${attempt + 1}次），重试中...`);
+      // 500、503、504 错误也重试
+      if (error instanceof Error && (error.message.includes('500') || error.message.includes('503') || error.message.includes('504'))) {
+        const errorCode = error.message.includes('500') ? '500' : error.message.includes('503') ? '503' : '504';
+        console.warn(`OpenAI API (with tools) ${errorCode} 错误（第${attempt + 1}次），重试中...`);
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 3000));
           continue;
