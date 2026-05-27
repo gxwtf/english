@@ -1,10 +1,11 @@
 'use server';
 
-import { fetchEnrichedWords, updateQuestionWithContent, enqueuePendingQuestion } from './utils';
+import { fetchEnrichedWords, updateQuestionWithContent, enqueuePendingQuestion, markQuestionAsFailed } from './utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { FillBlankOptions } from '@/types/problem';
 import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
+import { aiQueue } from '@/lib/ai-queue';
 
 interface FillBlankQuestion {
   words: string[];
@@ -67,8 +68,22 @@ export async function generateFillBlankWithQuestion(
   relatedWordEntries?: RelatedWordEntry[],
   allowFormChange?: boolean,
 ) {
-  const parsed = await doGenerateFillBlank(wordIds, options, customPrompt, deepThinking, relatedWordEntries, allowFormChange);
-  return await updateQuestionWithContent(questionId, parsed, 'fill-blank', wordIds);
+  return new Promise((resolve, reject) => {
+    aiQueue.addTask(questionId, async () => {
+      try {
+        const parsed = await doGenerateFillBlank(wordIds, options, customPrompt, deepThinking, relatedWordEntries, allowFormChange);
+        const result = await updateQuestionWithContent(questionId, parsed, 'fill-blank', wordIds);
+        resolve(result);
+      } catch (error) {
+        try {
+          await markQuestionAsFailed(questionId);
+        } catch (e) {
+          console.error('标记题目失败状态时出错:', e);
+        }
+        reject(error);
+      }
+    });
+  });
 }
 
 async function doGenerateFillBlank(

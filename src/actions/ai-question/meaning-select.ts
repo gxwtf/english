@@ -1,10 +1,11 @@
 'use server';
 
-import { fetchEnrichedWords, enqueuePendingQuestion, updateQuestionWithContent } from './utils';
+import { fetchEnrichedWords, enqueuePendingQuestion, updateQuestionWithContent, markQuestionAsFailed } from './utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
 import { query as queryDict } from '@/lib/dict/query';
+import { aiQueue } from '@/lib/ai-queue';
 
 interface MeaningSelectQuestion {
   title: string;
@@ -47,8 +48,22 @@ export async function generateMeaningSelectWithQuestion(
   deepThinking?: boolean,
   relatedWordEntries?: RelatedWordEntry[],
 ) {
-  const parsed = await doGenerateMeaningSelect(wordIds, deepThinking, relatedWordEntries);
-  return await updateQuestionWithContent(questionId, parsed, 'meaning-select', wordIds);
+  return new Promise((resolve, reject) => {
+    aiQueue.addTask(questionId, async () => {
+      try {
+        const parsed = await doGenerateMeaningSelect(wordIds, deepThinking, relatedWordEntries);
+        const result = await updateQuestionWithContent(questionId, parsed, 'meaning-select', wordIds);
+        resolve(result);
+      } catch (error) {
+        try {
+          await markQuestionAsFailed(questionId);
+        } catch (e) {
+          console.error('标记题目失败状态时出错:', e);
+        }
+        reject(error);
+      }
+    });
+  });
 }
 
 async function getWordAllMeanings(word: string): Promise<string[]> {

@@ -1,10 +1,11 @@
 'use server';
 
-import { fetchEnrichedWords, enqueuePendingQuestion, updateQuestionWithContent } from './utils';
+import { fetchEnrichedWords, enqueuePendingQuestion, updateQuestionWithContent, markQuestionAsFailed } from './utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { TranslateOptions } from '@/types/problem';
 import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
+import { aiQueue } from '@/lib/ai-queue';
 
 interface TranslateQuestion {
   title: string;
@@ -71,8 +72,22 @@ export async function generateTranslateWithQuestion(
   deepThinking?: boolean,
   relatedWordEntries?: RelatedWordEntry[],
 ) {
-  const parsed = await doGenerateTranslate(wordIds, options, customPrompt, deepThinking, relatedWordEntries);
-  return await updateQuestionWithContent(questionId, parsed, 'translate', wordIds);
+  return new Promise((resolve, reject) => {
+    aiQueue.addTask(questionId, async () => {
+      try {
+        const parsed = await doGenerateTranslate(wordIds, options, customPrompt, deepThinking, relatedWordEntries);
+        const result = await updateQuestionWithContent(questionId, parsed, 'translate', wordIds);
+        resolve(result);
+      } catch (error) {
+        try {
+          await markQuestionAsFailed(questionId);
+        } catch (e) {
+          console.error('标记题目失败状态时出错:', e);
+        }
+        reject(error);
+      }
+    });
+  });
 }
 
 async function doGenerateTranslate(

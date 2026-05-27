@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Search, Check, AlertCircle, CheckSquare, Square, Settings } from 'lucide-react';
+import { X, Search, Check, AlertCircle, CheckSquare, Square, Settings, Camera, Sparkles } from 'lucide-react';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag, TagConfig, RelatedWord } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
 import { TagEditModal } from '@/components/TagEditModal';
 import { RelatedWordSelector } from '@/components/RelatedWordSelector';
+import { PhotoWordRecognition } from '@/components/PhotoWordRecognition';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -26,9 +27,10 @@ interface WordModalProps {
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
   allTagConfigs: Record<WordTag, TagConfig>;
   onTagsUpdate?: (newTagConfigs: Record<WordTag, TagConfig>) => void;
+  onWordAdded?: () => void;
 }
 
-export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [], queryWord, allTagConfigs, onTagsUpdate }: WordModalProps) => {
+export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [], queryWord, allTagConfigs, onTagsUpdate, onWordAdded }: WordModalProps) => {
   const [word, setWord] = useState('');
   const [dictionaryData, setDictionaryData] = useState<DictionaryEntry | null>(null);
   const [loading, setLoading] = useState(false);
@@ -38,6 +40,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
   const [selectedRelatedWords, setSelectedRelatedWords] = useState<RelatedWord[]>([]);
   const [searchedWord, setSearchedWord] = useState('');
   const [showTagEditModal, setShowTagEditModal] = useState(false);
+  const [showPhotoRecognition, setShowPhotoRecognition] = useState(false);
 
   useEffect(() => {
     if (initialWord) {
@@ -46,7 +49,16 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
       setSelectedMeanings(initialWord.meanings || []);
       setSelectedTags(initialWord.tags);
       setSelectedRelatedWords(initialWord.relatedWords || []);
-      setDictionaryData(null);
+      
+      if (initialWord.meanings && initialWord.meanings.length > 0) {
+        setDictionaryData({
+          word: initialWord.text,
+          pronunciation: '',
+          meaning: initialWord.meanings
+        });
+      } else {
+        setDictionaryData(null);
+      }
     } else {
       setWord('');
       setDictionaryData(null);
@@ -185,7 +197,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
             <label htmlFor="word-search-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               搜索单词
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mb-2">
               <Input
                 id="word-search-input"
                 placeholder="输入要查询的英文单词..."
@@ -199,6 +211,30 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                 {loading ? '查询中...' : '查询'}
               </Button>
             </div>
+            {!initialWord && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowPhotoRecognition(true);
+                }}
+                className="group relative w-full cursor-pointer rounded-xl bg-purple-500 hover:bg-purple-600 active:scale-[0.98] pointer-events-auto px-4 py-3 text-white font-medium transition-all"
+                style={{ zIndex: 10 }}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Camera className="h-5 w-5" />
+                      <Sparkles className="absolute -top-2 -right-2 h-3 w-3 text-amber-400" />
+                    </div>
+                    <span>拍照识别单词</span>
+                  </div>
+                  <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold">
+                    NEW
+                  </span>
+                </div>
+              </button>
+            )}
             {error && (
               <div className="mt-2 flex items-center text-sm text-red-600 dark:text-red-400">
                 <AlertCircle className="h-4 w-4 mr-1" />
@@ -412,6 +448,18 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
             onTagsUpdate?.(newTagConfigs);
           }}
           currentTags={allTagConfigs}
+        />
+      )}
+
+      {showPhotoRecognition && (
+        <PhotoWordRecognition
+          isOpen={showPhotoRecognition}
+          onClose={() => setShowPhotoRecognition(false)}
+          queryWord={queryWord}
+          allTagConfigs={allTagConfigs}
+          onTagsUpdate={onTagsUpdate}
+          allWords={allWords}
+          onWordAdded={onWordAdded}
         />
       )}
     </>

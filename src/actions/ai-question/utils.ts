@@ -5,6 +5,7 @@ import { getAuthUser } from '../auth';
 import { QuestionType } from '@/types/word';
 import { Meaning } from '@/types/dict';
 import { callOpenAI, parseThinkingContent } from '@/lib/openai';
+import { aiQueue } from '@/lib/ai-queue';
 
 /**
  * Fetch words and enrich with all user-specific information.
@@ -377,6 +378,22 @@ export async function gradeFillBlankAnswerBatch(
   questionId: string,
   answers: Record<number, string>
 ): Promise<GradeResult[]> {
+  return new Promise((resolve, reject) => {
+    aiQueue.addTask(`grade-${questionId}`, async () => {
+      try {
+        const results = await doGradeFillBlankAnswerBatch(questionId, answers);
+        resolve(results);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+async function doGradeFillBlankAnswerBatch(
+  questionId: string,
+  answers: Record<number, string>
+): Promise<GradeResult[]> {
   const user = await getAuthUser();
   if (!user) throw new Error('未登录');
 
@@ -524,6 +541,22 @@ export async function gradeFillBlankAnswerBatch(
  * 如果用户放弃了某道题（空答案），只返回标准答案不评分.
  */
 export async function gradeTranslateAnswerBatch(
+  questionId: string,
+  answers: Record<number, string>
+): Promise<GradeResult[]> {
+  return new Promise((resolve, reject) => {
+    aiQueue.addTask(`grade-${questionId}`, async () => {
+      try {
+        const results = await doGradeTranslateAnswerBatch(questionId, answers);
+        resolve(results);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+async function doGradeTranslateAnswerBatch(
   questionId: string,
   answers: Record<number, string>
 ): Promise<GradeResult[]> {

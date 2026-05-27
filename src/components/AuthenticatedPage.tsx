@@ -326,7 +326,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
               setEditingWord(undefined);
               setShowModal(true);
             }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-colors text-sm sm:text-base flex-shrink-0"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-colors text-sm sm:text-base"
           >
             <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
             <span className="hidden sm:inline">添加单词</span>
@@ -436,6 +436,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
         queryWord={queryWord}
         allTagConfigs={allTagConfigs}
         onTagsUpdate={handleTagsUpdate}
+        onWordAdded={loadData}
       />
 
       {/* AI 出题类型选择器 */}
