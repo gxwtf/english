@@ -28,7 +28,8 @@
     "playwright": "^1.59.1",
     "react": "19.2.5",
     "react-dom": "19.2.5",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@prisma/client": "^7.8.0",

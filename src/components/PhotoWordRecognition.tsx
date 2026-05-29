@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { X, AlertCircle, Minus, Plus, Check, Sparkles, Image as ImageIcon, Zap, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { X, AlertCircle, Minus, Plus, Check, Sparkles, Image as ImageIcon, Zap, ChevronRight, Brain, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { WordModal } from '@/components/WordModal';
 import { recognizeWordsFromImage } from '@/actions/image-recognition';
+import { compressImage } from '@/lib/image-utils';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag, TagConfig, RelatedWord } from '@/types/word';
 import { saveWord as saveWordAction } from '@/actions/words';
@@ -31,6 +32,8 @@ const ANNOTATION_STYLES = [
   { value: '高亮', label: '高亮' },
   { value: '红笔圈出', label: '红笔圈出' },
   { value: '红下划线', label: '红下划线' },
+  { value: '黑笔圈出', label: '黑笔圈出' },
+  { value: '黑下划线', label: '黑下划线' },
   { value: 'custom', label: '自定义' },
 ];
 
@@ -51,13 +54,56 @@ export const PhotoWordRecognition = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingWordIndex, setEditingWordIndex] = useState<number | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [aiThinking, setAiThinking] = useState<string>('');
+  const [showDetails, setShowDetails] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const triggerFileInput = useCallback(() => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+  const getOrCreateFileInput = useCallback((): HTMLInputElement => {
+    if (fileInputRef.current && document.body.contains(fileInputRef.current)) {
+      fileInputRef.current.value = '';
+      return fileInputRef.current;
+    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.position = 'fixed';
+    input.style.top = '0';
+    input.style.left = '0';
+    input.style.width = '1px';
+    input.style.height = '1px';
+    input.style.opacity = '0.01';
+    input.style.pointerEvents = 'none';
+    document.body.appendChild(input);
+    fileInputRef.current = input;
+    return input;
+  }, []);
+
+  const processFile = useCallback(async (file: File) => {
+    try {
+      const compressResult = await compressImage(file, {
+        maxWidth: 2048,
+        maxHeight: 2048,
+        quality: 0.8
+      });
+      setImageData(compressResult.dataUrl);
+      setStep('annotate');
+    } catch (err) {
+      console.error('图片处理失败:', err);
+      setError('图片处理失败，请重试');
     }
   }, []);
+
+  const openFilePicker = useCallback(() => {
+    const input = getOrCreateFileInput();
+    input.onchange = null;
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        await processFile(file);
+      }
+    };
+    input.click();
+  }, [getOrCreateFileInput, processFile]);
 
   useEffect(() => {
     if (isOpen) {
@@ -68,40 +114,34 @@ export const PhotoWordRecognition = ({
       setRecognizedWords([]);
       setError(null);
       setEditingWordIndex(null);
+      setAiThinking('');
+      setShowDetails(false);
     }
   }, [isOpen]);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string;
-        setImageData(dataUrl);
-        setStep('annotate');
-      };
-      reader.readAsDataURL(file);
-    } else {
-      onClose();
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
 
   const handleRecognize = async () => {
     if (!imageData) return;
     
     setLoading(true);
     setError(null);
+    setAiThinking('');
     setStep('recognizing');
 
     try {
       const style = annotationStyle === 'custom' ? customAnnotation : annotationStyle;
-      const words = await recognizeWordsFromImage(imageData, style);
+      const result = await recognizeWordsFromImage(imageData, style);
+      
+      setAiThinking(result.thinking);
+      
+      console.log('🎯 识别完成:', {
+        '识别单词数': result.words.length,
+        '识别方式': result.method === 'ocr' ? 'OCR+标记检测' : result.method === 'ocr+ai' ? 'OCR+AI文本分析' : 'AI视觉识别',
+        'AI 思考长度': `${result.thinking.length} 字符`,
+        'Token 消耗': result.method === 'ai' || result.method === 'ocr+ai' ? `输入 ${result.usage.prompt_tokens} / 输出 ${result.usage.completion_tokens} / 总计 ${result.usage.total_tokens}` : '无（OCR方案）'
+      });
       
       const wordsWithMeanings = await Promise.all(
-        words.map(async (word) => {
+        result.words.map(async (word) => {
           const dictEntry = await queryWord(word.text);
           const meanings = dictEntry?.meaning || [];
           return {
@@ -225,9 +265,7 @@ export const PhotoWordRecognition = ({
   };
 
   const handleReSelectImage = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+    openFilePicker();
   };
 
   if (!isOpen) return null;
@@ -236,14 +274,6 @@ export const PhotoWordRecognition = ({
 
   return (
     <>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileSelect}
-      />
-      
       <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-3 sm:p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
           <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-purple-50 dark:bg-gray-700">
@@ -275,7 +305,8 @@ export const PhotoWordRecognition = ({
                   <p className="text-sm text-gray-500 dark:text-gray-400">上传包含标记生词的图片，AI 将自动识别</p>
                 </div>
                 <button
-                  onClick={triggerFileInput}
+                  onClick={openFilePicker}
+                  type="button"
                   className="group relative rounded-xl bg-purple-500 hover:bg-purple-600 active:scale-[0.98] px-8 py-4 text-white font-semibold transition-all"
                 >
                   <div className="flex items-center justify-center gap-2">
@@ -399,6 +430,53 @@ export const PhotoWordRecognition = ({
                       </Button>
                     )}
                   </div>
+
+                  {aiThinking && (
+                    <div className="rounded-xl bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-purple-700 dark:text-purple-300">
+                          <Brain className="h-4 w-4" />
+                          AI 深度思考过程
+                        </div>
+                        <button
+                          onClick={() => setShowDetails(!showDetails)}
+                          className="text-xs text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                        >
+                          {showDetails ? '收起' : '展开'}
+                          <Maximize2 className={`h-3 w-3 transition-transform ${showDetails ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                      
+                      {!showDetails ? (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                          {aiThinking}
+                        </p>
+                      ) : (
+                        <div className="mt-3 pt-3 border-t border-purple-200/50 dark:border-purple-700/50">
+                          <div className="bg-white/80 dark:bg-gray-800/80 rounded-lg p-3 max-h-48 overflow-y-auto">
+                            <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
+                              {aiThinking}
+                            </pre>
+                          </div>
+                          
+                            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                              <div className="bg-white/60 dark:bg-gray-800/60 rounded p-2 text-center">
+                                <div className="text-gray-500">思考长度</div>
+                                <div className="font-semibold text-gray-800 dark:text-gray-200">{aiThinking.length} 字符</div>
+                              </div>
+                              <div className="bg-white/60 dark:bg-gray-800/60 rounded p-2 text-center">
+                                <div className="text-gray-500">处理模式</div>
+                                <div className="font-semibold text-blue-600">深度推理</div>
+                              </div>
+                              <div className="bg-white/60 dark:bg-gray-800/60 rounded p-2 text-center">
+                                <div className="text-gray-500">状态</div>
+                                <div className="font-semibold text-green-600">✓ 完成</div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                   {recognizedWords.length === 0 ? (
                     <div className="text-center py-8 text-gray-500 dark:text-gray-400">

@@ -72,6 +72,7 @@ if (imageModelConfigs.length > 0) {
 interface OpenAIOptions {
   prompt?: string;
   timeout?: number;
+  temperature?: number;
 }
 
 export function parseThinkingContent(content: string): { thinking: string | null; content: string } {
@@ -84,6 +85,7 @@ export function parseThinkingContent(content: string): { thinking: string | null
 
 interface OpenAIResponse {
   content: string;
+  thinking: string | null;
   usage: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -95,7 +97,7 @@ export async function callOpenAI(
   systemPrompt: string,
   options: OpenAIOptions = {}
 ): Promise<OpenAIResponse> {
-  const { prompt = '' } = options;
+  const { prompt = '', temperature } = options;
 
   const defaultTimeout = 300000;
   const defaultMaxRetries = 2;
@@ -117,7 +119,7 @@ export async function callOpenAI(
         { role: 'system', content: systemPrompt },
         ...(prompt ? [{ role: 'user', content: prompt }] : []),
       ],
-      temperature: 0.7,
+      temperature: temperature ?? 0.7,
     };
 
     if (!systemPrompt && prompt) {
@@ -158,6 +160,7 @@ export async function callOpenAI(
 
         return {
           content,
+          thinking: null,
           usage: {
             prompt_tokens: data.usage?.prompt_tokens || 0,
             completion_tokens: data.usage?.completion_tokens || 0,
@@ -194,6 +197,98 @@ export async function callOpenAI(
     
     if (configIndex < modelConfigs.length - 1) {
       console.warn(`模型 ${config.name} 多次失败，切换到下一个模型 ${modelConfigs[configIndex + 1].name}...`);
+    }
+  }
+
+  throw lastError || new Error('所有模型调用失败');
+}
+
+export async function callTextAI(
+  systemPrompt: string,
+  userPrompt: string,
+  options: { timeout?: number; temperature?: number } = {}
+): Promise<OpenAIResponse> {
+  const allConfigs = [...modelConfigs, ...imageModelConfigs];
+
+  if (allConfigs.length === 0) {
+    throw new Error('未配置任何模型');
+  }
+
+  const { timeout, temperature = 0.1 } = options;
+  const defaultTimeout = 300000;
+  const defaultMaxRetries = 1;
+  let lastError: Error | null = null;
+
+  for (let configIndex = 0; configIndex < allConfigs.length; configIndex++) {
+    const config = allConfigs[configIndex];
+    const timeoutMs = timeout ?? config.timeout ?? defaultTimeout;
+    const maxRetriesPerModel = config.maxRetries ?? defaultMaxRetries;
+
+    if (!config.apiKey) continue;
+
+    for (let attempt = 0; attempt <= maxRetriesPerModel; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetch(`${config.apiBase}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${config.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: config.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature,
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'Unknown error');
+          throw new Error(`API 请求失败：${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(`API 错误：${JSON.stringify(data.error)}`);
+        }
+
+        const message = data.choices?.[0]?.message;
+        let content = message?.content ?? message?.reasoning ?? '';
+        let thinkingContent: string | null = null;
+
+        if (message?.reasoning_content) {
+          thinkingContent = message.reasoning_content;
+        }
+
+        return {
+          content,
+          thinking: thinkingContent,
+          usage: {
+            prompt_tokens: data.usage?.prompt_tokens || 0,
+            completion_tokens: data.usage?.completion_tokens || 0,
+            total_tokens: data.usage?.total_tokens || 0,
+          },
+        };
+      } catch (error) {
+        clearTimeout(timeoutId);
+        lastError = error as Error;
+
+        if (attempt < maxRetriesPerModel) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;
+        }
+      }
+    }
+
+    if (configIndex < allConfigs.length - 1) {
+      console.warn(`文本模型 ${config.name} 失败，切换到 ${allConfigs[configIndex + 1].name}...`);
     }
   }
 
@@ -348,7 +443,7 @@ export async function callOpenAIWithTools(
               completion_tokens: (data.usage?.completion_tokens || 0) + (followUpData.usage?.completion_tokens || 0),
               total_tokens: (data.usage?.total_tokens || 0) + (followUpData.usage?.total_tokens || 0),
             };
-            return { content, usage };
+            return { content, thinking: null, usage };
           } catch (followUpError) {
             clearTimeout(followUpTimeoutId);
             throw followUpError;
@@ -357,6 +452,7 @@ export async function callOpenAIWithTools(
 
         return {
           content,
+          thinking: null,
           usage: {
             prompt_tokens: data.usage?.prompt_tokens || 0,
             completion_tokens: data.usage?.completion_tokens || 0,
@@ -402,7 +498,6 @@ export async function callOpenAIWithTools(
 interface VisionAIOptions {
   timeout?: number;
   enableThinking?: boolean;
-  maxReasoningTokens?: number;
 }
 
 export async function callVisionAI(
@@ -415,7 +510,7 @@ export async function callVisionAI(
     throw new Error('未配置图像模型，请设置 LLM_IMAGE_CONFIGS 环境变量');
   }
 
-  const { enableThinking = false, maxReasoningTokens = 8000 } = options;
+  const { enableThinking = false } = options;
   const defaultTimeout = 300000;
   const defaultMaxRetries = 2;
   let lastError: Error | null = null;
@@ -458,14 +553,6 @@ export async function callVisionAI(
           temperature: 0.3
         };
 
-        if (enableThinking) {
-          requestBody.extra_body = {
-            enable_thinking: true,
-            reasoning_tokens: maxReasoningTokens
-          };
-        } else {
-          requestBody.extra_body = { enable_thinking: false };
-        }
 
         const response = await fetch(`${config.apiBase}/chat/completions`, {
           method: 'POST',
@@ -491,10 +578,24 @@ export async function callVisionAI(
         }
 
         const message = data.choices?.[0]?.message;
-        let content = message?.content ?? message?.reasoning ?? '';
+        let rawContent = message?.content ?? message?.reasoning ?? '';
+        let thinkingContent: string | null = null;
 
+        if (message?.reasoning_content) {
+          thinkingContent = message.reasoning_content;
+        }
+
+        if (enableThinking && rawContent) {
+          const parsed = parseThinkingContent(rawContent);
+          rawContent = parsed.content;
+          if (parsed.thinking) {
+            thinkingContent = parsed.thinking;
+          }
+        }
+        
         return {
-          content,
+          content: rawContent,
+          thinking: thinkingContent,
           usage: {
             prompt_tokens: data.usage?.prompt_tokens || 0,
             completion_tokens: data.usage?.completion_tokens || 0,
