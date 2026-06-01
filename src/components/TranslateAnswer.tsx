@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitAnswer, gradeTranslateAnswerBatch, loadGradingResult, GradeResult, resetQuestion as resetQuestionAction, markQuestionAsGradingFailed } from '@/actions/ai-question';
 import { WordMeaningsDisplay } from '@/components/WordMeaningsDisplay';
+import Link from 'next/link';
 
 interface TranslateQuestionItem {
   id: number;
@@ -272,12 +273,12 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
 
           {/* 操作按钮 */}
           <div className="flex gap-3">
-            <a
+            <Link
               href="/practice"
               className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
             >
               返回题目列表
-            </a>
+            </Link>
           </div>
         </>
       ) : currentStatus === 'GRADING_FAILED' ? (
@@ -339,12 +340,12 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
 
           {/* 操作按钮 */}
           <div className="flex gap-3">
-            <a
+            <Link
               href="/practice"
               className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
             >
               返回题目列表
-            </a>
+            </Link>
             <button
               onClick={handleRetryGrading}
               disabled={isRetryingGrading}
@@ -466,12 +467,12 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
 
           {/* 操作按钮 */}
           <div className="flex gap-3">
-            <a
+            <Link
               href="/practice"
               className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
             >
               返回题目列表
-            </a>
+            </Link>
             {currentStatus === 'ANSWERED' ? (
               <button
                 onClick={handleReset}

@@ -15,11 +15,13 @@ import {
   markQuestionAsFailed,
   retryQuestion,
 } from '@/actions/ai-question';
+import { useRouter } from 'next/navigation';
 
 export function PracticePageContent() {
   const { isLoggedIn, isClient } = useAuth();
   const [queue, setQueue] = useState<QuestionQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const loadQueue = useCallback(async () => {
     try {
@@ -140,7 +142,7 @@ export function PracticePageContent() {
           type: 'meaning-select-en',
         }));
       }
-      window.location.href = '/practice';
+      router.push('/practice');
     } catch (error) {
       console.error('重试题目失败:', error);
     }

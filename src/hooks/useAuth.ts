@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { verifyAuth as verifyAuthAction, logout as logoutAction } from '@/actions/auth';
 import { UserInfo } from '@/actions/auth';
+import { useRouter } from 'next/navigation';
 
 const STORAGE_KEY = 'gxwtf_english_auth';
 
@@ -49,9 +50,11 @@ export const useAuth = () => {
     checkAuth();
   }, [checkAuth]);
 
+  const router = useRouter();
+
   const login = () => {
     // 真实登录需要跳转到 SSO
-    window.location.href = '/api/auth/login';
+    router.push('/api/auth/login');
   };
 
   const logout = useCallback(async () => {

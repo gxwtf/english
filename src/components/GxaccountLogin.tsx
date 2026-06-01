@@ -1,15 +1,16 @@
 "use client";
 
 import { LogIn } from "lucide-react";
+import { useRouter } from 'next/navigation';
 
 export const GxaccountLogin = () => {
+  const router = useRouter();
   const handleLogin = () => {
     // 获取当前页面作为登录后跳转回的地址
     const currentPath = window.location.pathname;
     const back = encodeURIComponent(currentPath);
-
     // 跳转到广学账号登录页
-    window.location.href = `/api/auth/login?back=${back}`;
+    router.push(`/api/auth/login?back=${back}`);
   };
 
   return (

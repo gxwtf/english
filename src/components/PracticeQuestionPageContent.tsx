@@ -11,6 +11,7 @@ import { MeaningSelectEnAnswer } from '@/components/MeaningSelectEnAnswer';
 import { QuestionDisplay } from '@/components/QuestionDisplay';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
+import Link from 'next/link';
 
 export function PracticeQuestionPageContent({ params }: { params: Promise<{ questionId: string }> }) {
   const { questionId } = use(params);
@@ -50,9 +51,9 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="text-center py-12">
             <p className="text-red-500 dark:text-red-400">{error}</p>
-            <a href="/practice" className="text-sm text-blue-500 mt-4 inline-block">
+            <Link href="/practice" className="text-sm text-blue-500 mt-4 inline-block">
               返回题目列表
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -66,9 +67,9 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
       <Navbar currentPage="practice" />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mb-6">
-          <a href="/practice" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">
+          <Link href="/practice" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">
             &larr; 返回题目列表
-          </a>
+          </Link>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white mt-2">
             {question.questionType === 'fill-blank' ? '选词填空' : question.questionType === 'meaning-select' ? '英译中' : question.questionType === 'meaning-select-en' ? '英英释义' : '翻译句子'}
           </h1>
@@ -86,9 +87,9 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
         {question.status === 'FAILED' && (
           <div className="text-center py-12">
             <p className="text-red-500 dark:text-red-400">题目生成失败</p>
-            <a href="/practice" className="text-sm text-blue-500 mt-2 inline-block">
+            <Link href="/practice" className="text-sm text-blue-500 mt-2 inline-block">
               返回题目列表重试
-            </a>
+            </Link>
           </div>
         )}
 

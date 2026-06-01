@@ -26,6 +26,7 @@ import {
   enqueuePendingMeaningSelectEn,
 } from '@/actions/ai-question';
 import { selectWordsForQuestion, type RelatedWordEntry } from '@/lib/word-selection';
+import { useRouter } from 'next/navigation';
 
 interface AuthenticatedPageProps {
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
@@ -45,6 +46,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   const [allTagConfigs, setAllTagConfigs] = useState<Record<WordTag, TagConfig>>({});
   const [showAISelector, setShowAISelector] = useState(false);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   const relatedWordsCount = useMemo(() => {
     const selectedWords = words.filter(w => selectedWordIds.includes(w.id));
@@ -272,7 +274,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
         sessionStorage.setItem('pendingRelatedWords', JSON.stringify(relatedWordEntries));
       }
 
-      window.location.href = '/practice';
+      router.push('/practice');
     } catch (error) {
       console.error('创建题目异常:', error);
     }

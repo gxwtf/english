@@ -1,5 +1,6 @@
 import { CheckCircle2, Edit3, Loader2, AlertCircle, ArrowRight, Eye } from 'lucide-react';
 import { QuestionQueueItem } from '@/types/word';
+import Link from 'next/link';
 
 const STATUS_LABELS: Record<string, string> = {
   GENERATING: '生成中',
@@ -41,39 +42,39 @@ export function QuestionList({
 
             {/* Action buttons based on status */}
             {q.status === 'GENERATED' && (
-              <a
+              <Link
                 href={`/practice/${q.id}`}
                 className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
               >
                 开始作答 <ArrowRight className="h-3 w-3" />
-              </a>
+              </Link>
             )}
 
             {q.status === 'ANSWERED' && (
-              <a
+              <Link
                 href={`/practice/${q.id}`}
                 className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 查看作答 <Eye className="h-3 w-3" />
-              </a>
+              </Link>
             )}
 
             {q.status === 'GRADING' && (
-              <a
+              <Link
                 href={`/practice/${q.id}`}
                 className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
               >
                 查看进度 <Eye className="h-3 w-3" />
-              </a>
+              </Link>
             )}
 
             {q.status === 'GRADING_FAILED' && (
-              <a
+              <Link
                 href={`/practice/${q.id}`}
                 className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
               >
                 重新批改 <ArrowRight className="h-3 w-3" />
-              </a>
+              </Link>
             )}
 
             {q.status === 'GENERATING' && (
