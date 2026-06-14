@@ -3,7 +3,6 @@ type QueueTask = () => Promise<void>;
 interface QueueItem {
   id: string;
   task: QueueTask;
-  priority: number;
   addedAt: Date;
 }
 
@@ -12,36 +11,20 @@ class AIRequestQueue {
   private isProcessing = false;
   private currentTask: QueueItem | null = null;
 
-  addTask(id: string, task: QueueTask, priority: number = 0): void {
+  addTask(id: string, task: QueueTask): void {
     const existingIndex = this.queue.findIndex(item => item.id === id);
     if (existingIndex !== -1) {
       console.log(`[AI Queue] 任务 ${id} 已在队列中，跳过添加`);
       return;
     }
 
-    const item: QueueItem = {
-      id,
-      task,
-      priority,
-      addedAt: new Date(),
-    };
-
-    this.queue.push(item);
-    this.queue.sort((a, b) => {
-      if (a.priority !== b.priority) {
-        return b.priority - a.priority;
-      }
-      return a.addedAt.getTime() - b.addedAt.getTime();
-    });
-
+    this.queue.push({ id, task, addedAt: new Date() });
     console.log(`[AI Queue] 添加任务 ${id}，队列长度: ${this.queue.length}`);
     this.processNext();
   }
 
   private async processNext(): Promise<void> {
-    if (this.isProcessing || this.queue.length === 0) {
-      return;
-    }
+    if (this.isProcessing || this.queue.length === 0) return;
 
     this.isProcessing = true;
     const item = this.queue.shift()!;

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Type, ListFilter } from 'lucide-react';
 import type { QuestionType } from '@/types/word';
-import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions, MeaningSelectEnOptions } from '@/types/problem';
+import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions } from '@/types/problem';
 
 const STORAGE_KEY_INCLUDE_RELATED = 'ai-question-include-related';
 const STORAGE_KEY_ALLOW_FORM_CHANGE = 'ai-question-allow-form-change';
@@ -13,7 +13,7 @@ export type QuestionGenerationOptions = {
   fillBlank?: FillBlankOptions;
   translate?: TranslateOptions;
   meaningSelect?: MeaningSelectOptions;
-  meaningSelectEn?: MeaningSelectEnOptions;
+  meaningSelectEn?: MeaningSelectOptions;
   deepThinking?: boolean;
   includeRelatedWords?: boolean;
   allowFormChange?: boolean;

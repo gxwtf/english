@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { QuestionQueueItem } from '@/types/word';
+import { QuestionQueueItem, QUESTION_TYPE_LABELS } from '@/types/word';
 import { loadQuestionById } from '@/actions/ai-question';
 import { FillBlankAnswer } from '@/components/FillBlankAnswer';
 import { TranslateAnswer } from '@/components/TranslateAnswer';
@@ -71,7 +71,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
             &larr; 返回题目列表
           </Link>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white mt-2">
-            {question.questionType === 'fill-blank' ? '选词填空' : question.questionType === 'meaning-select' ? '英译中' : question.questionType === 'meaning-select-en' ? '英英释义' : '翻译句子'}
+            {QUESTION_TYPE_LABELS[question.questionType]}
           </h1>
           <p className="text-xs text-gray-400 mt-1">
             创建于 {new Date(question.createdAt).toLocaleString('zh-CN')}

@@ -6,11 +6,7 @@ import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
 import { query as queryDict } from '@/lib/dict/query';
 import { aiQueue } from '@/lib/ai-queue';
-
-interface MeaningSelectEnQuestion {
-  title: string;
-  questions: MeaningSelectEnQuestionItem[];
-}
+import { isOptionInMeanings } from '@/lib/utils';
 
 interface MeaningSelectEnQuestionItem {
   id: number;
@@ -21,6 +17,11 @@ interface MeaningSelectEnQuestionItem {
   correctAnswer: string;
 }
 
+interface MeaningSelectEnQuestion {
+  title: string;
+  questions: MeaningSelectEnQuestionItem[];
+}
+
 const MAX_RETRIES = 3;
 
 export async function enqueuePendingMeaningSelectEn(
@@ -28,10 +29,7 @@ export async function enqueuePendingMeaningSelectEn(
   deepThinking?: boolean,
   relatedWordEntries?: RelatedWordEntry[],
 ) {
-  if (!wordIds?.length) {
-    throw new Error('缺少单词列表');
-  }
-
+  if (!wordIds?.length) throw new Error('缺少单词列表');
   return await enqueuePendingQuestion('meaning-select-en', wordIds, relatedWordEntries);
 }
 
@@ -55,11 +53,7 @@ export async function generateMeaningSelectEnWithQuestion(
         const result = await updateQuestionWithContent(questionId, parsed, 'meaning-select-en', wordIds);
         resolve(result);
       } catch (error) {
-        try {
-          await markQuestionAsFailed(questionId);
-        } catch (e) {
-          console.error('标记题目失败状态时出错:', e);
-        }
+        try { await markQuestionAsFailed(questionId); } catch (e) { console.error('标记题目失败状态时出错:', e); }
         reject(error);
       }
     });
@@ -68,41 +62,20 @@ export async function generateMeaningSelectEnWithQuestion(
 
 async function getWordAllEnglishMeanings(word: string): Promise<string[]> {
   const dictEntry = await queryDict(word);
-  if (!dictEntry || !dictEntry.meaning) {
-    return [];
-  }
+  if (!dictEntry || !dictEntry.meaning) return [];
   return dictEntry.meaning.map(m => m.content.toLowerCase().trim());
 }
 
-function isOptionInMeanings(option: string, meanings: string[]): boolean {
-  const normalizedOption = option.toLowerCase().trim();
-  return meanings.some(m => {
-    const normalizedMeaning = m.toLowerCase().trim();
-    return normalizedOption === normalizedMeaning ||
-           normalizedOption.includes(normalizedMeaning) ||
-           normalizedMeaning.includes(normalizedOption);
-  });
-}
-
-async function validateQuestion(
-  q: MeaningSelectEnQuestionItem,
-): Promise<{ valid: boolean; reason: string }> {
+async function validateQuestion(q: MeaningSelectEnQuestionItem): Promise<{ valid: boolean; reason: string }> {
   const allMeanings = await getWordAllEnglishMeanings(q.word);
-  if (allMeanings.length === 0) {
-    return { valid: true, reason: '词典中未找到该单词，跳过验证' };
-  }
+  if (allMeanings.length === 0) return { valid: true, reason: '词典中未找到该单词，跳过验证' };
 
   const distractors = q.options.filter(o => o !== q.correctAnswer);
-
   for (const distractor of distractors) {
     if (isOptionInMeanings(distractor, allMeanings)) {
-      return {
-        valid: false,
-        reason: `干扰选项 "${distractor}" 是单词 "${q.word}" 的释义之一，需要重新生成`,
-      };
+      return { valid: false, reason: `干扰选项 "${distractor}" 是单词 "${q.word}" 的释义之一，需要重新生成` };
     }
   }
-
   return { valid: true, reason: '验证通过' };
 }
 
@@ -111,40 +84,25 @@ async function doGenerateMeaningSelectEn(
   deepThinking?: boolean,
   relatedWordEntries?: RelatedWordEntry[],
 ): Promise<Record<string, unknown>> {
-  if (!wordIds?.length) {
-    throw new Error('缺少单词列表');
-  }
+  if (!wordIds?.length) throw new Error('缺少单词列表');
 
   const wordData = await fetchEnrichedWords(wordIds);
-  if (wordData.length === 0) {
-    throw new Error('所选单词不存在');
-  }
+  if (wordData.length === 0) throw new Error('所选单词不存在');
 
   let lastError: string | null = null;
-
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const result = await generateQuestionsWithAI(wordData, relatedWordEntries);
-
-      const validationResults = await Promise.all(
-        result.questions.map(q => validateQuestion(q))
-      );
-
+      const validationResults = await Promise.all(result.questions.map(q => validateQuestion(q)));
       const invalidResults = validationResults.filter(r => !r.valid);
-
-      if (invalidResults.length === 0) {
-        return result as unknown as Record<string, unknown>;
-      }
-
+      if (invalidResults.length === 0) return result as unknown as Record<string, unknown>;
       lastError = invalidResults.map(r => r.reason).join('; ');
       console.log(`[英英释义] 第 ${attempt} 次生成验证失败: ${lastError}`);
-
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
       console.log(`[英英释义] 第 ${attempt} 次生成失败: ${lastError}`);
     }
   }
-
   throw new Error(`AI 生成英英释义题目失败，已重试 ${MAX_RETRIES} 次。最后错误: ${lastError}`);
 }
 
@@ -230,13 +188,9 @@ ${relatedWordsSection}
 
 请生成符合上述要求的英英释义选择题 JSON。`;
 
-  const result = await callOpenAIWithTools(systemPrompt, {
-    prompt: userPrompt,
-    tools: [randomTool],
-  });
+  const result = await callOpenAIWithTools(systemPrompt, { prompt: userPrompt, tools: [randomTool] });
 
   let content = result.content.trim();
-
   let thinkingContent: string | null = null;
   {
     const parsed = parseThinkingContent(content);
@@ -245,9 +199,7 @@ ${relatedWordsSection}
   }
 
   const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) {
-    content = fenceMatch[1].trim();
-  }
+  if (fenceMatch) content = fenceMatch[1].trim();
 
   let parsed: MeaningSelectEnQuestion;
   try {
@@ -279,9 +231,6 @@ ${relatedWordsSection}
   }
 
   const resultContent: Record<string, unknown> = { ...parsed };
-  if (thinkingContent) {
-    resultContent.thinking = thinkingContent;
-  }
-
+  if (thinkingContent) resultContent.thinking = thinkingContent;
   return resultContent as unknown as MeaningSelectEnQuestion;
 }

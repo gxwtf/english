@@ -8,6 +8,81 @@ import { callOpenAI, parseThinkingContent } from '@/lib/openai';
 import { aiQueue } from '@/lib/ai-queue';
 
 /**
+ * 鉴权+所有权检查辅助函数，消除重复的 getAuthUser + findUnique + 权限校验样板代码
+ */
+async function getAuthenticatedQuestion(questionId: string) {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+  const q = await prisma.questionQueue.findUnique({ where: { id: questionId } });
+  if (!q) throw new Error('题目不存在');
+  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+  return { user, question: q };
+}
+
+/**
+ * 从 AI 返回的内容中提取 JSON 对象，处理各种格式问题。
+ * 支持：thinking 标签、代码块包裹、类型修复（int/number/float）、字段提取回退。
+ */
+function extractJSONFromAIContent(rawContent: string, requiredFields: string[] = []): any {
+  let content = rawContent.trim();
+
+  // 解析 <reason> 标签
+  const parsed = parseThinkingContent(content);
+  content = parsed.content.trim();
+
+  // 尝试从代码块中提取
+  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    content = fenceMatch[1].trim();
+  } else if (requiredFields.length > 0) {
+    // 查找包含所有必需字段的 JSON
+    const fieldPattern = requiredFields.map(f => `"${f}"`).join('[\\s\\S]*');
+    const strictMatch = content.match(new RegExp(`\\{[\\s\\S]*${fieldPattern}[\\s\\S]*\\}`));
+    if (strictMatch) {
+      content = strictMatch[0];
+    } else {
+      // 宽松匹配：包含任意一个必需字段
+      const looseField = requiredFields[0];
+      const looseMatch = content.match(new RegExp(`\\{[\\s\\S]*"${looseField}"[\\s\\S]*\\}`));
+      if (looseMatch) content = looseMatch[0];
+    }
+  }
+
+  // 修复类型名替换为实际值
+  content = content.replace(/: *int([ ,}])/g, ': 0$1');
+  content = content.replace(/: *number([ ,}])/g, ': 0$1');
+  content = content.replace(/: *float([ ,}])/g, ': 0$1');
+  // 修复 "..." 无效内容
+  content = content.replace(/"[^"]*\.\.\.[^"]*"/g, '""');
+
+  try {
+    return JSON.parse(content);
+  } catch (e) {
+    // 尝试从内容中逐字段提取
+    if (requiredFields.length > 0) {
+      const extracted: Record<string, unknown> = {};
+      let allFound = true;
+      for (const field of requiredFields) {
+        const strMatch = content.match(new RegExp(`"${field}" *: *"([^"]*)"`));
+        const numMatch = content.match(new RegExp(`"${field}" *: *(\\d+|int|number|float)`));
+        if (strMatch) extracted[field] = strMatch[1];
+        else if (numMatch) extracted[field] = parseInt(numMatch[1]) || 0;
+        else { allFound = false; break; }
+      }
+      if (allFound) return extracted;
+    }
+
+    // 最后尝试：匹配任何 JSON 对象
+    const anyJsonMatch = content.match(/\{[\s\S]*\}/);
+    if (anyJsonMatch) {
+      try { return JSON.parse(anyJsonMatch[0]); } catch {}
+    }
+
+    throw new Error(`AI 返回的内容不是合法 JSON: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+/**
  * Fetch words and enrich with all user-specific information.
  * Used by all question-type-specific Server Actions.
  *
@@ -227,15 +302,7 @@ export async function submitAnswer(questionId: string, answers: Record<string, u
  * Load a single question by ID.
  */
 export async function loadQuestionById(questionId: string) {
-  const user = await getAuthUser();
-  if (!user) throw new Error('未登录');
-
-  const q = await prisma.questionQueue.findUnique({
-    where: { id: questionId },
-  });
-
-  if (!q) throw new Error('题目不存在');
-  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+  const { question: q } = await getAuthenticatedQuestion(questionId);
 
   return {
     id: q.id,
@@ -255,22 +322,10 @@ export async function loadQuestionById(questionId: string) {
    * Mark a GENERATING question as FAILED.
    */
   export async function markQuestionAsFailed(questionId: string) {
-  const user = await getAuthUser();
-  if (!user) throw new Error('未登录');
-
-  const q = await prisma.questionQueue.findUnique({
-    where: { id: questionId },
-  });
-
-  if (!q) throw new Error('题目不存在');
-  if (q.userId !== user.userId) throw new Error('无权访问此题目');
-
+  await getAuthenticatedQuestion(questionId);
   return prisma.questionQueue.update({
     where: { id: questionId },
-    data: {
-      status: 'FAILED' as any,
-      questionContent: null as any,
-    },
+    data: { status: 'FAILED' as any, questionContent: null as any },
   });
 }
 
@@ -289,16 +344,7 @@ export interface GradeResult {
  * Save grading results to DB so they can be loaded later without re-grading.
  */
 export async function saveGradingResult(questionId: string, results: GradeResult[]) {
-  const user = await getAuthUser();
-  if (!user) throw new Error('未登录');
-
-  const q = await prisma.questionQueue.findUnique({
-    where: { id: questionId },
-  });
-
-  if (!q) throw new Error('题目不存在');
-  if (q.userId !== user.userId) throw new Error('无权访问此题目');
-
+  await getAuthenticatedQuestion(questionId);
   await prisma.questionQueue.update({
     where: { id: questionId },
     data: { gradingResult: results as any },
@@ -310,19 +356,9 @@ export async function saveGradingResult(questionId: string, results: GradeResult
  * Returns null if no cached results exist.
  */
 export async function loadGradingResult(questionId: string): Promise<GradeResult[] | null> {
-  const user = await getAuthUser();
-  if (!user) throw new Error('未登录');
-
-  const q = await prisma.questionQueue.findUnique({
-    where: { id: questionId },
-  });
-
-  if (!q) throw new Error('题目不存在');
-  if (q.userId !== user.userId) throw new Error('无权访问此题目');
-
+  const { question: q } = await getAuthenticatedQuestion(questionId);
   const gradingResult = q.gradingResult as any;
   if (!gradingResult || !Array.isArray(gradingResult)) return null;
-
   return gradingResult as GradeResult[];
 }
 
@@ -330,21 +366,10 @@ export async function loadGradingResult(questionId: string): Promise<GradeResult
  * Mark a GRADING question as ANSWERED after grading is complete.
  */
 export async function markQuestionAsAnswered(questionId: string) {
-  const user = await getAuthUser();
-  if (!user) throw new Error('未登录');
-
-  const q = await prisma.questionQueue.findUnique({
-    where: { id: questionId },
-  });
-
-  if (!q) throw new Error('题目不存在');
-  if (q.userId !== user.userId) throw new Error('无权访问此题目');
-
+  await getAuthenticatedQuestion(questionId);
   return prisma.questionQueue.update({
     where: { id: questionId },
-    data: {
-      status: 'ANSWERED',
-    },
+    data: { status: 'ANSWERED' },
   });
 }
 
@@ -352,21 +377,10 @@ export async function markQuestionAsAnswered(questionId: string) {
  * Mark a GRADING question as GRADING_FAILED when grading encounters an error.
  */
 export async function markQuestionAsGradingFailed(questionId: string) {
-  const user = await getAuthUser();
-  if (!user) throw new Error('未登录');
-
-  const q = await prisma.questionQueue.findUnique({
-    where: { id: questionId },
-  });
-
-  if (!q) throw new Error('题目不存在');
-  if (q.userId !== user.userId) throw new Error('无权访问此题目');
-
+  await getAuthenticatedQuestion(questionId);
   return prisma.questionQueue.update({
     where: { id: questionId },
-    data: {
-      status: 'GRADING_FAILED',
-    },
+    data: { status: 'GRADING_FAILED' },
   });
 }
 
@@ -466,43 +480,17 @@ async function doGradeFillBlankAnswerBatch(
     let content = result?.content?.trim();
     if (!content) {
       console.error('AI 返回内容为空');
-      results.push({
-        questionId: i,
-        standardAnswer: question.answer,
-        feedback: 'AI 点评生成失败',
-      });
+      results.push({ questionId: i, standardAnswer: question.answer, feedback: 'AI 点评生成失败' });
       continue;
-    }
-
-    const parsed = parseThinkingContent(content);
-    content = parsed.content.trim();
-
-    const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenceMatch) {
-      content = fenceMatch[1].trim();
-    } else {
-      const jsonMatch = content.match(/\{[\s\S]*"feedback"[\s\S]*\}/);
-      if (jsonMatch) {
-        content = jsonMatch[0];
-      }
     }
 
     let parsedFeedback: { feedback: string };
     try {
-      parsedFeedback = JSON.parse(content);
+      parsedFeedback = extractJSONFromAIContent(content, ['feedback']);
     } catch (e) {
       console.error('JSON 解析失败，原始内容:', result.content?.substring(0, 500));
-      const feedbackMatch = content.match(/"feedback" *: *"([^"]*)"/);
-      if (feedbackMatch) {
-        parsedFeedback = { feedback: feedbackMatch[1] };
-      } else {
-        results.push({
-          questionId: i,
-          standardAnswer: question.answer,
-          feedback: 'AI 点评生成失败',
-        });
-        continue;
-      }
+      results.push({ questionId: i, standardAnswer: question.answer, feedback: 'AI 点评生成失败' });
+      continue;
     }
 
     results.push({
@@ -650,98 +638,17 @@ async function doGradeTranslateAnswerBatch(
     console.log(content);
     if (!content) {
       console.error('AI 返回内容为空');
-      results.push({
-        questionId: question.id,
-        standardAnswer: question.referenceAnswers,
-      });
+      results.push({ questionId: question.id, standardAnswer: question.referenceAnswers });
       continue;
     }
 
-    // 解析 <reason> 标签（深度思考模式）
-    {
-      const parsed = parseThinkingContent(content);
-      content = parsed.content.trim();
-    }
-
-    // 尝试从内容中提取 JSON 对象
-    const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenceMatch) {
-      content = fenceMatch[1].trim();
-    } else {
-      // 查找最后一个 JSON 对象（包含 score、maxScore、feedback 字段）
-      const jsonMatches = content.matchAll(/\{[\s\S]*"score"[\s\S]*"maxScore"[\s\S]*"feedback"[\s\S]*\}/g);
-      const jsonMatchesArray = Array.from(jsonMatches);
-      if (jsonMatchesArray.length > 0) {
-        const lastMatch = jsonMatchesArray[jsonMatchesArray.length - 1];
-        content = lastMatch[0];
-      } else {
-        // 更宽松的匹配：查找任何包含 score 字段的 JSON 结构
-        const looseMatch = content.match(/\{[\s\S]*"score"[\s\S]*\}/);
-        if (looseMatch) {
-          content = looseMatch[0];
-        }
-      }
-    }
-
-    // 如果仍然没有提取到 JSON，尝试寻找任何看起来像 JSON 的内容
-    if (!content.startsWith('{')) {
-      const anyJsonMatch = content.match(/\{[\s\S]*"score".*?\}/);
-      if (anyJsonMatch) {
-        content = anyJsonMatch[0];
-      }
-    }
-
-    // 修复常见的 JSON 格式问题：将 "score": int 替换为 "score": 0
-    content = content.replace(/: *int([ ,}])/g, ': 0$1');
-    content = content.replace(/: *number([ ,}])/g, ': 0$1');
-    content = content.replace(/: *float([ ,}])/g, ': 0$1');
-    // 修复 "..." 这种无效内容，替换为空字符串
-    content = content.replace(/"[^"]*\.\.\.[^"]*"/g, '""');
-
     let parsed: { score: number; maxScore: number; feedback: string; standardAnswer?: string };
     try {
-      parsed = JSON.parse(content);
+      parsed = extractJSONFromAIContent(content, ['score', 'maxScore', 'feedback']);
     } catch (e) {
-      console.error('JSON 解析失败，原始内容:', result.content?.substring(0, 500));
-      console.error('处理后的内容:', content);
-      console.error('e:', e);
-
-      // 尝试更激进的修复：提取所有数字和字段
-      const scoreMatch = content.match(/"score" *: *(\d+|int|number|float)/);
-      const maxScoreMatch = content.match(/"maxScore" *: *(\d+|int|number|float)/);
-      const feedbackMatch = content.match(/"feedback" *: *"([^"]*)"/);
-
-      if (scoreMatch && maxScoreMatch && feedbackMatch) {
-        const score = parseInt(scoreMatch[1]) || 0;
-        const maxScore = parseInt(maxScoreMatch[1]) || 10;
-        const feedback = feedbackMatch[1] || '';
-        const standardAnswer = content.match(/"standardAnswer" *: *"([^"]*)"/)?.[1] || question.referenceAnswers;
-
-        parsed = { score, maxScore, feedback, standardAnswer };
-      } else {
-        const jsonLooseMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonLooseMatch) {
-          try {
-            parsed = JSON.parse(jsonLooseMatch[0]);
-          } catch {
-            // JSON 解析彻底失败，返回标准答案但不评分
-            console.error('AI 返回的批改内容不是合法 JSON，返回标准答案');
-            results.push({
-              questionId: question.id,
-              standardAnswer: question.referenceAnswers,
-            });
-            continue;
-          }
-        } else {
-          // 没有找到任何 JSON 结构，返回标准答案但不评分
-          console.error('AI 返回的批改内容不是合法 JSON，返回标准答案');
-          results.push({
-            questionId: question.id,
-            standardAnswer: question.referenceAnswers,
-          });
-          continue;
-        }
-      }
+      console.error('AI 返回的批改内容不是合法 JSON，返回标准答案');
+      results.push({ questionId: question.id, standardAnswer: question.referenceAnswers });
+      continue;
     }
 
     // 注意：score 可以为 0，所以要显式检查 undefined/null
@@ -857,72 +764,11 @@ export async function gradeTranslateAnswerSingle(questionId: string, questionIte
 
   let content = result.content.trim();
 
-  // 解析 <reason> 标签（深度思考模式）
-  {
-    const parsed = parseThinkingContent(content);
-    content = parsed.content.trim();
-  }
-
-  // 尝试从内容中提取 JSON 对象（最后面的 JSON 通常是最终答案）
-  // 优先查找代码块中的 JSON
-  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) {
-    content = fenceMatch[1].trim();
-  } else {
-    // 查找所有可能的 JSON 对象，取最后一个（通常是最终答案）
-    const jsonMatches = content.matchAll(/\{[^{}]*"score"[^{}]*\}/g);
-    const jsonMatchesArray = Array.from(jsonMatches);
-    if (jsonMatchesArray.length > 0) {
-      // 取最后一个匹配
-      const lastMatch = jsonMatchesArray[jsonMatchesArray.length - 1];
-      content = lastMatch[0];
-    } else {
-      // 尝试更宽松的模式：查找任何包含 score, maxScore, feedback 的 JSON 结构
-      const looseMatch = content.match(/\{[\s\S]*"score"[\s\S]*"maxScore"[\s\S]*"feedback"[\s\S]*\}/);
-      if (looseMatch) {
-        content = looseMatch[0];
-      }
-    }
-  }
-
-  // 修复常见的 JSON 格式问题：将 "score": int 替换为 "score": 0
-  content = content.replace(/: *int([ ,}])/g, ': 0$1');
-  content = content.replace(/: *number([ ,}])/g, ': 0$1');
-  content = content.replace(/: *float([ ,}])/g, ': 0$1');
-  // 修复 "..." 这种无效内容，替换为空字符串
-  content = content.replace(/"[^"]*\.\.\.[^"]*"/g, '""');
-
   let parsed: { score: number; maxScore: number; feedback: string };
   try {
-    parsed = JSON.parse(content);
+    parsed = extractJSONFromAIContent(content, ['score', 'maxScore', 'feedback']);
   } catch (e) {
-    console.error('JSON 解析失败，原始内容:', result.content.substring(0, 500));
-    console.error('处理后的内容:', content);
-    console.error('e:', e);
-
-    // 尝试更激进的修复：提取所有数字和字段
-    const scoreMatch = content.match(/"score" *: *(\d+|int|number|float)/);
-    const maxScoreMatch = content.match(/"maxScore" *: *(\d+|int|number|float)/);
-    const feedbackMatch = content.match(/"feedback" *: *"([^"]*)"/);
-
-    if (scoreMatch && maxScoreMatch && feedbackMatch) {
-      parsed = {
-        score: parseInt(scoreMatch[1]) || 0,
-        maxScore: parseInt(maxScoreMatch[1]) || 10,
-        feedback: feedbackMatch[1] || '',
-      };
-    } else {
-      const jsonLooseMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonLooseMatch) {
-        try {
-          parsed = JSON.parse(jsonLooseMatch[0]);
-        } catch {
-          throw new Error(`AI 返回的批改内容不是合法 JSON: ${e instanceof Error ? e.message : String(e)}`);
-        }
-      } else {
-        throw new Error(`AI 返回的批改内容不是合法 JSON: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }
+    throw new Error(`AI 返回的批改内容不是合法 JSON: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   if (!parsed.score || !parsed.maxScore || !parsed.feedback) {
@@ -1045,23 +891,12 @@ ${answersList.map((item, i) => `第 ${i + 1} 题:
  * Reset a FAILED question back to GENERATING for retry.
  */
 export async function retryQuestion(questionId: string) {
-  const user = await getAuthUser();
-  if (!user) throw new Error('未登录');
-
-  const q = await prisma.questionQueue.findUnique({
-    where: { id: questionId },
-  });
-
-  if (!q) throw new Error('题目不存在');
-  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+  const { question: q } = await getAuthenticatedQuestion(questionId);
   if (q.status !== 'FAILED' as any) throw new Error('题目状态不允许重试');
 
   const updated = await prisma.questionQueue.update({
     where: { id: questionId },
-    data: {
-      status: 'GENERATING',
-      questionContent: null as any,
-    },
+    data: { status: 'GENERATING', questionContent: null as any },
   });
 
   return {
@@ -1080,15 +915,7 @@ export type QuestionWordMeaning = {
 };
 
 export async function getQuestionWordMeanings(questionId: string): Promise<QuestionWordMeaning[]> {
-  const user = await getAuthUser();
-  if (!user) throw new Error('未登录');
-
-  const q = await prisma.questionQueue.findUnique({
-    where: { id: questionId },
-  });
-
-  if (!q) throw new Error('题目不存在');
-  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+  const { user, question: q } = await getAuthenticatedQuestion(questionId);
 
   const wordIds = q.wordIds as number[];
   const relatedWordEntries = (q.relatedWordEntries as Array<{ text: string; types: string[]; sourceWords: string[] }> | null) ?? [];
@@ -1153,25 +980,14 @@ export async function getQuestionWordMeanings(questionId: string): Promise<Quest
  * This allows users to re-attempt a question they've already answered.
  */
 export async function resetQuestion(questionId: string) {
-  const user = await getAuthUser();
-  if (!user) throw new Error('未登录');
-
-  const q = await prisma.questionQueue.findUnique({
-    where: { id: questionId },
-  });
-
-  if (!q) throw new Error('题目不存在');
-  if (q.userId !== user.userId) throw new Error('无权访问此题目');
+  const { question: q } = await getAuthenticatedQuestion(questionId);
   if (q.status !== 'ANSWERED' && q.status !== 'GRADING') {
     throw new Error('题目状态不允许重置');
   }
 
   const updated = await prisma.questionQueue.update({
     where: { id: questionId },
-    data: {
-      status: 'GENERATED',
-      lastAnswer: null as any,
-    },
+    data: { status: 'GENERATED', lastAnswer: null as any },
   });
 
   return {

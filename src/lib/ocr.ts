@@ -1,6 +1,4 @@
-import Tesseract, { createWorker } from 'tesseract.js';
 import sharp from 'sharp';
-import path from 'path';
 
 export interface OCRWordResult {
   text: string;
@@ -16,355 +14,104 @@ export interface OCRLineResult {
   words: OCRWordResult[];
 }
 
-let workerInstance: Tesseract.Worker | null = null;
-let workerInitPromise: Promise<Tesseract.Worker> | null = null;
+const PADDLEOCR_PORT = 9800;
+const PADDLEOCR_URL = `http://127.0.0.1:${PADDLEOCR_PORT}`;
 
-async function getWorker(): Promise<Tesseract.Worker> {
-  if (workerInstance) return workerInstance;
-  if (workerInitPromise) return workerInitPromise;
+async function paddleOcrImage(imageBuffer: Buffer): Promise<{
+  words: OCRWordResult[];
+  lines: OCRLineResult[];
+}> {
+  const base64Image = imageBuffer.toString('base64');
 
-  workerInitPromise = (async () => {
-    const workerPath = path.join(
-      process.cwd(),
-      'node_modules',
-      'tesseract.js',
-      'src',
-      'worker-script',
-      'node',
-      'index.js'
-    );
+  const response = await fetch(PADDLEOCR_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image: base64Image }),
+  });
 
-    const w = await createWorker('eng', 1, { workerPath });
-    workerInstance = w;
-    return w;
-  })();
+  if (!response.ok) {
+    throw new Error(`PaddleOCR server returned ${response.status}`);
+  }
 
-  return workerInitPromise;
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(`PaddleOCR error: ${data.error}`);
+  }
+
+  // Python 端已经做了词级拆分和粘连词处理，这里只需过滤
+  const rawWords = data.words || [];
+  const words: OCRWordResult[] = [];
+
+  for (const w of rawWords) {
+    const text = (w.text || '').trim();
+    if (!text || text.length < 2) continue;
+    if (/^\d+|[=\-\[\](){}<>.,;:!?/\\|@#$%^&*~]+$/.test(text)) continue;
+    if (!/[a-zA-Z]/.test(text)) continue;
+
+    const cleaned = text.replace(/^[\[\(.,;:!?'"»«]+|[\]\).,;:!?'"»«]+$/g, '');
+    if (cleaned.length < 2 || !/[a-zA-Z]/.test(cleaned)) continue;
+
+    words.push({
+      text: cleaned,
+      bbox: w.bbox,
+      confidence: w.confidence,
+      isMarked: false,
+      markingScore: 0,
+    });
+  }
+
+  const lines = groupWordsIntoLines(words);
+  return { words, lines };
+}
+
+function groupWordsIntoLines(words: OCRWordResult[]): OCRLineResult[] {
+  if (words.length === 0) return [];
+
+  const sorted = [...words].sort((a, b) => a.bbox.y0 - b.bbox.y0);
+  const lines: OCRLineResult[] = [];
+  let currentLine: OCRWordResult[] = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prevWord = currentLine[currentLine.length - 1];
+    const currWord = sorted[i];
+    const avgHeight = (prevWord.bbox.y1 - prevWord.bbox.y0 + currWord.bbox.y1 - currWord.bbox.y0) / 2;
+    if (currWord.bbox.y0 - prevWord.bbox.y0 < avgHeight * 0.6) {
+      currentLine.push(currWord);
+    } else {
+      currentLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+      const yValues = currentLine.map(w => w.bbox.y0);
+      const y1Values = currentLine.map(w => w.bbox.y1);
+      lines.push({
+        y: Math.min(...yValues),
+        height: Math.max(...y1Values) - Math.min(...yValues),
+        words: currentLine,
+      });
+      currentLine = [currWord];
+    }
+  }
+
+  if (currentLine.length > 0) {
+    currentLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+    const yValues = currentLine.map(w => w.bbox.y0);
+    const y1Values = currentLine.map(w => w.bbox.y1);
+    lines.push({
+      y: Math.min(...yValues),
+      height: Math.max(...y1Values) - Math.min(...yValues),
+      words: currentLine,
+    });
+  }
+
+  return lines;
 }
 
 export async function ocrImage(imageBuffer: Buffer): Promise<{
   words: OCRWordResult[];
   lines: OCRLineResult[];
 }> {
-  const worker = await getWorker();
-  const result = await worker.recognize(imageBuffer, {}, { blocks: true });
-  const data = result.data;
-
-  const words: OCRWordResult[] = [];
-  const lines: OCRLineResult[] = [];
-  const blocks = data.blocks || [];
-
-  for (const block of blocks) {
-    for (const para of block.paragraphs || []) {
-      for (const line of para.lines || []) {
-        const lineWords: OCRWordResult[] = [];
-
-        for (const w of line.words || []) {
-          const text = w.text?.trim();
-          if (!text || text.length < 2) continue;
-          if (/^\d+|[=\-\[\](){}<>.,;:!?/\\|@#$%^&*]+$/.test(text)) continue;
-
-          const word: OCRWordResult = {
-            text,
-            bbox: w.bbox,
-            confidence: w.confidence,
-            isMarked: false,
-            markingScore: 0,
-          };
-
-          words.push(word);
-          lineWords.push(word);
-        }
-
-        if (lineWords.length > 0) {
-          const yValues = lineWords.map(w => w.bbox.y0);
-          const y1Values = lineWords.map(w => w.bbox.y1);
-          lines.push({
-            y: Math.min(...yValues),
-            height: Math.max(...y1Values) - Math.min(...yValues),
-            words: lineWords,
-          });
-        }
-      }
-    }
-  }
-
-  return { words, lines };
+  return paddleOcrImage(imageBuffer);
 }
 
-interface MarkingConfig {
-  saturationThreshold: number;
-  lightnessMin: number;
-  lightnessMax: number;
-  redDominance: boolean;
-  overlapThreshold: number;
-  isBlackMarking: boolean;
-  blackMarkType: 'circle' | 'underline' | 'none';
-}
-
-function getMarkingConfig(annotationStyle: string): MarkingConfig {
-  switch (annotationStyle) {
-    case '高亮':
-      return {
-        saturationThreshold: 0.18,
-        lightnessMin: 0.3,
-        lightnessMax: 0.95,
-        redDominance: false,
-        overlapThreshold: 0.10,
-        isBlackMarking: false,
-        blackMarkType: 'none',
-      };
-    case '红笔圈出':
-      return {
-        saturationThreshold: 0.2,
-        lightnessMin: 0.15,
-        lightnessMax: 0.85,
-        redDominance: true,
-        overlapThreshold: 0.06,
-        isBlackMarking: false,
-        blackMarkType: 'none',
-      };
-    case '红下划线':
-      return {
-        saturationThreshold: 0.2,
-        lightnessMin: 0.15,
-        lightnessMax: 0.85,
-        redDominance: true,
-        overlapThreshold: 0.06,
-        isBlackMarking: false,
-        blackMarkType: 'none',
-      };
-    case '黑笔圈出':
-      return {
-        saturationThreshold: 0,
-        lightnessMin: 0,
-        lightnessMax: 0.4,
-        redDominance: false,
-        overlapThreshold: 0.08,
-        isBlackMarking: true,
-        blackMarkType: 'circle',
-      };
-    case '黑下划线':
-      return {
-        saturationThreshold: 0,
-        lightnessMin: 0,
-        lightnessMax: 0.4,
-        redDominance: false,
-        overlapThreshold: 0.05,
-        isBlackMarking: true,
-        blackMarkType: 'underline',
-      };
-    default:
-      return {
-        saturationThreshold: 0.18,
-        lightnessMin: 0.2,
-        lightnessMax: 0.95,
-        redDominance: false,
-        overlapThreshold: 0.10,
-        isBlackMarking: false,
-        blackMarkType: 'none',
-      };
-  }
-}
-
-async function detectColorMarkings(
-  imageBuffer: Buffer,
-  words: OCRWordResult[],
-  annotationStyle: string
-): Promise<OCRWordResult[]> {
-  if (words.length === 0) return [];
-
-  const config = getMarkingConfig(annotationStyle);
-
-  const metadata = await sharp(imageBuffer).metadata();
-  const imgWidth = metadata.width!;
-  const imgHeight = metadata.height!;
-
-  const maxDim = 800;
-  const scale = Math.min(1, maxDim / Math.max(imgWidth, imgHeight));
-  const procWidth = Math.round(imgWidth * scale);
-  const procHeight = Math.round(imgHeight * scale);
-
-  const { data, info } = await sharp(imageBuffer)
-    .resize(procWidth, procHeight)
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  const markingMask = new Uint8Array(procWidth * procHeight);
-  const blackMask = new Uint8Array(procWidth * procHeight);
-
-  for (let y = 0; y < procHeight; y++) {
-    for (let x = 0; x < procWidth; x++) {
-      const idx = (y * procWidth + x) * info.channels;
-      const r = data[idx];
-      const g = data[idx + 1];
-      const b = data[idx + 2];
-
-      const maxC = Math.max(r, g, b);
-      const minC = Math.min(r, g, b);
-      const saturation = maxC === 0 ? 0 : (maxC - minC) / maxC;
-      const lightness = (maxC + minC) / 2 / 255;
-
-      let isMarking = false;
-
-      if (config.isBlackMarking) {
-        isMarking = lightness < config.lightnessMax;
-        blackMask[y * procWidth + x] = isMarking ? 1 : 0;
-      } else if (config.redDominance) {
-        isMarking =
-          r > 100 &&
-          r > g * 1.5 &&
-          r > b * 1.5 &&
-          saturation > config.saturationThreshold &&
-          lightness > config.lightnessMin &&
-          lightness < config.lightnessMax;
-      } else {
-        isMarking =
-          saturation > config.saturationThreshold &&
-          lightness > config.lightnessMin &&
-          lightness < config.lightnessMax;
-      }
-
-      markingMask[y * procWidth + x] = isMarking ? 1 : 0;
-    }
-  }
-
-  const checkClustering = (
-    mask: Uint8Array,
-    width: number,
-    bx0: number,
-    by0: number,
-    bx1: number,
-    by1: number
-  ): boolean => {
-    const gridCols = 3;
-    const gridRows = 3;
-    const cellWidth = Math.max(1, (bx1 - bx0) / gridCols);
-    const cellHeight = Math.max(1, (by1 - by0) / gridRows);
-    const markedCells = new Set<number>();
-
-    for (let y = by0; y < by1; y++) {
-      for (let x = bx0; x < bx1; x++) {
-        if (mask[y * width + x]) {
-          const col = Math.floor((x - bx0) / cellWidth);
-          const row = Math.floor((y - by0) / cellHeight);
-          markedCells.add(row * gridCols + col);
-        }
-      }
-    }
-
-    return markedCells.size >= 2;
-  };
-
-  const padding = Math.round(8 * scale);
-
-  return words.map((word) => {
-    const x0 = Math.max(0, Math.round(word.bbox.x0 * scale) - padding);
-    const y0 = Math.max(0, Math.round(word.bbox.y0 * scale) - padding);
-    const x1 = Math.min(procWidth, Math.round(word.bbox.x1 * scale) + padding);
-    const y1 = Math.min(procHeight, Math.round(word.bbox.y1 * scale) + padding);
-
-    let markingPixels = 0;
-    let totalPixels = 0;
-
-    for (let y = y0; y < y1; y++) {
-      for (let x = x0; x < x1; x++) {
-        totalPixels++;
-        if (markingMask[y * procWidth + x]) {
-          markingPixels++;
-        }
-      }
-    }
-
-    const markingScore = totalPixels > 0 ? markingPixels / totalPixels : 0;
-
-    const minAbsolutePixels = 15;
-    if (markingPixels < minAbsolutePixels) {
-      return { ...word, isMarked: false, markingScore };
-    }
-
-    if (config.isBlackMarking && config.blackMarkType === 'circle') {
-      const edgeRatio = 0.15;
-      const edgeWidth = Math.max(2, Math.round((x1 - x0) * edgeRatio));
-      const edgeHeight = Math.max(2, Math.round((y1 - y0) * edgeRatio));
-      
-      let edgeBlackPixels = 0;
-      let edgeTotalPixels = 0;
-      let centerBlackPixels = 0;
-      let centerTotalPixels = 0;
-
-      for (let y = y0; y < y1; y++) {
-        for (let x = x0; x < x1; x++) {
-          const isEdge = 
-            x < x0 + edgeWidth || x >= x1 - edgeWidth ||
-            y < y0 + edgeHeight || y >= y1 - edgeHeight;
-          
-          if (isEdge) {
-            edgeTotalPixels++;
-            if (blackMask[y * procWidth + x]) edgeBlackPixels++;
-          } else {
-            centerTotalPixels++;
-            if (blackMask[y * procWidth + x]) centerBlackPixels++;
-          }
-        }
-      }
-
-      const edgeDensity = edgeTotalPixels > 0 ? edgeBlackPixels / edgeTotalPixels : 0;
-      const centerDensity = centerTotalPixels > 0 ? centerBlackPixels / centerTotalPixels : 0;
-      
-      if (edgeDensity <= centerDensity * 1.2) {
-        return { ...word, isMarked: false, markingScore };
-      }
-    }
-
-    if (config.isBlackMarking && config.blackMarkType === 'underline') {
-      const bottomRatio = 0.25;
-      const bottomY0 = Math.round(y0 + (y1 - y0) * (1 - bottomRatio));
-      
-      let maxLineWidth = 0;
-      for (let y = bottomY0; y < y1; y++) {
-        let lineWidth = 0;
-        for (let x = x0; x < x1; x++) {
-          if (blackMask[y * procWidth + x]) {
-            lineWidth++;
-          } else {
-            if (lineWidth > maxLineWidth) maxLineWidth = lineWidth;
-            lineWidth = 0;
-          }
-        }
-        if (lineWidth > maxLineWidth) maxLineWidth = lineWidth;
-      }
-
-      const bboxWidth = x1 - x0;
-      if (maxLineWidth < bboxWidth * 0.3) {
-        return { ...word, isMarked: false, markingScore };
-      }
-    }
-
-    if (annotationStyle === '高亮') {
-      const isClustered = checkClustering(
-        markingMask,
-        procWidth,
-        x0,
-        y0,
-        x1,
-        y1
-      );
-      if (!isClustered) {
-        return { ...word, isMarked: false, markingScore };
-      }
-    }
-
-    return {
-      ...word,
-      isMarked: markingScore > config.overlapThreshold,
-      markingScore,
-    };
-  });
-}
-
-export function formatOCRForAI(lines: OCRLineResult[], imgWidth?: number): string {
-  const widthInfo = imgWidth ? ` (图片宽度: ${imgWidth}px)` : '';
+export function formatOCRForAI(lines: OCRLineResult[], _imgWidth?: number): string {
   return lines
     .map((line, i) => {
       const wordsStr = line.words
@@ -391,7 +138,9 @@ export async function findMarkedWords(
 
   const metadata = await sharp(imageBuffer).metadata();
   const imgWidth = metadata.width;
+  const imgHeight = metadata.height!;
 
+  // 阶段1: PaddleOCR 识别单词和 bbox
   const t0 = Date.now();
   const { words, lines } = await ocrImage(imageBuffer);
   console.log(
@@ -402,23 +151,84 @@ export async function findMarkedWords(
     return { markedWords: [], allWords: words, lines, imgWidth };
   }
 
-  if (['高亮', '红笔圈出', '红下划线', '黑笔圈出', '黑下划线'].includes(annotationStyle)) {
-    const t1 = Date.now();
-    const detected = await detectColorMarkings(imageBuffer, words, annotationStyle);
-    const marked = detected.filter(w => w.isMarked);
-    const isBlackMarking = ['黑笔圈出', '黑下划线'].includes(annotationStyle);
-    console.log(
-      `${isBlackMarking ? '🖊️ 黑色标记检测' : '🎨 颜色标记检测'}: ${marked.length}/${words.length} (${((Date.now() - t1) / 1000).toFixed(1)}s)`
-    );
+  // 阶段1.5: 大模型补充识别高亮词（PaddleOCR 可能漏识别被高亮覆盖的词）
+  const { supplementMarkedWords } = await import('./marking-detect');
+  const supplementedWords = await supplementMarkedWords(imageBuffer, words, annotationStyle);
+  // 补充识别的词直接标记为 marked，不需要再走 AI 检测
+  const supplementedIndices = new Set<number>();
+  if (supplementedWords.length > 0) {
+    console.log(`📝 大模型补充识别到 ${supplementedWords.length} 个遗漏词: ${supplementedWords.map((w: { text: string }) => w.text).join(', ')}`);
+    supplementedWords.forEach((w: OCRWordResult) => {
+      supplementedIndices.add(words.length);
+      words.push(w);
+    });
+  }
 
-    if (marked.length > 0) {
-      marked.forEach(w => {
-        console.log(`   ✓ ${w.text} (标记得分: ${(w.markingScore * 100).toFixed(1)}%, OCR置信度: ${w.confidence.toFixed(0)}%)`);
-      });
-      return { markedWords: marked, allWords: detected, lines, imgWidth };
+  // 阶段2: 图片分块（基于 bbox 向四周扩展，扫描线算法避免重叠）
+  const { createChunks } = await import('./image-chunking');
+  const chunks = createChunks(words, imgWidth!, imgHeight, 10);
+  console.log(`🧩 创建 ${chunks.length} 个分块`);
+
+  // 阶段3: CV 预过滤 + 批量 AI 检测标记
+  const { detectMarkings } = await import('./marking-detect');
+  const detectResults = await detectMarkings(chunks, imageBuffer, annotationStyle, {
+    enableCVPreFilter: true,
+    batchSize: 6,
+    maxConcurrent: 5,
+  });
+
+  // 将检测结果映射回 words，并应用 OCR 纠错
+  const markedIndices = new Set(detectResults.filter(r => r.isMarked).map(r => r.wordIndex));
+  // 补充识别的词直接标记为 marked
+  for (const idx of supplementedIndices) {
+    markedIndices.add(idx);
+  }
+  const corrections = new Map<number, string>();
+  const missedWords: string[] = [];
+  for (const r of detectResults) {
+    if (r.correctedText && r.correctedText !== r.word) {
+      corrections.set(r.wordIndex, r.correctedText);
+    }
+    if (r.missedMarkedWords && r.missedMarkedWords.length > 0) {
+      missedWords.push(...r.missedMarkedWords);
     }
   }
 
-  console.log('⚠️ 像素级标记检测未发现标记，将使用 AI 文本分析');
-  return { markedWords: [], allWords: words, lines, imgWidth };
+  const uniqueMissedWords = [...new Set(missedWords)];
+
+  const updatedWords = words.map((w, i) => {
+    const corrected = corrections.get(i);
+    return {
+      ...w,
+      text: corrected || w.text,
+      isMarked: markedIndices.has(i),
+    };
+  });
+
+  // 将遗漏的标记单词添加到结果中
+  for (const missedWord of uniqueMissedWords) {
+    const alreadyExists = updatedWords.some(
+      w => w.text.toLowerCase().replace(/[^a-z]/g, '') === missedWord.toLowerCase().replace(/[^a-z]/g, '')
+    );
+    if (!alreadyExists) {
+      updatedWords.push({
+        text: missedWord,
+        bbox: { x0: 0, y0: 0, x1: 0, y1: 0 },
+        confidence: 0,
+        isMarked: true,
+        markingScore: 0,
+      });
+    }
+  }
+
+  const markedWords = updatedWords.filter(w => w.isMarked);
+  console.log(`🎯 标记检测: ${markedWords.length}/${words.length} 个被标记`);
+
+  if (markedWords.length > 0) {
+    markedWords.forEach(w => {
+      console.log(`   ✓ ${w.text}`);
+    });
+  }
+
+  return { markedWords, allWords: updatedWords, lines, imgWidth };
 }

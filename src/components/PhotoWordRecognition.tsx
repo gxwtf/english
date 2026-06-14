@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, AlertCircle, Minus, Plus, Check, Sparkles, Image as ImageIcon, Zap, ChevronRight, Brain, Maximize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,36 +56,16 @@ export const PhotoWordRecognition = ({
   const [editingWordIndex, setEditingWordIndex] = useState<number | null>(null);
   const [aiThinking, setAiThinking] = useState<string>('');
   const [showDetails, setShowDetails] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const getOrCreateFileInput = useCallback((): HTMLInputElement => {
-    if (fileInputRef.current && document.body.contains(fileInputRef.current)) {
-      fileInputRef.current.value = '';
-      return fileInputRef.current;
-    }
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.style.position = 'fixed';
-    input.style.top = '0';
-    input.style.left = '0';
-    input.style.width = '1px';
-    input.style.height = '1px';
-    input.style.opacity = '0.01';
-    input.style.pointerEvents = 'none';
-    document.body.appendChild(input);
-    fileInputRef.current = input;
-    return input;
-  }, []);
 
   const processFile = useCallback(async (file: File) => {
     try {
       const compressResult = await compressImage(file, {
-        maxWidth: 2048,
-        maxHeight: 2048,
-        quality: 0.8
+        maxWidth: 1536,
+        maxHeight: 1536,
+        quality: 0.7
       });
       setImageData(compressResult.dataUrl);
+      setError(null);
       setStep('annotate');
     } catch (err) {
       console.error('图片处理失败:', err);
@@ -93,17 +73,13 @@ export const PhotoWordRecognition = ({
     }
   }, []);
 
-  const openFilePicker = useCallback(() => {
-    const input = getOrCreateFileInput();
-    input.onchange = null;
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        await processFile(file);
-      }
-    };
-    input.click();
-  }, [getOrCreateFileInput, processFile]);
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processFile(file);
+    }
+    e.target.value = '';
+  }, [processFile]);
 
   useEffect(() => {
     if (isOpen) {
@@ -135,9 +111,9 @@ export const PhotoWordRecognition = ({
       
       console.log('🎯 识别完成:', {
         '识别单词数': result.words.length,
-        '识别方式': result.method === 'ocr' ? 'OCR+标记检测' : result.method === 'ocr+ai' ? 'OCR+AI文本分析' : 'AI视觉识别',
+        '识别方式': result.method === 'ocr-chunk-ai' ? 'OCR+分块AI识别' : result.method === 'ocr-chunk' ? 'OCR+分块检测' : 'AI视觉识别',
         'AI 思考长度': `${result.thinking.length} 字符`,
-        'Token 消耗': result.method === 'ai' || result.method === 'ocr+ai' ? `输入 ${result.usage.prompt_tokens} / 输出 ${result.usage.completion_tokens} / 总计 ${result.usage.total_tokens}` : '无（OCR方案）'
+        'Token 消耗': result.method === 'ocr-chunk-ai' ? `输入 ${result.usage.prompt_tokens} / 输出 ${result.usage.completion_tokens} / 总计 ${result.usage.total_tokens}` : '无（纯OCR方案）'
       });
       
       const wordsWithMeanings = await Promise.all(
@@ -264,17 +240,21 @@ export const PhotoWordRecognition = ({
     onClose();
   };
 
-  const handleReSelectImage = () => {
-    openFilePicker();
-  };
-
   if (!isOpen) return null;
 
   const editingWord = editingWordIndex !== null ? recognizedWords[editingWordIndex] : null;
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-3 sm:p-4">
+      <input
+        type="file"
+        id="photo-word-upload"
+        onChange={handleFileChange}
+        accept="image/*"
+        className="hidden"
+      />
+
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-3 sm:p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
           <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-purple-50 dark:bg-gray-700">
             <div className="flex items-center gap-3">
@@ -293,30 +273,28 @@ export const PhotoWordRecognition = ({
 
           <div className="flex-1 overflow-auto p-5">
             {step === 'idle' && (
-              <div className="flex flex-col items-center justify-center py-16 gap-5">
-                <div className="relative">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500">
-                    <ImageIcon className="h-8 w-8 text-white" />
+                <div className="flex flex-col items-center justify-center py-16 gap-5">
+                  <div className="relative">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500">
+                      <ImageIcon className="h-8 w-8 text-white" />
+                    </div>
+                    <Sparkles className="absolute -top-2 -right-2 h-5 w-5 text-amber-400" />
                   </div>
-                  <Sparkles className="absolute -top-2 -right-2 h-5 w-5 text-amber-400" />
-                </div>
-                <div className="text-center space-y-2">
-                  <p className="font-semibold text-gray-800 dark:text-gray-200">选择图片开始识别</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">上传包含标记生词的图片，AI 将自动识别</p>
-                </div>
-                <button
-                  onClick={openFilePicker}
-                  type="button"
-                  className="group relative rounded-xl bg-purple-500 hover:bg-purple-600 active:scale-[0.98] px-8 py-4 text-white font-semibold transition-all"
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <ImageIcon className="h-5 w-5" />
-                    选择图片
-                    <ChevronRight className="h-5 w-5 group-hover:translate-x-0.5 transition-transform" />
+                  <div className="text-center space-y-2">
+                    <p className="font-semibold text-gray-800 dark:text-gray-200">选择图片开始识别</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">上传包含标记生词的图片，AI 将自动识别</p>
                   </div>
-                </button>
-              </div>
-            )}
+                  <Button asChild className="rounded-xl bg-purple-500 hover:bg-purple-600 active:scale-[0.98] px-8 py-6 text-white font-semibold transition-all cursor-pointer">
+                    <label htmlFor="photo-word-upload" className="cursor-pointer">
+                      <div className="flex items-center justify-center gap-2">
+                        <ImageIcon className="h-5 w-5" />
+                        选择图片
+                        <ChevronRight className="h-5 w-5 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                    </label>
+                  </Button>
+                </div>
+              )}
               {step === 'annotate' && imageData && (
                 <div className="space-y-5">
                   <div className="relative group rounded-xl overflow-hidden border-2 border-dashed border-purple-200 dark:border-purple-700/50 bg-purple-50/30 dark:bg-purple-900/10">
@@ -325,13 +303,14 @@ export const PhotoWordRecognition = ({
                       alt="Selected"
                       className="w-full max-h-52 object-contain"
                     />
-                    <button
-                      onClick={handleReSelectImage}
-                      className="absolute top-2 right-2 flex items-center gap-1 rounded-lg bg-white/90 dark:bg-gray-800/90 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-800"
-                    >
-                      <ImageIcon className="h-3.5 w-3.5" />
-                      重选图片
-                    </button>
+                    <div className="absolute top-2 right-2">
+                      <Button asChild variant="outline" size="sm" className="flex items-center gap-1 rounded-lg bg-white/90 dark:bg-gray-800/90 text-xs font-medium text-gray-600 dark:text-gray-300 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-800 cursor-pointer">
+                        <label htmlFor="photo-word-upload" className="cursor-pointer">
+                          <ImageIcon className="h-3.5 w-3.5" />
+                          重选图片
+                        </label>
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-3">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Search, Check, AlertCircle, CheckSquare, Square, Settings, Camera, Sparkles } from 'lucide-react';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag, TagConfig, RelatedWord } from '@/types/word';
@@ -41,6 +41,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
   const [searchedWord, setSearchedWord] = useState('');
   const [showTagEditModal, setShowTagEditModal] = useState(false);
   const [showPhotoRecognition, setShowPhotoRecognition] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialWord) {
@@ -66,6 +67,8 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
       setSelectedTags([]);
       setSelectedRelatedWords([]);
       setError('');
+      // 添加单词模式，自动聚焦搜索框
+      setTimeout(() => searchInputRef.current?.focus(), 100);
     }
   }, [initialWord, isOpen]);
 
@@ -200,6 +203,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
             <div className="flex gap-2 mb-2">
               <Input
                 id="word-search-input"
+                ref={searchInputRef}
                 placeholder="输入要查询的英文单词..."
                 value={word}
                 onChange={(e) => setWord(e.target.value)}

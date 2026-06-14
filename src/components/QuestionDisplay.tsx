@@ -1,5 +1,5 @@
 import { CheckCircle2, Edit3, Loader2, AlertCircle, ArrowRight, Eye } from 'lucide-react';
-import { QuestionQueueItem } from '@/types/word';
+import { QuestionQueueItem, QUESTION_TYPE_LABELS } from '@/types/word';
 import Link from 'next/link';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -34,7 +34,7 @@ export function QuestionList({
               {STATUS_LABELS[q.status]}
             </span>
             <span className="text-xs text-gray-400 ml-auto">
-              {q.questionType === 'fill-blank' ? '选词填空' : q.questionType === 'meaning-select' ? '英译中' : q.questionType === 'meaning-select-en' ? '英英释义' : '翻译句子'}
+              {QUESTION_TYPE_LABELS[q.questionType]}
             </span>
             <span className="text-xs text-gray-400">
               {new Date(q.updatedAt).toLocaleString('zh-CN')}

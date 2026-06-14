@@ -51,6 +51,13 @@ export type QuestionType =
 'meaning-select' | // 英译中（选释义）
 'meaning-select-en'; // 英英释义（选英文释义）
 
+export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
+  'fill-blank': '选词填空',
+  'translate': '翻译句子',
+  'meaning-select': '英译中',
+  'meaning-select-en': '英英释义',
+};
+
 
 export interface QuestionQueueItem {
   id: string;
