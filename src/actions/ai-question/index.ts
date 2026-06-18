@@ -19,6 +19,20 @@ export {
   enqueuePendingMeaningSelectEn,
 } from './meaning-select-en';
 export {
+  generateAndEnqueueDefinitionFillBlank,
+  generateDefinitionFillBlankWithQuestion,
+  enqueuePendingDefinitionFillBlank,
+} from './definition-fill-blank';
+export {
+  generateAndEnqueueWordSelectTranslate,
+  generateWordSelectTranslateWithQuestion,
+  enqueuePendingWordSelectTranslate,
+} from './word-select-translate';
+export {
+  getQuestionsForPdf,
+  type PdfQuestionData,
+} from './pdf';
+export {
   fetchEnrichedWords,
   loadQuestionQueue,
   loadQuestionById,

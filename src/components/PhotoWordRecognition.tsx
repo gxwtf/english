@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { X, AlertCircle, Minus, Plus, Check, Sparkles, Image as ImageIcon, Zap, ChevronRight, Brain, Maximize2 } from 'lucide-react';
+import { X, AlertCircle, Minus, Plus, Sparkles, Image as ImageIcon, Zap, ChevronRight, Brain, Maximize2, Highlighter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -28,15 +28,6 @@ interface PhotoWordRecognitionProps {
   onWordAdded?: () => void;
 }
 
-const ANNOTATION_STYLES = [
-  { value: '高亮', label: '高亮' },
-  { value: '红笔圈出', label: '红笔圈出' },
-  { value: '红下划线', label: '红下划线' },
-  { value: '黑笔圈出', label: '黑笔圈出' },
-  { value: '黑下划线', label: '黑下划线' },
-  { value: 'custom', label: '自定义' },
-];
-
 export const PhotoWordRecognition = ({
   isOpen,
   onClose,
@@ -46,10 +37,8 @@ export const PhotoWordRecognition = ({
   allWords = [],
   onWordAdded,
 }: PhotoWordRecognitionProps) => {
-  const [step, setStep] = useState<'idle' | 'annotate' | 'recognizing' | 'results'>('idle');
+  const [step, setStep] = useState<'idle' | 'preview' | 'recognizing' | 'results'>('idle');
   const [imageData, setImageData] = useState<string | null>(null);
-  const [annotationStyle, setAnnotationStyle] = useState<string>('高亮');
-  const [customAnnotation, setCustomAnnotation] = useState<string>('');
   const [recognizedWords, setRecognizedWords] = useState<RecognizedWord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +55,7 @@ export const PhotoWordRecognition = ({
       });
       setImageData(compressResult.dataUrl);
       setError(null);
-      setStep('annotate');
+      setStep('preview');
     } catch (err) {
       console.error('图片处理失败:', err);
       setError('图片处理失败，请重试');
@@ -85,8 +74,6 @@ export const PhotoWordRecognition = ({
     if (isOpen) {
       setStep('idle');
       setImageData(null);
-      setAnnotationStyle('高亮');
-      setCustomAnnotation('');
       setRecognizedWords([]);
       setError(null);
       setEditingWordIndex(null);
@@ -97,25 +84,23 @@ export const PhotoWordRecognition = ({
 
   const handleRecognize = async () => {
     if (!imageData) return;
-    
+
     setLoading(true);
     setError(null);
     setAiThinking('');
     setStep('recognizing');
 
     try {
-      const style = annotationStyle === 'custom' ? customAnnotation : annotationStyle;
-      const result = await recognizeWordsFromImage(imageData, style);
-      
+      const result = await recognizeWordsFromImage(imageData);
+
       setAiThinking(result.thinking);
-      
+
       console.log('🎯 识别完成:', {
-        '识别单词数': result.words.length,
-        '识别方式': result.method === 'ocr-chunk-ai' ? 'OCR+分块AI识别' : result.method === 'ocr-chunk' ? 'OCR+分块检测' : 'AI视觉识别',
-        'AI 思考长度': `${result.thinking.length} 字符`,
-        'Token 消耗': result.method === 'ocr-chunk-ai' ? `输入 ${result.usage.prompt_tokens} / 输出 ${result.usage.completion_tokens} / 总计 ${result.usage.total_tokens}` : '无（纯OCR方案）'
+        '识别单词数': result.stats.totalWords,
+        '高亮单词数': result.stats.highlightedCount,
+        '耗时': `${result.timing.total}s`,
       });
-      
+
       const wordsWithMeanings = await Promise.all(
         result.words.map(async (word) => {
           const dictEntry = await queryWord(word.text);
@@ -127,21 +112,21 @@ export const PhotoWordRecognition = ({
           };
         })
       );
-      
+
       const validWords = wordsWithMeanings.filter(word => word.meanings.length > 0);
-      
+
       if (validWords.length === 0 && wordsWithMeanings.length > 0) {
         setError('识别到的单词均未在词典中找到，无法添加');
-        setStep('annotate');
+        setStep('preview');
         return;
       }
-      
+
       setRecognizedWords(validWords);
       setStep('results');
     } catch (err) {
       console.error('识别失败:', err);
       setError(err instanceof Error ? err.message : '识别失败，请重试');
-      setStep('annotate');
+      setStep('preview');
     } finally {
       setLoading(false);
     }
@@ -155,7 +140,7 @@ export const PhotoWordRecognition = ({
       const isSelected = word.selectedMeanings.some(
         m => m.type === meaning.type && m.content === meaning.content
       );
-      
+
       if (isSelected) {
         word.selectedMeanings = word.selectedMeanings.filter(
           m => m.type !== meaning.type || m.content !== meaning.content
@@ -163,7 +148,7 @@ export const PhotoWordRecognition = ({
       } else {
         word.selectedMeanings = [...word.selectedMeanings, meaning];
       }
-      
+
       return updated;
     });
   };
@@ -188,7 +173,7 @@ export const PhotoWordRecognition = ({
   }) => {
     try {
       await saveWordAction(wordData);
-      
+
       if (editingWordIndex !== null) {
         setRecognizedWords(prev => prev.filter((_, i) => i !== editingWordIndex));
       }
@@ -216,10 +201,10 @@ export const PhotoWordRecognition = ({
 
   const handleBatchAddAll = async () => {
     for (const word of recognizedWords) {
-      const meaningsToAdd = word.selectedMeanings.length > 0 
-        ? word.selectedMeanings 
+      const meaningsToAdd = word.selectedMeanings.length > 0
+        ? word.selectedMeanings
         : word.meanings;
-      
+
       try {
         await saveWordAction({
           text: word.text,
@@ -256,14 +241,14 @@ export const PhotoWordRecognition = ({
 
       <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-3 sm:p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-purple-50 dark:bg-gray-700">
+          <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-amber-50 dark:bg-gray-700">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500">
-                <Sparkles className="h-5 w-5 text-white" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500">
+                <Highlighter className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">拍照识别单词</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">AI 智能识别图片中的生词</p>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">拍照识别高亮单词</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">使用荧光笔高亮的单词将被自动识别</p>
               </div>
             </div>
             <Button variant="ghost" size="sm" onClick={handleClose} className="rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50">
@@ -275,16 +260,16 @@ export const PhotoWordRecognition = ({
             {step === 'idle' && (
                 <div className="flex flex-col items-center justify-center py-16 gap-5">
                   <div className="relative">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500">
-                      <ImageIcon className="h-8 w-8 text-white" />
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500">
+                      <Highlighter className="h-8 w-8 text-white" />
                     </div>
                     <Sparkles className="absolute -top-2 -right-2 h-5 w-5 text-amber-400" />
                   </div>
                   <div className="text-center space-y-2">
                     <p className="font-semibold text-gray-800 dark:text-gray-200">选择图片开始识别</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">上传包含标记生词的图片，AI 将自动识别</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">上传用荧光笔高亮生词的图片，自动识别高亮单词</p>
                   </div>
-                  <Button asChild className="rounded-xl bg-purple-500 hover:bg-purple-600 active:scale-[0.98] px-8 py-6 text-white font-semibold transition-all cursor-pointer">
+                  <Button asChild className="rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.98] px-8 py-6 text-white font-semibold transition-all cursor-pointer">
                     <label htmlFor="photo-word-upload" className="cursor-pointer">
                       <div className="flex items-center justify-center gap-2">
                         <ImageIcon className="h-5 w-5" />
@@ -295,9 +280,9 @@ export const PhotoWordRecognition = ({
                   </Button>
                 </div>
               )}
-              {step === 'annotate' && imageData && (
+              {step === 'preview' && imageData && (
                 <div className="space-y-5">
-                  <div className="relative group rounded-xl overflow-hidden border-2 border-dashed border-purple-200 dark:border-purple-700/50 bg-purple-50/30 dark:bg-purple-900/10">
+                  <div className="relative group rounded-xl overflow-hidden border-2 border-dashed border-amber-200 dark:border-amber-700/50 bg-amber-50/30 dark:bg-amber-900/10">
                     <img
                       src={imageData}
                       alt="Selected"
@@ -313,38 +298,9 @@ export const PhotoWordRecognition = ({
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      <Zap className="h-4 w-4 text-amber-500" />
-                      你是如何标记不认识的单词的？
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {ANNOTATION_STYLES.map((style) => (
-                        <button
-                          key={style.value}
-                          onClick={() => setAnnotationStyle(style.value)}
-                          className={`relative px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                            annotationStyle === style.value
-                              ? 'bg-purple-500 text-white'
-                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 border border-transparent'
-                          }`}
-                        >
-                          {annotationStyle === style.value && (
-                            <Check className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-white text-purple-600 p-0.5" />
-                          )}
-                          {style.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {annotationStyle === 'custom' && (
-                      <Input
-                        value={customAnnotation}
-                        onChange={(e) => setCustomAnnotation(e.target.value)}
-                        placeholder="请描述你的标记方式..."
-                        className="mt-2 rounded-xl border-purple-200 focus:border-purple-500 focus:ring-purple-500/20"
-                      />
-                    )}
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-sm text-amber-700 dark:text-amber-300">
+                    <Highlighter className="h-4 w-4 shrink-0" />
+                    <span>请确保图片中的生词已用荧光笔高亮标记</span>
                   </div>
 
                   {error && (
@@ -356,8 +312,8 @@ export const PhotoWordRecognition = ({
 
                   <button
                     onClick={handleRecognize}
-                    disabled={loading || (annotationStyle === 'custom' && !customAnnotation.trim())}
-                    className="group relative w-full rounded-xl bg-purple-500 hover:bg-purple-600 disabled:opacity-50 active:scale-[0.98] px-6 py-3 text-white font-semibold transition-all"
+                    disabled={loading}
+                    className="group relative w-full rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 active:scale-[0.98] px-6 py-3 text-white font-semibold transition-all"
                   >
                     <div className="flex items-center justify-center gap-2">
                       {loading ? (
@@ -380,13 +336,13 @@ export const PhotoWordRecognition = ({
               {step === 'recognizing' && (
                 <div className="flex flex-col items-center justify-center py-16 gap-5">
                   <div className="relative">
-                    <div className="animate-spin rounded-full h-14 w-14 border-4 border-purple-200 dark:border-purple-800"></div>
-                    <div className="absolute inset-0 animate-spin rounded-full h-14 w-14 border-4 border-transparent border-t-purple-500" style={{ animationDuration: '1.5s' }}></div>
-                    <Sparkles className="absolute inset-0 m-auto h-5 w-5 text-purple-500" />
+                    <div className="animate-spin rounded-full h-14 w-14 border-4 border-amber-200 dark:border-amber-800"></div>
+                    <div className="absolute inset-0 animate-spin rounded-full h-14 w-14 border-4 border-transparent border-t-amber-500" style={{ animationDuration: '1.5s' }}></div>
+                    <Highlighter className="absolute inset-0 m-auto h-5 w-5 text-amber-500" />
                   </div>
                   <div className="text-center space-y-1">
-                    <p className="font-semibold text-gray-800 dark:text-gray-200">正在识别图片中的单词...</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">AI 正在分析你的标记并提取生词</p>
+                    <p className="font-semibold text-gray-800 dark:text-gray-200">正在识别高亮单词...</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">透视矫正 → 光照增强 → OCR → 高亮检测</p>
                   </div>
                 </div>
               )}
@@ -411,55 +367,40 @@ export const PhotoWordRecognition = ({
                   </div>
 
                   {aiThinking && (
-                    <div className="rounded-xl bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 p-4 space-y-3">
+                    <div className="rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-purple-700 dark:text-purple-300">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
                           <Brain className="h-4 w-4" />
-                          AI 深度思考过程
+                          识别详情
                         </div>
                         <button
                           onClick={() => setShowDetails(!showDetails)}
-                          className="text-xs text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1"
+                          className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
                         >
                           {showDetails ? '收起' : '展开'}
                           <Maximize2 className={`h-3 w-3 transition-transform ${showDetails ? 'rotate-180' : ''}`} />
                         </button>
                       </div>
-                      
+
                       {!showDetails ? (
                         <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
-                          {aiThinking}
+                          {aiThinking.split('\n')[0]}
                         </p>
                       ) : (
-                        <div className="mt-3 pt-3 border-t border-purple-200/50 dark:border-purple-700/50">
+                        <div className="mt-3 pt-3 border-t border-amber-200/50 dark:border-amber-700/50">
                           <div className="bg-white/80 dark:bg-gray-800/80 rounded-lg p-3 max-h-48 overflow-y-auto">
                             <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
                               {aiThinking}
                             </pre>
                           </div>
-                          
-                            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                              <div className="bg-white/60 dark:bg-gray-800/60 rounded p-2 text-center">
-                                <div className="text-gray-500">思考长度</div>
-                                <div className="font-semibold text-gray-800 dark:text-gray-200">{aiThinking.length} 字符</div>
-                              </div>
-                              <div className="bg-white/60 dark:bg-gray-800/60 rounded p-2 text-center">
-                                <div className="text-gray-500">处理模式</div>
-                                <div className="font-semibold text-blue-600">深度推理</div>
-                              </div>
-                              <div className="bg-white/60 dark:bg-gray-800/60 rounded p-2 text-center">
-                                <div className="text-gray-500">状态</div>
-                                <div className="font-semibold text-green-600">✓ 完成</div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {recognizedWords.length === 0 ? (
                     <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                      没有识别到单词
+                      没有识别到高亮单词
                     </div>
                   ) : (
                     <ScrollArea className="h-72">
@@ -494,7 +435,7 @@ export const PhotoWordRecognition = ({
                                   <Minus className="h-4 w-4" />
                                 </Button>
                               </div>
-                              
+
                               {word.meanings.length > 0 && (
                                 <div className="space-y-1">
                                   <div className="flex items-center justify-between">

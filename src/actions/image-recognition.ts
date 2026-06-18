@@ -1,6 +1,6 @@
 'use server';
 
-import { findMarkedWords } from '@/lib/ocr';
+import { recognizeHighlightedImage } from '@/lib/ocr';
 import { Meaning } from '@/types/dict';
 
 export interface RecognizedWord {
@@ -11,17 +11,21 @@ export interface RecognizedWord {
 export interface RecognitionResult {
   words: RecognizedWord[];
   thinking: string;
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
+  timing: {
+    transform: number;
+    enhance: number;
+    ocr: number;
+    mask: number;
+    total: number;
   };
-  method: 'ocr-chunk-ai' | 'ocr-chunk' | 'ai';
+  stats: {
+    totalWords: number;
+    highlightedCount: number;
+  };
 }
 
 export async function recognizeWordsFromImage(
-  base64Image: string,
-  annotationStyle: string
+  base64Image: string
 ): Promise<RecognitionResult> {
   let imageBuffer: Buffer;
 
@@ -33,21 +37,22 @@ export async function recognizeWordsFromImage(
   }
 
   try {
-    const { markedWords, allWords } = await findMarkedWords(imageBuffer, annotationStyle);
+    const result = await recognizeHighlightedImage(imageBuffer);
 
     const thinkingParts: string[] = [
-      `OCR识别${allWords.length}个单词 → 大模型补充识别+全图检测 → 标记${markedWords.length}个`,
+      `OCR识别${result.stats.totalWords}个单词 → HSV高亮检测 → 标记${result.stats.highlightedCount}个`,
+      `耗时: 透视变换${result.timing.transform}s + 光照归一化${result.timing.enhance}s + OCR${result.timing.ocr}s + 高亮检测${result.timing.mask}s = 总计${result.timing.total}s`,
     ];
-    markedWords.forEach(w => {
-      thinkingParts.push(`✓ ${w.text}: confidence=${w.confidence.toFixed(0)}%`);
+
+    result.words.filter(w => w.isHighlighted).forEach(w => {
+      thinkingParts.push(`✓ ${w.text}: 高亮占比=${(w.highlightRatio * 100).toFixed(0)}%`);
     });
 
-    const hasAI = markedWords.some(w => w.confidence > 0);
     return {
-      words: markedWords.map(w => ({ text: w.text, meanings: [] })),
+      words: result.words.filter(w => w.isHighlighted).map(w => ({ text: w.text, meanings: [] })),
       thinking: thinkingParts.join('\n'),
-      usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-      method: hasAI ? 'ocr-chunk-ai' : 'ocr-chunk',
+      timing: result.timing,
+      stats: result.stats,
     };
   } catch (error) {
     console.error('识别单词失败:', error instanceof Error ? error.message : error);

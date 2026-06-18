@@ -1,5 +1,6 @@
 import { CheckCircle2, Edit3, Loader2, AlertCircle, ArrowRight, Eye } from 'lucide-react';
 import { QuestionQueueItem, QUESTION_TYPE_LABELS } from '@/types/word';
+import { Checkbox } from '@/components/ui/checkbox';
 import Link from 'next/link';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -11,12 +12,19 @@ const STATUS_LABELS: Record<string, string> = {
   GRADING_FAILED: '批改失败',
 };
 
+// Only these statuses can be selected for PDF export
+const SELECTABLE_STATUSES = new Set(['GENERATED', 'ANSWERED', 'GRADING']);
+
 export function QuestionList({
   queue,
   onRetry,
+  selectedIds,
+  onToggleSelect,
 }: {
   queue: QuestionQueueItem[];
   onRetry?: (questionId: string) => void;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -26,72 +34,87 @@ export function QuestionList({
         </div>
       )}
 
-      {queue.map(q => (
-        <div key={q.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3">
-            <StatusIcon status={q.status} />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              {STATUS_LABELS[q.status]}
-            </span>
-            <span className="text-xs text-gray-400 ml-auto">
-              {QUESTION_TYPE_LABELS[q.questionType]}
-            </span>
-            <span className="text-xs text-gray-400">
-              {new Date(q.updatedAt).toLocaleString('zh-CN')}
-            </span>
+      {queue.map(q => {
+        const selectable = SELECTABLE_STATUSES.has(q.status);
+        const isSelected = selectedIds?.has(q.id) ?? false;
 
-            {/* Action buttons based on status */}
-            {q.status === 'GENERATED' && (
-              <Link
-                href={`/practice/${q.id}`}
-                className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
-              >
-                开始作答 <ArrowRight className="h-3 w-3" />
-              </Link>
-            )}
+        return (
+          <div key={q.id} className={`border rounded-lg overflow-hidden ${isSelected ? 'border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+            <div className="flex items-center gap-2 px-4 py-3">
+              {selectable && onToggleSelect && (
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => onToggleSelect(q.id)}
+                  className="shrink-0"
+                />
+              )}
+              {!selectable && (
+                <div className="w-4 shrink-0" />
+              )}
+              <StatusIcon status={q.status} />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {STATUS_LABELS[q.status]}
+              </span>
+              <span className="text-xs text-gray-400 ml-auto">
+                {QUESTION_TYPE_LABELS[q.questionType]}
+              </span>
+              <span className="text-xs text-gray-400">
+                {new Date(q.updatedAt).toLocaleString('zh-CN')}
+              </span>
 
-            {q.status === 'ANSWERED' && (
-              <Link
-                href={`/practice/${q.id}`}
-                className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-              >
-                查看作答 <Eye className="h-3 w-3" />
-              </Link>
-            )}
+              {/* Action buttons based on status */}
+              {q.status === 'GENERATED' && (
+                <Link
+                  href={`/practice/${q.id}`}
+                  className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors"
+                >
+                  开始作答 <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
 
-            {q.status === 'GRADING' && (
-              <Link
-                href={`/practice/${q.id}`}
-                className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
-              >
-                查看进度 <Eye className="h-3 w-3" />
-              </Link>
-            )}
+              {q.status === 'ANSWERED' && (
+                <Link
+                  href={`/practice/${q.id}`}
+                  className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  查看作答 <Eye className="h-3 w-3" />
+                </Link>
+              )}
 
-            {q.status === 'GRADING_FAILED' && (
-              <Link
-                href={`/practice/${q.id}`}
-                className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-              >
-                重新批改 <ArrowRight className="h-3 w-3" />
-              </Link>
-            )}
+              {q.status === 'GRADING' && (
+                <Link
+                  href={`/practice/${q.id}`}
+                  className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors"
+                >
+                  查看进度 <Eye className="h-3 w-3" />
+                </Link>
+              )}
 
-            {q.status === 'GENERATING' && (
-              <span className="ml-2 text-xs text-gray-400">AI 正在生成...</span>
-            )}
+              {q.status === 'GRADING_FAILED' && (
+                <Link
+                  href={`/practice/${q.id}`}
+                  className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                >
+                  重新批改 <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
 
-            {q.status === 'FAILED' && onRetry && (
-              <button
-                onClick={() => onRetry(q.id)}
-                className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-              >
-                重试 <ArrowRight className="h-3 w-3" />
-              </button>
-            )}
+              {q.status === 'GENERATING' && (
+                <span className="ml-2 text-xs text-gray-400">AI 正在生成...</span>
+              )}
+
+              {q.status === 'FAILED' && onRetry && (
+                <button
+                  onClick={() => onRetry(q.id)}
+                  className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                >
+                  重试 <ArrowRight className="h-3 w-3" />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -46,5 +46,11 @@ src/dict/*
 # prisma
 /src/generated/prisma
 
+# PaddleOCR 独立服务
+/paddleocr-service/
+
+# PaddleOCR 模型缓存（旧位置，已迁移到 paddleocr-service/）
+/.paddleocr_cache/
+
 # package-lock.json
 package-lock.json

@@ -8,6 +8,8 @@ import { FillBlankAnswer } from '@/components/FillBlankAnswer';
 import { TranslateAnswer } from '@/components/TranslateAnswer';
 import { MeaningSelectAnswer } from '@/components/MeaningSelectAnswer';
 import { MeaningSelectEnAnswer } from '@/components/MeaningSelectEnAnswer';
+import { DefinitionFillBlankAnswer } from '@/components/DefinitionFillBlankAnswer';
+import { WordSelectTranslateAnswer } from '@/components/WordSelectTranslateAnswer';
 import { QuestionDisplay } from '@/components/QuestionDisplay';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
@@ -130,6 +132,28 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
               <TranslateAnswer
                 key={question.id}
                 questionId={question.id}
+                questions={question.questionContent.questions as any[]}
+                thinking={question.questionContent.thinking as string | null ?? undefined}
+                lastAnswer={question.lastAnswer}
+                status={question.status}
+                onSubmitted={() => { }}
+              />
+            ) : question.questionType === 'definition-fill-blank' && question.questionContent.words ? (
+              <DefinitionFillBlankAnswer
+                key={question.id}
+                questionId={question.id}
+                words={question.questionContent.words as string[]}
+                questions={question.questionContent.questions as { definition: string; answer: string }[]}
+                thinking={question.questionContent.thinking as string | null ?? undefined}
+                lastAnswer={question.lastAnswer}
+                status={question.status}
+                onSubmitted={() => { }}
+              />
+            ) : question.questionType === 'word-select-translate' && question.questionContent.questions ? (
+              <WordSelectTranslateAnswer
+                key={question.id}
+                questionId={question.id}
+                words={question.questionContent.words as string[]}
                 questions={question.questionContent.questions as any[]}
                 thinking={question.questionContent.thinking as string | null ?? undefined}
                 lastAnswer={question.lastAnswer}

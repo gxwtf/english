@@ -12,15 +12,22 @@ import {
   generateTranslateWithQuestion,
   generateMeaningSelectWithQuestion,
   generateMeaningSelectEnWithQuestion,
+  generateDefinitionFillBlankWithQuestion,
+  generateWordSelectTranslateWithQuestion,
   markQuestionAsFailed,
   retryQuestion,
+  getQuestionsForPdf,
 } from '@/actions/ai-question';
+import { generatePdf } from '@/lib/pdf-generator';
 import { useRouter } from 'next/navigation';
+import { FileDown, Loader2 } from 'lucide-react';
 
 export function PracticePageContent() {
   const { isLoggedIn, isClient } = useAuth();
   const [queue, setQueue] = useState<QuestionQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [exporting, setExporting] = useState(false);
   const router = useRouter();
 
   const loadQueue = useCallback(async () => {
@@ -93,6 +100,24 @@ export function PracticePageContent() {
             );
             break;
           }
+          case 'definition-fill-blank': {
+            const definitionFillBlankOptions = options.definitionFillBlank ?? { n: 5, m: 0 };
+            await generateDefinitionFillBlankWithQuestion(
+              pendingQuestionId, wordIds, definitionFillBlankOptions,
+              undefined, options.deepThinking,
+              relatedWordEntries
+            );
+            break;
+          }
+          case 'word-select-translate': {
+            const wordSelectTranslateOptions = options.wordSelectTranslate ?? { n: 5 };
+            await generateWordSelectTranslateWithQuestion(
+              pendingQuestionId, wordIds, wordSelectTranslateOptions,
+              undefined, options.deepThinking,
+              relatedWordEntries
+            );
+            break;
+          }
         }
         setTimeout(() => loadQueue(), 200);
       } catch (error) {
@@ -141,12 +166,68 @@ export function PracticePageContent() {
         sessionStorage.setItem('pendingOptions', JSON.stringify({
           type: 'meaning-select-en',
         }));
+      } else if (result.questionType === 'definition-fill-blank') {
+        const wordCount = result.wordIds?.length || 2;
+        const n = Math.min(1, wordCount);
+        const m = Math.max(0, wordCount - n);
+        sessionStorage.setItem('pendingOptions', JSON.stringify({
+          type: 'definition-fill-blank',
+          definitionFillBlank: { n, m },
+        }));
+      } else if (result.questionType === 'word-select-translate') {
+        const wordCount = result.wordIds?.length || 2;
+        const n = Math.min(1, wordCount);
+        const m = Math.max(0, wordCount - n);
+        sessionStorage.setItem('pendingOptions', JSON.stringify({
+          type: 'word-select-translate',
+          wordSelectTranslate: { n, m },
+        }));
       }
       router.push('/practice');
     } catch (error) {
       console.error('重试题目失败:', error);
     }
   }, []);
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    const selectableIds = queue
+      .filter(q => ['GENERATED', 'ANSWERED', 'GRADING'].includes(q.status))
+      .map(q => q.id);
+    const allSelected = selectableIds.every(id => selectedIds.has(id));
+
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableIds));
+    }
+  }, [queue, selectedIds]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+
+    setExporting(true);
+    try {
+      const data = await getQuestionsForPdf(Array.from(selectedIds));
+      await generatePdf(data);
+    } catch (error) {
+      console.error('导出 PDF 失败:', error);
+      alert('导出 PDF 失败，请稍后重试');
+    } finally {
+      setExporting(false);
+    }
+  }, [selectedIds]);
 
   useEffect(() => {
     if (!isClient) return;
@@ -158,6 +239,15 @@ export function PracticePageContent() {
     const interval = setInterval(loadQueue, 5000);
     return () => clearInterval(interval);
   }, [isClient, isLoggedIn, loadQueue, processPendingQuestion]);
+
+  // Clean up selectedIds for items no longer in queue
+  useEffect(() => {
+    const queueIdSet = new Set(queue.map(q => q.id));
+    setSelectedIds(prev => {
+      const next = new Set([...prev].filter(id => queueIdSet.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [queue]);
 
   if (!isClient) {
     return (
@@ -179,6 +269,8 @@ export function PracticePageContent() {
     );
   }
 
+  const selectableCount = queue.filter(q => ['GENERATED', 'ANSWERED', 'GRADING'].includes(q.status)).length;
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navbar currentPage="practice" />
@@ -193,7 +285,46 @@ export function PracticePageContent() {
           </p>
         </div>
 
-        <QuestionList queue={queue} onRetry={handleRetryQuestion} />
+        {/* Export toolbar */}
+        {selectableCount > 0 && (
+          <div className="mb-4 flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+            <button
+              onClick={handleSelectAll}
+              className="text-sm px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              {selectedIds.size === selectableCount && selectableCount > 0 ? '取消全选' : '全选'}
+            </button>
+
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              已选 {selectedIds.size} 题
+            </span>
+
+            <button
+              onClick={handleExportPdf}
+              disabled={selectedIds.size === 0 || exporting}
+              className="ml-auto flex items-center gap-2 text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  导出中...
+                </>
+              ) : (
+                <>
+                  <FileDown className="h-4 w-4" />
+                  导出为 PDF
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        <QuestionList
+          queue={queue}
+          onRetry={handleRetryQuestion}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+        />
       </div>
     </div>
   );

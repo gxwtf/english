@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Type, ListFilter } from 'lucide-react';
+import { BookOpen, Type, ListFilter, PenLine, Languages } from 'lucide-react';
 import type { QuestionType } from '@/types/word';
-import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions } from '@/types/problem';
+import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions, DefinitionFillBlankOptions, WordSelectTranslateOptions } from '@/types/problem';
 
 const STORAGE_KEY_INCLUDE_RELATED = 'ai-question-include-related';
 const STORAGE_KEY_ALLOW_FORM_CHANGE = 'ai-question-allow-form-change';
@@ -14,6 +14,8 @@ export type QuestionGenerationOptions = {
   translate?: TranslateOptions;
   meaningSelect?: MeaningSelectOptions;
   meaningSelectEn?: MeaningSelectOptions;
+  definitionFillBlank?: DefinitionFillBlankOptions;
+  wordSelectTranslate?: WordSelectTranslateOptions;
   deepThinking?: boolean;
   includeRelatedWords?: boolean;
   allowFormChange?: boolean;
@@ -34,6 +36,10 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
   const [translateN, setTranslateN] = useState<number | ''>(5);
   const [meaningSelectN, setMeaningSelectN] = useState<number | ''>(5);
   const [meaningSelectEnN, setMeaningSelectEnN] = useState<number | ''>(5);
+  const [definitionFillBlankN, setDefinitionFillBlankN] = useState<number | ''>(5);
+  const [definitionFillBlankM, setDefinitionFillBlankM] = useState<number | ''>(0);
+  const [wordSelectTranslateN, setWordSelectTranslateN] = useState<number | ''>(5);
+  const [wordSelectTranslateM, setWordSelectTranslateM] = useState<number | ''>(0);
   const [includeRelatedWords, setIncludeRelatedWords] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     const stored = localStorage.getItem(STORAGE_KEY_INCLUDE_RELATED);
@@ -59,6 +65,8 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
   const effectiveRelatedCount = relatedWordsCount ?? 0;
   const effectiveTotalPool = includeRelatedWords ? effectiveMaxWords + effectiveRelatedCount : effectiveMaxWords;
   const totalWords = (typeof questionN === 'number' ? questionN : 0) + (typeof questionM === 'number' ? questionM : 0);
+  const definitionTotalWords = (typeof definitionFillBlankN === 'number' ? definitionFillBlankN : 0) + (typeof definitionFillBlankM === 'number' ? definitionFillBlankM : 0);
+  const wordSelectTranslateTotalWords = (typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 0) + (typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0);
   const isFillBlank = selectedType === 'fill-blank';
 
   const fillBlankValidationError = !isFillBlank
@@ -104,7 +112,29 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
           : null
     : null;
 
-  const validationError = fillBlankValidationError || translateValidationError || meaningSelectValidationError || meaningSelectEnValidationError;
+  const isDefinitionFillBlank = selectedType === 'definition-fill-blank';
+  const definitionFillBlankValidationError = isDefinitionFillBlank
+    ? typeof definitionFillBlankN !== 'number' || definitionFillBlankN < 1
+      ? '至少要有 1 道题'
+      : definitionTotalWords > effectiveTotalPool
+        ? `n + m (${definitionTotalWords}) 不能超过可用单词数量 (${effectiveTotalPool})`
+        : definitionTotalWords > 11
+          ? `n + m (${definitionTotalWords}) 不能超过 11`
+          : null
+    : null;
+
+  const isWordSelectTranslate = selectedType === 'word-select-translate';
+  const wordSelectTranslateValidationError = isWordSelectTranslate
+    ? typeof wordSelectTranslateN !== 'number' || wordSelectTranslateN < 1
+      ? '至少要有 1 道题'
+      : wordSelectTranslateN > 5
+        ? '题目数量不能超过 5'
+        : wordSelectTranslateTotalWords > effectiveTotalPool
+          ? `n + m (${wordSelectTranslateTotalWords}) 不能超过可用单词数量 (${effectiveTotalPool})`
+          : null
+    : null;
+
+  const validationError = fillBlankValidationError || translateValidationError || meaningSelectValidationError || meaningSelectEnValidationError || definitionFillBlankValidationError || wordSelectTranslateValidationError;
 
   if (!isOpen) return null;
 
@@ -118,7 +148,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     {
       id: 'translate' as const,
       title: '翻译句子',
-      description: '将中文/英文句子翻译成对应的英文/中文',
+      description: '将中文句子翻译成对应的英文',
       icon: Type,
     },
     {
@@ -132,6 +162,18 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
       title: '英英释义',
       description: '从 4 个英文释义中选择正确的意思',
       icon: ListFilter,
+    },
+    {
+      id: 'definition-fill-blank' as const,
+      title: '词义填空',
+      description: '根据英文释义，从候选词中选出正确的单词',
+      icon: PenLine,
+    },
+    {
+      id: 'word-select-translate' as const,
+      title: '选词翻译句子',
+      description: '翻译中文句子，并使用指定的候选单词',
+      icon: Languages,
     },
   ];
 
@@ -150,6 +192,10 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
       options.meaningSelect = { n: typeof meaningSelectN === 'number' ? meaningSelectN : 5 };
     } else if (selectedType === 'meaning-select-en') {
       options.meaningSelectEn = { n: typeof meaningSelectEnN === 'number' ? meaningSelectEnN : 5 };
+    } else if (selectedType === 'definition-fill-blank') {
+      options.definitionFillBlank = { n: typeof definitionFillBlankN === 'number' ? definitionFillBlankN : 5, m: typeof definitionFillBlankM === 'number' ? definitionFillBlankM : 0 };
+    } else if (selectedType === 'word-select-translate') {
+      options.wordSelectTranslate = { n: typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 5, m: typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0 };
     }
     onGenerate(options);
   };
@@ -206,7 +252,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
             </label>
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {questionTypes.map((type) => {
               const Icon = type.icon;
               const isSelected = selectedType === type.id;
@@ -214,24 +260,24 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 <button
                   key={type.id}
                   onClick={() => setSelectedType(type.id)}
-                  className={`group flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-200 ${
+                  className={`group flex items-center gap-3 p-3 rounded-xl border-2 transition-all duration-200 ${
                     isSelected
                       ? 'border-green-500 dark:border-green-400 bg-green-50 dark:bg-green-900/20 shadow-lg'
                       : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-green-500 dark:hover:border-green-400 hover:shadow-lg'
                   }`}
                 >
-                  <div className={`w-10 h-10 shrink-0 flex items-center justify-center rounded-lg transition-all duration-200 ${
+                  <div className={`w-9 h-9 shrink-0 flex items-center justify-center rounded-lg transition-all duration-200 ${
                     isSelected
                       ? 'bg-green-500 dark:bg-green-600 text-white shadow-sm'
                       : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 group-hover:bg-green-200 dark:group-hover:bg-green-800/40'
                   }`}>
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-4 w-4" />
                   </div>
                   <div className="text-left min-w-0">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-0.5">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">
                       {type.title}
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-snug">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-snug line-clamp-2">
                       {type.description}
                     </p>
                   </div>
@@ -436,6 +482,128 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
             </div>
           )}
 
+          {/* 词义填空参数 */}
+          {selectedType === 'definition-fill-blank' && (
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                题目参数设置
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    题目数量 n（需回答的释义数）
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    min={1}
+                    max={11}
+                    value={definitionFillBlankN}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setDefinitionFillBlankN('');
+                      } else if (/^\d+$/.test(val)) {
+                        const numVal = Math.max(1, Math.min(11, parseInt(val) || 1));
+                        setDefinitionFillBlankN(numVal);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    干扰词数量 m（多余单词数）
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    min={0}
+                    max={11}
+                    value={definitionFillBlankM}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setDefinitionFillBlankM('');
+                      } else if (/^\d+$/.test(val)) {
+                        const numVal = Math.max(0, Math.min(11, parseInt(val) || 0));
+                        setDefinitionFillBlankM(numVal);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                共需 n + m = {definitionTotalWords} 个单词（n 道题，m 个干扰词）
+              </p>
+              {definitionFillBlankValidationError && (
+                <p className="text-xs text-red-500 mt-1">{definitionFillBlankValidationError}</p>
+              )}
+            </div>
+          )}
+
+          {/* 选词翻译句子参数 */}
+          {selectedType === 'word-select-translate' && (
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                题目参数设置
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    题目数量 n（需回答的句子数）
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    min={1}
+                    max={5}
+                    value={wordSelectTranslateN}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setWordSelectTranslateN('');
+                      } else if (/^\d+$/.test(val)) {
+                        const numVal = Math.max(1, Math.min(5, parseInt(val) || 1));
+                        setWordSelectTranslateN(numVal);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    干扰词数量 m（多余单词数）
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    min={0}
+                    max={11}
+                    value={wordSelectTranslateM}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setWordSelectTranslateM('');
+                      } else if (/^\d+$/.test(val)) {
+                        const numVal = Math.max(0, Math.min(11, parseInt(val) || 0));
+                        setWordSelectTranslateM(numVal);
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                共需 n + m = {wordSelectTranslateTotalWords} 个单词（n 道题，m 个干扰词）
+              </p>
+              {wordSelectTranslateValidationError && (
+                <p className="text-xs text-red-500 mt-1">{wordSelectTranslateValidationError}</p>
+              )}
+            </div>
+          )}
+
           {/* 生成按钮 */}
           {selectedType && (
             <button
@@ -453,7 +621,11 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   ? `生成英译中（${typeof meaningSelectN === 'number' ? meaningSelectN : 0} 道小题）`
                   : selectedType === 'meaning-select-en'
                     ? `生成英英释义（${typeof meaningSelectEnN === 'number' ? meaningSelectEnN : 0} 道小题）`
-                    : `生成翻译句子题目（${typeof translateN === 'number' ? translateN : 0} 道小题）`}
+                    : selectedType === 'definition-fill-blank'
+                      ? `生成词义填空（${typeof definitionFillBlankN === 'number' ? definitionFillBlankN : 0} 道小题，${typeof definitionFillBlankM === 'number' ? definitionFillBlankM : 0} 个干扰词）`
+                      : selectedType === 'word-select-translate'
+                        ? `生成选词翻译句子（${typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 0} 道小题，${typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0} 个干扰词）`
+                        : `生成翻译句子题目（${typeof translateN === 'number' ? translateN : 0} 道小题）`}
             </button>
           )}
         </div>

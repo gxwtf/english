@@ -24,6 +24,8 @@ import {
   enqueuePendingTranslate,
   enqueuePendingMeaningSelect,
   enqueuePendingMeaningSelectEn,
+  enqueuePendingDefinitionFillBlank,
+  enqueuePendingWordSelectTranslate,
 } from '@/actions/ai-question';
 import { selectWordsForQuestion, type RelatedWordEntry } from '@/lib/word-selection';
 import { useRouter } from 'next/navigation';
@@ -218,6 +220,12 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     } else if (options.type === 'meaning-select-en') {
       const meaningSelectEnOptions = options.meaningSelectEn ?? { n: 5 };
       neededCount = meaningSelectEnOptions.n ?? 5;
+    } else if (options.type === 'definition-fill-blank') {
+      const definitionFillBlankOptions = options.definitionFillBlank ?? { n: 5, m: 0 };
+      neededCount = definitionFillBlankOptions.n + definitionFillBlankOptions.m;
+    } else if (options.type === 'word-select-translate') {
+      const wordSelectTranslateOptions = options.wordSelectTranslate ?? { n: 5, m: 0 };
+      neededCount = wordSelectTranslateOptions.n + wordSelectTranslateOptions.m;
     } else {
       neededCount = 5;
     }
@@ -260,6 +268,18 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
         case 'meaning-select-en': {
           pendingItem = await enqueuePendingMeaningSelectEn(wordIds, options.deepThinking, relatedWordEntries);
           questionType = 'meaning-select-en';
+          break;
+        }
+        case 'definition-fill-blank': {
+          const definitionFillBlankOptions = options.definitionFillBlank ?? { n: 5, m: 0 };
+          pendingItem = await enqueuePendingDefinitionFillBlank(wordIds, definitionFillBlankOptions, options.deepThinking, relatedWordEntries);
+          questionType = 'definition-fill-blank';
+          break;
+        }
+        case 'word-select-translate': {
+          const wordSelectTranslateOptions = options.wordSelectTranslate ?? { n: 5, m: 0 };
+          pendingItem = await enqueuePendingWordSelectTranslate(wordIds, wordSelectTranslateOptions, options.deepThinking, relatedWordEntries);
+          questionType = 'word-select-translate';
           break;
         }
       }
