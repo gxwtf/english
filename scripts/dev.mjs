@@ -42,10 +42,11 @@ function killAll() {
   }
 }
 
-// 等待 PaddleOCR 健康检查通过（最长等待 60 秒）
-async function waitForPaddleOCR(maxWaitMs = 60000) {
+// 等待 PaddleOCR 健康检查通过且模型就绪（最长等待 180 秒，首次需要下载模型）
+async function waitForPaddleOCR(maxWaitMs = 180000) {
   const healthUrl = 'http://127.0.0.1:39821/health';
   const start = Date.now();
+  let serviceReady = false;
   process.stdout.write('[ocr] 等待 PaddleOCR 健康检查');
   while (Date.now() - start < maxWaitMs) {
     try {
@@ -53,26 +54,30 @@ async function waitForPaddleOCR(maxWaitMs = 60000) {
       if (resp.ok) {
         const data = await resp.json();
         if (data.status === 'ok') {
-          process.stdout.write(' ✓\n');
-          return true;
+          if (!serviceReady) {
+            serviceReady = true;
+            process.stdout.write(' 服务已启动');
+          }
+          if (data.model_ready) {
+            process.stdout.write('，模型就绪 ✓\n');
+            return true;
+          }
         }
       }
-    } catch {
+    } catch (e) {
       // 服务还未就绪
     }
     process.stdout.write('.');
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 2000));
   }
-  process.stdout.write(' 超时（继续启动 Next.js）\n');
+  process.stdout.write(` 超时${serviceReady ? '（模型未就绪，继续启动）' : '（服务未启动）'}\n`);
   return false;
 }
 
 // 1. 先启动 PaddleOCR（模型加载较慢，先启动）
 const paddleDir = resolve(root, 'paddleocr-service');
-let paddleStarted = false;
 if (existsSync(paddleDir)) {
   start('python3', ['server.py'], { cwd: paddleDir }, 'ocr');
-  paddleStarted = true;
 }
 
 // 2. 等待 PaddleOCR 健康检查通过后再启动 Next.js
