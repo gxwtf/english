@@ -161,7 +161,7 @@ def split_stuck_word(token, dict_words=None):
     original = token
     # 去掉尾部标点，保留用于后续拼接
     trailing_punct = ''
-    while token and token[-1] in '.,;:!?\'")\]':
+    while token and token[-1] in r'.,;:!?\'")\]':
         trailing_punct = token[-1] + trailing_punct
         token = token[:-1]
 
@@ -204,7 +204,7 @@ def split_stuck_word(token, dict_words=None):
         parts[-1] = parts[-1] + trailing_punct
 
     # 只接受拆分后每个部分都>=2字符的结果（避免单字母拆分，除非是 'a' 或 'i'）
-    if all(len(p.rstrip('.,;:!?\'")\]')) >= 2 or p.rstrip('.,;:!?\'")\]').lower() in ('a', 'i') for p in parts):
+    if all(len(p.rstrip(r'.,;:!?\'")\]')) >= 2 or p.rstrip(r'.,;:!?\'")\]').lower() in ('a', 'i') for p in parts):
         return parts
     return [original]
 

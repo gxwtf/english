@@ -1,8 +1,8 @@
 # PaddleOCR 服务依赖
 # 安装：./setup.sh（自动创建 venv 并安装）
-# 版本约束：paddlepaddle 锁 2.x（避免 3.0 破坏性变更），numpy 锁 <2.0（paddleocr 兼容性）
+# 版本约束：paddleocr 和 paddlepaddle 都锁 2.x（3.0 API 不兼容），numpy 锁 <2.0
 paddlepaddle>=2.6,<3.0
-paddleocr>=2.7
+paddleocr>=2.7,<3.0
 opencv-python>=4.5
 flask>=3.0
 numpy>=1.20,<2.0
