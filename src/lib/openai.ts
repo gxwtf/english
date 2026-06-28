@@ -53,14 +53,8 @@ function loadModelConfigs(envVarName: string, fallbackEnvPrefix: string): ModelC
 }
 
 const modelConfigs = loadModelConfigs('LLM_CONFIGS', 'OPENAI');
-const imageModelConfigs = loadModelConfigs('LLM_IMAGE_CONFIGS', 'OPENAI_IMAGE');
 
 console.log(`已加载 ${modelConfigs.length} 个文本模型配置: ${modelConfigs.map(c => c.name).join(', ')}`);
-if (imageModelConfigs.length > 0) {
-  console.log(`已加载 ${imageModelConfigs.length} 个图像模型配置: ${imageModelConfigs.map(c => c.name).join(', ')}`);
-} else {
-  console.warn('未配置图像模型 (LLM_IMAGE_CONFIGS)，图片识别功能将不可用');
-}
 
 interface OpenAIOptions {
   prompt?: string;
@@ -210,7 +204,7 @@ export async function callTextAI(
   userPrompt: string,
   options: { timeout?: number; temperature?: number } = {}
 ): Promise<OpenAIResponse> {
-  const allConfigs = [...modelConfigs, ...imageModelConfigs];
+  const allConfigs = [...modelConfigs];
   if (allConfigs.length === 0) throw new Error('未配置任何模型');
 
   const { timeout, temperature = 0.1 } = options;
@@ -344,66 +338,6 @@ export async function callOpenAIWithTools(
       return {
         content,
         thinking: null,
-        usage: {
-          prompt_tokens: data.usage?.prompt_tokens || 0,
-          completion_tokens: data.usage?.completion_tokens || 0,
-          total_tokens: data.usage?.total_tokens || 0,
-        },
-      };
-    },
-  });
-}
-
-interface VisionAIOptions {
-  timeout?: number;
-  enableThinking?: boolean;
-}
-
-export async function callVisionAI(
-  systemPrompt: string,
-  userPrompt: string,
-  base64Image: string,
-  options: VisionAIOptions = {}
-): Promise<OpenAIResponse> {
-  if (imageModelConfigs.length === 0) throw new Error('未配置图像模型，请设置 LLM_IMAGE_CONFIGS 环境变量');
-
-  const { enableThinking = false } = options;
-
-  return callWithRetry({
-    configs: imageModelConfigs,
-    timeout: options.timeout,
-    label: '图像模型',
-    buildRequestBody: (config) => ({
-      model: config.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userPrompt },
-            {
-              type: 'image_url',
-              image_url: { url: base64Image.startsWith('data:') ? base64Image : `data:image/jpeg;base64,${base64Image}` },
-            },
-          ],
-        },
-      ],
-      temperature: 0.3,
-    }),
-    parseResponse: (data) => {
-      const message = data.choices?.[0]?.message;
-      let rawContent = message?.content ?? message?.reasoning ?? '';
-      let thinkingContent: string | null = message?.reasoning_content || null;
-
-      if (enableThinking && rawContent) {
-        const parsed = parseThinkingContent(rawContent);
-        rawContent = parsed.content;
-        if (parsed.thinking) thinkingContent = parsed.thinking;
-      }
-
-      return {
-        content: rawContent,
-        thinking: thinkingContent,
         usage: {
           prompt_tokens: data.usage?.prompt_tokens || 0,
           completion_tokens: data.usage?.completion_tokens || 0,
