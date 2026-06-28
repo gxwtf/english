@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>01.jpg Debug</title>
+<style>
+body { background: #222; color: #eee; font-family: monospace; margin: 0; padding: 10px; }
+h2 { margin-top: 20px; }
+img { max-width: 100%; border: 1px solid #444; display: block; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+</style>
+</head>
+<body>
+<h1>01.jpg Highlight Detection Debug</h1>
+
+<h2>1. Warped (透视变换后)</h2>
+<img src="01_warped.jpg" />
+
+<h2>2. Highlight Mask (高亮mask)</h2>
+<img src="01_mask.png" />
+
+<h2>3. Highlight Overlay (高亮叠加 红色=高亮)</h2>
+<img src="01_highlight_overlay.jpg" />
+
+<h2>4. Word BBoxes (红=高亮 绿=未高亮)</h2>
+<img src="01_bboxes.jpg" />
+
+<h2>5. Connected Components (红=Top4 黄=其他)</h2>
+<img src="01_components.jpg" />
+
+<h2>6. Enhanced (光照归一化)</h2>
+<img src="01_enhanced.jpg" />
+
+</body>
+</html>

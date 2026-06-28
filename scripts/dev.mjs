@@ -50,7 +50,7 @@ if (existsSync(paddleDir)) {
 
 // 2. 启动 Next.js（直接用 node 调用 next CLI，避免 shell 依赖）
 const nextBin = resolve(root, 'node_modules/next/dist/bin/next');
-const nextArgs = mode === 'start' ? ['start'] : ['dev', '-p', '3003'];
+const nextArgs = mode === 'start' ? ['start', "-p", "3003"] : ['dev', '-p', '3003'];
 start('node', [nextBin, ...nextArgs], { cwd: root }, 'web');
 
 // 3. Ctrl+C / 终止信号 → 杀死所有子进程
