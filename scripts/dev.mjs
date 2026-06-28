@@ -75,9 +75,12 @@ async function waitForPaddleOCR(maxWaitMs = 180000) {
 }
 
 // 1. 先启动 PaddleOCR（模型加载较慢，先启动）
+// 优先使用 venv 虚拟环境（服务器 PEP 668 禁止系统级 pip install）
 const paddleDir = resolve(root, 'paddleocr-service');
 if (existsSync(paddleDir)) {
-  start('python3', ['server.py'], { cwd: paddleDir }, 'ocr');
+  const venvPython = resolve(paddleDir, 'venv/bin/python');
+  const pythonBin = existsSync(venvPython) ? venvPython : 'python3';
+  start(pythonBin, ['server.py'], { cwd: paddleDir }, 'ocr');
 }
 
 // 2. 等待 PaddleOCR 健康检查通过后再启动 Next.js
