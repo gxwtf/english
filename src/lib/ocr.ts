@@ -28,14 +28,37 @@ export interface OCRResult {
 export async function recognizeHighlightedImage(imageBuffer: Buffer): Promise<OCRResult> {
   const base64Image = imageBuffer.toString('base64');
 
-  const response = await fetch(PADDLEOCR_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image: base64Image }),
-  });
+  // 重试机制：PaddleOCR 服务可能正在启动或短暂不可用
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
+  let lastError: Error | null = null;
+  let response: Response | undefined;
 
-  if (!response.ok) {
-    throw new Error(`PaddleOCR server returned ${response.status}`);
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      response = await fetch(PADDLEOCR_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64Image }),
+      });
+      break;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < MAX_RETRIES) {
+        console.warn(`[OCR] 第 ${attempt}/${MAX_RETRIES} 次调用 PaddleOCR 失败: ${lastError.message}，${RETRY_DELAY_MS}ms 后重试...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      } else {
+        // 所有重试都失败，给出更有意义的错误信息
+        const reason = lastError.message.includes('fetch failed')
+          ? `PaddleOCR 服务不可用（${PADDLEOCR_URL}），请检查服务是否已启动`
+          : lastError.message;
+        throw new Error(`OCR 请求失败（已重试 ${MAX_RETRIES} 次）: ${reason}`);
+      }
+    }
+  }
+
+  if (!response || !response.ok) {
+    throw new Error(`PaddleOCR server returned ${response?.status ?? 'no response'}`);
   }
 
   const data = await response.json();

@@ -42,18 +42,48 @@ function killAll() {
   }
 }
 
-// 1. 先启动 PaddleOCR（模型加载较慢，先启动）
-const paddleDir = resolve(root, 'paddleocr-service');
-if (existsSync(paddleDir)) {
-  start('python3', ['server.py'], { cwd: paddleDir }, 'ocr');
+// 等待 PaddleOCR 健康检查通过（最长等待 60 秒）
+async function waitForPaddleOCR(maxWaitMs = 60000) {
+  const healthUrl = 'http://127.0.0.1:39821/health';
+  const start = Date.now();
+  process.stdout.write('[ocr] 等待 PaddleOCR 健康检查');
+  while (Date.now() - start < maxWaitMs) {
+    try {
+      const resp = await fetch(healthUrl);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.status === 'ok') {
+          process.stdout.write(' ✓\n');
+          return true;
+        }
+      }
+    } catch {
+      // 服务还未就绪
+    }
+    process.stdout.write('.');
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  process.stdout.write(' 超时（继续启动 Next.js）\n');
+  return false;
 }
 
-// 2. 启动 Next.js（直接用 node 调用 next CLI，避免 shell 依赖）
+// 1. 先启动 PaddleOCR（模型加载较慢，先启动）
+const paddleDir = resolve(root, 'paddleocr-service');
+let paddleStarted = false;
+if (existsSync(paddleDir)) {
+  start('python3', ['server.py'], { cwd: paddleDir }, 'ocr');
+  paddleStarted = true;
+}
+
+// 2. 等待 PaddleOCR 健康检查通过后再启动 Next.js
+await waitForPaddleOCR();
+
+// 3. 启动 Next.js（直接用 node 调用 next CLI，避免 shell 依赖）
 const nextBin = resolve(root, 'node_modules/next/dist/bin/next');
-const nextArgs = mode === 'start' ? ['start', "-p", "3003"] : ['dev', '-p', '3003'];
+const nextArgs = mode === 'start' ? ['start', '-p', '3003'] : ['dev', '-p', '3003'];
 start('node', [nextBin, ...nextArgs], { cwd: root }, 'web');
 
-// 3. Ctrl+C / 终止信号 → 杀死所有子进程
+// 4. Ctrl+C / 终止信号 → 杀死所有子进程
 process.on('SIGINT', () => {
   killAll();
   process.exit(0);
