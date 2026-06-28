@@ -28,9 +28,9 @@ else
     echo "[1/3] 虚拟环境已存在，跳过创建"
 fi
 
-# 升级 pip
-echo "[2/3] 升级 pip ..."
-"$VENV_DIR/bin/python" -m pip install --upgrade pip --quiet
+# 升级 pip + 安装 setuptools/wheel（Python 3.12+ venv 默认不含）
+echo "[2/3] 升级 pip + 安装 setuptools/wheel ..."
+"$VENV_DIR/bin/python" -m pip install --upgrade pip setuptools wheel --quiet
 
 # 安装依赖
 echo "[3/3] 安装依赖（paddlepaddle + paddleocr + opencv + flask）..."
