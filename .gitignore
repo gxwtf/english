@@ -46,8 +46,9 @@ src/dict/*
 # prisma
 /src/generated/prisma
 
-# PaddleOCR 独立服务
-/paddleocr-service/
+# PaddleOCR 服务（源码纳入 git，仅排除缓存和编译产物）
+/paddleocr-service/__pycache__/
+/paddleocr-service/.paddleocr_cache/
 
 # PaddleOCR 模型缓存（旧位置，已迁移到 paddleocr-service/）
 /.paddleocr_cache/
