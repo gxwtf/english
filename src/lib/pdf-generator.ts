@@ -95,11 +95,7 @@ function renderQuestionHtml(q: PdfQuestionData, questionIndex: number): string {
         html += `<div class="question-item">
           <p class="question-number">第 ${i + 1} 题</p>
           <p class="question-text">${escapeHtml(item.word)} 的中文释义是？</p>
-          <div class="options-grid">
-            ${item.options?.map((opt: string, j: number) =>
-              `<div class="option-item">${['A', 'B', 'C', 'D'][j]}. ${escapeHtml(opt)}</div>`
-            ).join('') || ''}
-          </div>
+          ${renderOptionsLayout(item.options)}
         </div>`;
       });
     }
@@ -109,11 +105,7 @@ function renderQuestionHtml(q: PdfQuestionData, questionIndex: number): string {
         html += `<div class="question-item">
           <p class="question-number">第 ${i + 1} 题</p>
           <p class="question-text">${escapeHtml(item.word)} 的英文释义是？</p>
-          <div class="options-grid">
-            ${item.options?.map((opt: string, j: number) =>
-              `<div class="option-item">${['A', 'B', 'C', 'D'][j]}. ${escapeHtml(opt)}</div>`
-            ).join('') || ''}
-          </div>
+          ${renderOptionsLayout(item.options)}
         </div>`;
       });
     }
@@ -144,8 +136,7 @@ function renderAnswerHtml(q: PdfQuestionData, questionIndex: number): string {
         const sentence = q.questionType === 'fill-blank' ? item.sentence : item.definition;
         html += `<div class="answer-item">
           <p class="question-number">第 ${i + 1} 题</p>
-          <p class="question-text">${renderBlankSentenceHtml(sentence)}</p>
-          <p class="answer-text">答案：${escapeHtml(item.answer)}</p>
+          <p class="question-text">${renderFilledSentenceHtml(sentence, item.answer)}</p>
         </div>`;
       });
     }
@@ -156,7 +147,7 @@ function renderAnswerHtml(q: PdfQuestionData, questionIndex: number): string {
           <p class="question-number">第 ${i + 1} 题</p>
           <p class="question-text">${escapeHtml(item.chinese)}</p>
           ${item.keyWords?.length ? `<p class="hint-text">必用单词：${item.keyWords.map((k: string) => escapeHtml(k)).join('、')}</p>` : ''}
-          <p class="answer-text">答案：${escapeHtml(item.referenceAnswers)}</p>
+          <p class="answer-text">${escapeHtml(item.referenceAnswers)}</p>
         </div>`;
       });
     }
@@ -166,39 +157,31 @@ function renderAnswerHtml(q: PdfQuestionData, questionIndex: number): string {
         html += `<div class="answer-item">
           <p class="question-number">第 ${i + 1} 题</p>
           <p class="question-text">${escapeHtml(item.chinese)}</p>
-          <p class="answer-text">答案：${escapeHtml(item.referenceAnswers)}</p>
+          <p class="answer-text">${escapeHtml(item.referenceAnswers)}</p>
         </div>`;
       });
     }
   } else if (q.questionType === 'meaning-select') {
     if (questions) {
       questions.forEach((item, i) => {
+        const correctIndex = item.options?.indexOf(item.correctAnswer) ?? -1;
+        const correctLetter = correctIndex >= 0 ? ['A', 'B', 'C', 'D'][correctIndex] : '';
+        const correctOption = item.correctAnswer || '';
         html += `<div class="answer-item">
           <p class="question-number">第 ${i + 1} 题</p>
-          <p class="question-text">${escapeHtml(item.word)} 的中文释义是？</p>
-          <div class="options-grid">
-            ${item.options?.map((opt: string, j: number) => {
-              const letter = ['A', 'B', 'C', 'D'][j];
-              const isCorrect = letter === item.correctAnswer;
-              return `<div class="option-item${isCorrect ? ' correct-option' : ''}">${letter}. ${escapeHtml(opt)}</div>`;
-            }).join('') || ''}
-          </div>
+          <p class="answer-text">${escapeHtml(item.word)} 的中文释义是：${escapeHtml(correctLetter)}. ${escapeHtml(correctOption)}</p>
         </div>`;
       });
     }
   } else if (q.questionType === 'meaning-select-en') {
     if (questions) {
       questions.forEach((item, i) => {
+        const correctIndex = item.options?.indexOf(item.correctAnswer) ?? -1;
+        const correctLetter = correctIndex >= 0 ? ['A', 'B', 'C', 'D'][correctIndex] : '';
+        const correctOption = item.correctAnswer || '';
         html += `<div class="answer-item">
           <p class="question-number">第 ${i + 1} 题</p>
-          <p class="question-text">${escapeHtml(item.word)} 的英文释义是？</p>
-          <div class="options-grid">
-            ${item.options?.map((opt: string, j: number) => {
-              const letter = ['A', 'B', 'C', 'D'][j];
-              const isCorrect = letter === item.correctAnswer;
-              return `<div class="option-item${isCorrect ? ' correct-option' : ''}">${letter}. ${escapeHtml(opt)}</div>`;
-            }).join('') || ''}
-          </div>
+          <p class="answer-text">${escapeHtml(item.word)} 的英文释义是：${escapeHtml(correctLetter)}. ${escapeHtml(correctOption)}</p>
         </div>`;
       });
     }
@@ -230,6 +213,38 @@ function renderBlankSentenceHtml(sentence: string): string {
   return escapeHtml(sentence).replace(/_+/g, '<span class="blank-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>');
 }
 
+function renderFilledSentenceHtml(sentence: string, answer: string): string {
+  if (!sentence) return '';
+  // Replace underscores with the answer
+  return escapeHtml(sentence).replace(/_+/g, `<span class="filled-answer">${escapeHtml(answer)}</span>`);
+}
+
+/**
+ * Render options layout based on text length.
+ * - Short options (< 15 chars): 1 row (A  B  C  D)
+ * - Medium options (15-40 chars): 2 rows (A  B / C  D)
+ * - Long options (> 40 chars): 4 rows (A / B / C / D)
+ */
+function renderOptionsLayout(options: string[] | undefined): string {
+  if (!options || options.length === 0) return '';
+
+  const letters = ['A', 'B', 'C', 'D'];
+  const maxLen = Math.max(...options.map(o => o.length));
+
+  if (maxLen < 15) {
+    // All short: one row
+    return `<p class="options-row">${options.map((opt, j) => `${letters[j]}. ${escapeHtml(opt)}`).join('　　')}</p>`;
+  } else if (maxLen <= 40) {
+    // Medium: two rows
+    const row1 = `${letters[0]}. ${escapeHtml(options[0])}　　${letters[1]}. ${escapeHtml(options[1])}`;
+    const row2 = `${letters[2]}. ${escapeHtml(options[2])}　　${letters[3]}. ${escapeHtml(options[3])}`;
+    return `<p class="options-row">${row1}</p><p class="options-row">${row2}</p>`;
+  } else {
+    // Long: four rows
+    return options.map((opt, j) => `<p class="options-row">${letters[j]}. ${escapeHtml(opt)}</p>`).join('');
+  }
+}
+
 function escapeHtml(text: string): string {
   if (!text) return '';
   return String(text)
@@ -255,11 +270,10 @@ const PDF_STYLES = `
   .question-text { font-size: 14px; line-height: 1.8; }
   .hint-text { font-size: 12px; color: #333; margin-top: 4px; }
   .blank-line { display: inline-block; min-width: 60px; border-bottom: 1px solid #000; margin: 0 2px; }
+  .filled-answer { font-weight: 900; }
   .answer-lines { margin-top: 8px; }
   .answer-line { width: 100%; border-bottom: 1px solid #999; height: 28px; }
-  .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
-  .option-item { font-size: 13px; padding: 6px 10px; border: 1px solid #000; }
-  .correct-option { font-weight: bold; border: 2px solid #000; }
+  .options-row { font-size: 13px; line-height: 2; margin-top: 4px; }
   .answer-item { margin-bottom: 12px; padding: 6px 0; border-bottom: 1px solid #ccc; }
   .answer-text { font-size: 14px; font-weight: 500; margin-top: 4px; }
   .word-meanings { margin-top: 8px; }

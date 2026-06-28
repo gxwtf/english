@@ -8,6 +8,14 @@ import { query as queryDict } from '@/lib/dict/query';
 import { aiQueue } from '@/lib/ai-queue';
 import { isOptionInMeanings } from '@/lib/utils';
 
+function shuffleArray<T>(array: T[]): T[] {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 interface MeaningSelectEnQuestionItem {
   id: number;
   type: string;
@@ -217,6 +225,7 @@ ${relatedWordsSection}
     throw new Error(`AI 返回的题目数量不正确，期望 ${expectedQuestions} 道，实际 ${parsed.questions.length} 道`);
   }
 
+  // Shuffle options for each question to randomize correct answer position
   for (const q of parsed.questions) {
     if (!q.id || !q.word || !q.english || !q.options || !q.correctAnswer) {
       throw new Error('英英释义题目中某一题缺少必填字段');
@@ -228,6 +237,10 @@ ${relatedWordsSection}
     if (!q.options.includes(q.correctAnswer)) {
       throw new Error(`correctAnswer 必须是 options 中的一个选项`);
     }
+
+    // Shuffle options array
+    const shuffledOptions = shuffleArray([...q.options]);
+    q.options = shuffledOptions;
   }
 
   const resultContent: Record<string, unknown> = { ...parsed };

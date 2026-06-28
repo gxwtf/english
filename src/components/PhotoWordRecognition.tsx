@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { WordModal } from '@/components/WordModal';
 import { recognizeWordsFromImage } from '@/actions/image-recognition';
-import { compressImage } from '@/lib/image-utils';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag, TagConfig, RelatedWord } from '@/types/word';
 import { saveWord as saveWordAction } from '@/actions/words';
@@ -48,12 +47,15 @@ export const PhotoWordRecognition = ({
 
   const processFile = useCallback(async (file: File) => {
     try {
-      const compressResult = await compressImage(file, {
-        maxWidth: 1536,
-        maxHeight: 1536,
-        quality: 0.7
+      // 直接读取原始文件，不经过 Canvas 重压缩
+      // （JPEG 二次压缩会引入伪影干扰 OCR；PaddleOCR 服务端已有 MAX_DIM=2000 分辨率限制）
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = () => reject(new Error('文件读取失败'));
+        reader.readAsDataURL(file);
       });
-      setImageData(compressResult.dataUrl);
+      setImageData(dataUrl);
       setError(null);
       setStep('preview');
     } catch (err) {

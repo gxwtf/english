@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Check, AlertCircle, CheckSquare, Square, Settings, Camera, Sparkles } from 'lucide-react';
+import { X, Search, Check, AlertCircle, CheckSquare, Square, Settings, Camera, Sparkles, ListPlus } from 'lucide-react';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag, TagConfig, RelatedWord } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
 import { TagEditModal } from '@/components/TagEditModal';
 import { RelatedWordSelector } from '@/components/RelatedWordSelector';
 import { PhotoWordRecognition } from '@/components/PhotoWordRecognition';
+import { BatchAddWord } from '@/components/BatchAddWord';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -28,9 +29,10 @@ interface WordModalProps {
   allTagConfigs: Record<WordTag, TagConfig>;
   onTagsUpdate?: (newTagConfigs: Record<WordTag, TagConfig>) => void;
   onWordAdded?: () => void;
+  zIndex?: number;
 }
 
-export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [], queryWord, allTagConfigs, onTagsUpdate, onWordAdded }: WordModalProps) => {
+export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [], queryWord, allTagConfigs, onTagsUpdate, onWordAdded, zIndex = 50 }: WordModalProps) => {
   const [word, setWord] = useState('');
   const [dictionaryData, setDictionaryData] = useState<DictionaryEntry | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,6 +43,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
   const [searchedWord, setSearchedWord] = useState('');
   const [showTagEditModal, setShowTagEditModal] = useState(false);
   const [showPhotoRecognition, setShowPhotoRecognition] = useState(false);
+  const [showBatchAdd, setShowBatchAdd] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -181,7 +184,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
 
   return (
     <>
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4" style={{ zIndex }}>
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
         {/* 头部 */}
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 gap-2">
@@ -216,28 +219,42 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
               </Button>
             </div>
             {!initialWord && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowPhotoRecognition(true);
-                }}
-                className="group relative w-full cursor-pointer rounded-xl bg-purple-500 hover:bg-purple-600 active:scale-[0.98] pointer-events-auto px-4 py-3 text-white font-medium transition-all"
-                style={{ zIndex: 10 }}
-              >
-                <div className="flex items-center justify-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <Camera className="h-5 w-5" />
-                      <Sparkles className="absolute -top-2 -right-2 h-3 w-3 text-amber-400" />
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowPhotoRecognition(true);
+                  }}
+                  className="group relative flex-1 cursor-pointer rounded-xl bg-purple-500 hover:bg-purple-600 active:scale-[0.98] pointer-events-auto px-4 py-3 text-white font-medium transition-all"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <Camera className="h-5 w-5" />
+                        <Sparkles className="absolute -top-2 -right-2 h-3 w-3 text-amber-400" />
+                      </div>
+                      <span>拍照识别单词</span>
                     </div>
-                    <span>拍照识别单词</span>
+                    <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold">
+                      NEW
+                    </span>
                   </div>
-                  <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold">
-                    NEW
-                  </span>
-                </div>
-              </button>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowBatchAdd(true);
+                  }}
+                  className="group relative flex-1 cursor-pointer rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] pointer-events-auto px-4 py-3 text-white font-medium transition-all"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <ListPlus className="h-5 w-5" />
+                    <span>批量添加单词</span>
+                  </div>
+                </button>
+              </div>
             )}
             {error && (
               <div className="mt-2 flex items-center text-sm text-red-600 dark:text-red-400">
@@ -459,6 +476,18 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
         <PhotoWordRecognition
           isOpen={showPhotoRecognition}
           onClose={() => setShowPhotoRecognition(false)}
+          queryWord={queryWord}
+          allTagConfigs={allTagConfigs}
+          onTagsUpdate={onTagsUpdate}
+          allWords={allWords}
+          onWordAdded={onWordAdded}
+        />
+      )}
+
+      {showBatchAdd && (
+        <BatchAddWord
+          isOpen={showBatchAdd}
+          onClose={() => setShowBatchAdd(false)}
           queryWord={queryWord}
           allTagConfigs={allTagConfigs}
           onTagsUpdate={onTagsUpdate}

@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3003",
+    "dev": "node scripts/dev.mjs dev",
     "build": "next build",
-    "start": "next start"
+    "start": "node scripts/dev.mjs start"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
