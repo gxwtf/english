@@ -28,6 +28,7 @@ export function PracticePageContent() {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
+  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set()); // 正在重试的题目ID
   const router = useRouter();
 
   const loadQueue = useCallback(async () => {
@@ -85,17 +86,19 @@ export function PracticePageContent() {
             break;
           }
           case 'meaning-select': {
+            const meaningSelectOptions = options.meaningSelect ?? { n: 5 };
             await generateMeaningSelectWithQuestion(
-              pendingQuestionId, wordIds,
-              options.deepThinking,
+              pendingQuestionId, wordIds, meaningSelectOptions,
+              undefined, options.deepThinking,
               relatedWordEntries
             );
             break;
           }
           case 'meaning-select-en': {
+            const meaningSelectEnOptions = options.meaningSelectEn ?? { n: 5 };
             await generateMeaningSelectEnWithQuestion(
-              pendingQuestionId, wordIds,
-              options.deepThinking,
+              pendingQuestionId, wordIds, meaningSelectEnOptions,
+              undefined, options.deepThinking,
               relatedWordEntries
             );
             break;
@@ -135,6 +138,14 @@ export function PracticePageContent() {
   }, [loadQueue]);
 
   const handleRetryQuestion = useCallback(async (questionId: string, questionItem?: QuestionQueueItem) => {
+    // 立即显示加载状态（用户友好性）
+    setRetryingIds(prev => new Set(prev).add(questionId));
+    
+    // 乐观更新：立即将题目状态显示为"生成中"
+    setQueue(prev => prev.map(q => 
+      q.id === questionId ? { ...q, status: 'GENERATING' as any } : q
+    ));
+    
     try {
       const result = await retryQuestion(questionId);
       sessionStorage.setItem('pendingQuestionId', result.id);
@@ -183,11 +194,33 @@ export function PracticePageContent() {
           wordSelectTranslate: { n, m },
         }));
       }
-      router.push('/practice');
+      
+      // 清除加载状态
+      setRetryingIds(prev => {
+        const next = new Set(prev);
+        next.delete(questionId);
+        return next;
+      });
+
+      // 如果已经在 /practice 页面，router.push 不会触发 useEffect 重新运行，
+      // 需要直接调用 processPendingQuestion 来启动 AI 生成
+      processPendingQuestion();
     } catch (error) {
       console.error('重试题目失败:', error);
+      
+      // 清除加载状态，恢复原状态
+      setRetryingIds(prev => {
+        const next = new Set(prev);
+        next.delete(questionId);
+        return next;
+      });
+      
+      // 恢复题目状态为"生成失败"（用户可以通过状态看到失败信息）
+      setQueue(prev => prev.map(q => 
+        q.id === questionId ? { ...q, status: 'FAILED' as any } : q
+      ));
     }
-  }, []);
+  }, [router, processPendingQuestion]);
 
   const handleToggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -324,6 +357,7 @@ export function PracticePageContent() {
           onRetry={handleRetryQuestion}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
+          retryingIds={retryingIds} // 正在重试的题目ID集合
         />
       </div>
     </div>

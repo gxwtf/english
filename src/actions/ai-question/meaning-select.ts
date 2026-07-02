@@ -3,6 +3,7 @@
 import { fetchEnrichedWords, enqueuePendingQuestion, updateQuestionWithContent, markQuestionAsFailed } from './utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { RelatedWordEntry } from '@/lib/word-selection';
+import type { MeaningSelectOptions } from '@/types/problem';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
 import { query as queryDict } from '@/lib/dict/query';
 import { aiQueue } from '@/lib/ai-queue';
@@ -47,19 +48,20 @@ export async function generateAndEnqueueMeaningSelect(
   wordIds: number[],
   deepThinking?: boolean,
 ) {
-  return await doGenerateMeaningSelect(wordIds, deepThinking);
+  return await doGenerateMeaningSelect(wordIds, undefined, deepThinking);
 }
 
 export async function generateMeaningSelectWithQuestion(
   questionId: string,
   wordIds: number[],
+  options?: MeaningSelectOptions,
   deepThinking?: boolean,
   relatedWordEntries?: RelatedWordEntry[],
 ) {
   return new Promise((resolve, reject) => {
     aiQueue.addTask(questionId, async () => {
       try {
-        const parsed = await doGenerateMeaningSelect(wordIds, deepThinking, relatedWordEntries);
+        const parsed = await doGenerateMeaningSelect(wordIds, options, deepThinking, relatedWordEntries);
         const result = await updateQuestionWithContent(questionId, parsed, 'meaning-select', wordIds);
         resolve(result);
       } catch (error) {
@@ -91,18 +93,28 @@ async function validateQuestion(q: MeaningSelectQuestionItem): Promise<{ valid: 
 
 async function doGenerateMeaningSelect(
   wordIds: number[],
+  options?: MeaningSelectOptions,
   deepThinking?: boolean,
   relatedWordEntries?: RelatedWordEntry[],
 ): Promise<Record<string, unknown>> {
   if (!wordIds?.length) throw new Error('缺少单词列表');
 
+  const targetCount = options?.n ?? wordIds.length; // 用户指定的题目数量,默认为单词数量
+
   const wordData = await fetchEnrichedWords(wordIds);
   if (wordData.length === 0) throw new Error('所选单词不存在');
+
+  // 如果用户指定的题目数量小于单词数量,随机选择部分单词
+  let selectedWordData = wordData;
+  if (targetCount < wordData.length) {
+    const shuffled = shuffleArray([...wordData]);
+    selectedWordData = shuffled.slice(0, targetCount);
+  }
 
   let lastError: string | null = null;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const result = await generateQuestionsWithAI(wordData, relatedWordEntries);
+      const result = await generateQuestionsWithAI(selectedWordData, relatedWordEntries);
       const validationResults = await Promise.all(result.questions.map(q => validateQuestion(q)));
       const invalidResults = validationResults.filter(r => !r.valid);
       if (invalidResults.length === 0) return result as unknown as Record<string, unknown>;
@@ -164,15 +176,41 @@ async function generateQuestionsWithAI(
 6. correctAnswer 必须与 options 中的某个选项完全一致
 7. **重要：每个单词的 meanings 字段包含了用户不熟悉、需要重点练习的释义，请优先考察这些释义**
 8. **极其重要：干扰选项（即除正确答案外的 3 个选项）设计策略**：
-   - **优先级 1**：来自单词列表中**其他单词**的释义，或者与目标单词无关的常见中文释义
-   - **优先级 2**：针对目标单词的**常见易混易错词**的释义。这些词可能是：
+   - **优先级 1**：来自单词列表中**其他单词**的释义
+   - **优先级 2**：**主动搜索目标单词的相似词**（不限于列表中的单词），使用其释义作为干扰选项。相似词包括：
      * 拼写相似的词（如 affect/effect, accept/except）
      * 词义相近但用法不同的词（如 look/see/watch）
      * 容易混淆的近义词（如 big/large/huge）
      * 形近词（如 quite/quiet, through/though）
+     * 同义词或反义词的不同形式
+   - **优先级 3**：与目标单词无关的常见中文释义
    - **干扰选项必须具有迷惑性**，让用户必须真正理解单词含义才能选出正确答案，而不是仅凭排除同义词就能猜对
    - **严禁模棱两可，必须要有明确的答案**
-   - **干扰选项绝对不能是目标单词的任何释义（或者某个释义的近义词）**
+   
+   **❗ 关键检查步骤（必须执行）**：
+   - **步骤 1**：列出目标单词的所有释义（包括名词、动词、形容词等所有词性的释义）
+   - **步骤 2**：对于每个干扰选项，检查它是否满足以下任一条件：
+     * 是目标单词的直接释义
+     * 是目标单词释义的近义词或同义词
+     * 与目标单词释义在语义上高度重叠（如 "趋势" 与 "倾向"）
+   - **步骤 3**：如果干扰选项满足上述任一条件，**立即舍弃**，重新选择其他干扰选项
+   - **步骤 4**：使用相似词的释义时，必须确保该释义不与目标单词的释义重叠
+   
+   **反面案例示例（严禁模仿）**：
+   * ❌ 错误：目标词 "tend"（释义：走向、倾向），干扰选项 "趋势"
+     * 原因："趋势" 是 "tend" 释义"倾向"的近义词，也是相似词 "tendency" 的释义，语义重叠
+   * ❌ 错误：目标词 "big"（释义：大的），干扰选项 "巨大"
+     * 原因："巨大" 是 "big" 的近义词，语义高度重叠
+   * ❌ 错误：目标词 "look"（释义：看），干扰选项 "观看"
+     * 原因："观看" 是 "look" 的近义词，语义重叠
+   
+   **正面案例示例（推荐学习）**：
+   * ✅ 正确：目标词 "tend"（释义：走向、倾向），干扰选项 "恶妇"（来自 cat）
+     * 原因："恶妇" 与 "tend" 的释义完全无关
+   * ✅ 正确：目标词 "cat"（释义：猫），干扰选项 "蝙蝠"（相似词 bat 的释义）
+     * 原因："蝙蝠" 与 "猫" 的释义完全无关，只是拼写相似（cat/bat）
+   * ✅ 正确：目标词 "accept"（释义：接受），干扰选项 "除外"（相似词 except 的释义）
+     * 原因："除外" 与 "接受" 的释义完全无关，只是拼写相似（accept/except）
 9. 只返回 JSON，不要返回任何其他文字
 10. 使用 generateRandomNumber 工具来随机化选项顺序（如果模型支持工具调用）`;
 
@@ -198,11 +236,20 @@ ${relatedWordsSection}
 
 请生成符合上述要求的英译中选择题 JSON。`;
 
-  const result = await callOpenAIWithTools(systemPrompt, { prompt: userPrompt, tools: [randomTool] });
+  const result = await callOpenAIWithTools(systemPrompt, {
+    prompt: userPrompt,
+    tools: [randomTool],
+    response_format: { type: 'json_object' }, // 强制返回合法JSON
+  });
 
   let content = result.content.trim();
   let thinkingContent: string | null = null;
-  {
+  
+  // 尝试解析原生深度思考内容（如果模型支持）
+  if (result.reasoning_content) {
+    thinkingContent = result.reasoning_content;
+  } else {
+    // 解析 <reason> 标签中的深度思考内容
     const parsed = parseThinkingContent(content);
     thinkingContent = parsed.thinking;
     content = parsed.content.trim();

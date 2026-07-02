@@ -60,6 +60,8 @@ interface OpenAIOptions {
   prompt?: string;
   timeout?: number;
   temperature?: number;
+  reasoning_effort?: 'low' | 'medium' | 'high' | number; // Deepseek 深度思考模式
+  response_format?: { type: 'json_object' }; // 结构化输出
 }
 
 export function parseThinkingContent(content: string): { thinking: string | null; content: string } {
@@ -71,6 +73,7 @@ export function parseThinkingContent(content: string): { thinking: string | null
 interface OpenAIResponse {
   content: string;
   thinking: string | null;
+  reasoning_content?: string | null; // Deepseek 原生深度思考内容
   usage: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -167,7 +170,7 @@ export async function callOpenAI(
   systemPrompt: string,
   options: OpenAIOptions = {}
 ): Promise<OpenAIResponse> {
-  const { prompt = '', temperature } = options;
+  const { prompt = '', temperature, response_format } = options;
 
   return callWithRetry({
     configs: modelConfigs,
@@ -181,7 +184,9 @@ export async function callOpenAI(
       } else {
         messages.push({ role: 'user', content: systemPrompt });
       }
-      return { model: config.model, messages, temperature: temperature ?? 0.7 };
+      const body: Record<string, unknown> = { model: config.model, messages, temperature: temperature ?? 0.7 };
+      if (response_format) { body.response_format = response_format; }
+      return body;
     },
     parseResponse: (data) => {
       const message = data.choices?.[0]?.message;
@@ -260,7 +265,7 @@ export async function callOpenAIWithTools(
     }>;
   } = {}
 ): Promise<OpenAIResponse> {
-  const { prompt = '', tools } = options;
+  const { prompt = '', tools, reasoning_effort, response_format } = options;
 
   return callWithRetry({
     configs: modelConfigs,
@@ -276,11 +281,14 @@ export async function callOpenAIWithTools(
         temperature: 0.7,
       };
       if (tools) { body.tools = tools; body.tool_choice = 'auto'; }
+      if (reasoning_effort) { body.reasoning_effort = reasoning_effort; } // Deepseek 深度思考模式
+      if (response_format) { body.response_format = response_format; } // 结构化输出
       return body;
     },
     parseResponse: async (data, config) => {
       const message = data.choices?.[0]?.message;
       let content = message?.content || '';
+      const reasoningContent = message?.reasoning_content || null; // Deepseek 原生深度思考内容
       const toolCalls = message?.tool_calls;
 
       if (toolCalls && toolCalls.length > 0) {
@@ -297,7 +305,7 @@ export async function callOpenAIWithTools(
           return { role: 'tool' as const, tool_call_id: toolCall.id, content: JSON.stringify({ result }) };
         });
 
-        const followUpBody = {
+        const followUpBody: Record<string, unknown> = {
           model: config.model,
           messages: [
             { role: 'system', content: systemPrompt },
@@ -308,6 +316,7 @@ export async function callOpenAIWithTools(
           temperature: 0.7,
           tool_choice: 'none',
         };
+        if (reasoning_effort) { followUpBody.reasoning_effort = reasoning_effort; } // Deepseek 深度思考模式
 
         const followUpResponse = await fetch(`${config.apiBase}/chat/completions`, {
           method: 'POST',
@@ -323,10 +332,12 @@ export async function callOpenAIWithTools(
         const followUpData = await followUpResponse.json();
         if (followUpData.error) throw new Error(`API 错误：${JSON.stringify(followUpData.error)}`);
         content = followUpData.choices?.[0]?.message?.content || content;
+        const followUpReasoningContent = followUpData.choices?.[0]?.message?.reasoning_content || null;
 
         return {
           content,
           thinking: null,
+          reasoning_content: reasoningContent || followUpReasoningContent,
           usage: {
             prompt_tokens: (data.usage?.prompt_tokens || 0) + (followUpData.usage?.prompt_tokens || 0),
             completion_tokens: (data.usage?.completion_tokens || 0) + (followUpData.usage?.completion_tokens || 0),
@@ -338,6 +349,7 @@ export async function callOpenAIWithTools(
       return {
         content,
         thinking: null,
+        reasoning_content: reasoningContent,
         usage: {
           prompt_tokens: data.usage?.prompt_tokens || 0,
           completion_tokens: data.usage?.completion_tokens || 0,

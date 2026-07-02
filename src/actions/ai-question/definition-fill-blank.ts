@@ -180,7 +180,7 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
 请生成符合上述要求的词义填空题目 JSON。`;
 
-  const result = await callOpenAIWithTools(systemPrompt, { prompt: userPrompt, tools: [randomTool] });
+  const result = await callOpenAIWithTools(systemPrompt, { prompt: userPrompt, tools: [randomTool], response_format: { type: 'json_object' } });
 
   let content = result.content.trim();
   let thinkingContent: string | null = null;

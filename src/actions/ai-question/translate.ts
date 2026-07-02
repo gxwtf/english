@@ -185,6 +185,7 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
   const result = await callOpenAIWithTools(systemPrompt, {
     prompt: userPrompt,
     tools: [randomTool],
+    response_format: { type: 'json_object' }, // 强制返回合法JSON
   });
 
   let content = result.content.trim();
