@@ -89,7 +89,7 @@ export function PracticePageContent() {
             const meaningSelectOptions = options.meaningSelect ?? { n: 5 };
             await generateMeaningSelectWithQuestion(
               pendingQuestionId, wordIds, meaningSelectOptions,
-              undefined, options.deepThinking,
+              options.deepThinking,
               relatedWordEntries
             );
             break;
@@ -98,7 +98,7 @@ export function PracticePageContent() {
             const meaningSelectEnOptions = options.meaningSelectEn ?? { n: 5 };
             await generateMeaningSelectEnWithQuestion(
               pendingQuestionId, wordIds, meaningSelectEnOptions,
-              undefined, options.deepThinking,
+              options.deepThinking,
               relatedWordEntries
             );
             break;
