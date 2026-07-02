@@ -32,6 +32,7 @@ export {
   getQuestionsForPdf,
   type PdfQuestionData,
 } from './pdf';
+export { retryQuestionsAndGenerate } from './batch-retry';
 export {
   fetchEnrichedWords,
   loadQuestionQueue,

@@ -16,11 +16,12 @@ import {
   generateWordSelectTranslateWithQuestion,
   markQuestionAsFailed,
   retryQuestion,
+  retryQuestionsAndGenerate,
   getQuestionsForPdf,
 } from '@/actions/ai-question';
 import { generatePdf } from '@/lib/pdf-generator';
 import { useRouter } from 'next/navigation';
-import { FileDown, Loader2 } from 'lucide-react';
+import { FileDown, Loader2, RefreshCw } from 'lucide-react';
 
 export function PracticePageContent() {
   const { isLoggedIn, isClient } = useAuth();
@@ -29,6 +30,7 @@ export function PracticePageContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set()); // 正在重试的题目ID
+  const [batchRetrying, setBatchRetrying] = useState(false);
   const router = useRouter();
 
   const loadQueue = useCallback(async () => {
@@ -42,100 +44,112 @@ export function PracticePageContent() {
     }
   }, []);
 
-  const processPendingQuestion = useCallback(() => {
-    const pendingQuestionId = sessionStorage.getItem('pendingQuestionId');
-    if (!pendingQuestionId) return;
-
-    const questionType = sessionStorage.getItem('pendingQuestionType');
-    const wordIdsRaw = sessionStorage.getItem('pendingWordIds');
-    const optionsRaw = sessionStorage.getItem('pendingOptions');
-
-    if (!questionType || !wordIdsRaw || !optionsRaw) return;
-
-    const wordIds: number[] = JSON.parse(wordIdsRaw);
-    const options = JSON.parse(optionsRaw);
-
-    const relatedWordsRaw = sessionStorage.getItem('pendingRelatedWords');
-    const relatedWordEntries = relatedWordsRaw ? JSON.parse(relatedWordsRaw) : [];
-
-    sessionStorage.removeItem('pendingQuestionId');
-    sessionStorage.removeItem('pendingQuestionType');
-    sessionStorage.removeItem('pendingWordIds');
-    sessionStorage.removeItem('pendingOptions');
-    sessionStorage.removeItem('pendingRelatedWords');
-
-    const generate = async () => {
-      try {
-        switch (questionType) {
-          case 'fill-blank': {
-            const fillBlankOptions = options.fillBlank ?? { n: 5, m: 0 };
-            await generateFillBlankWithQuestion(
-              pendingQuestionId, wordIds, fillBlankOptions,
-              undefined, options.deepThinking,
-              relatedWordEntries, options.allowFormChange
-            );
-            break;
-          }
-          case 'translate': {
-            const translateOptions = options.translate ?? { n: 5 };
-            await generateTranslateWithQuestion(
-              pendingQuestionId, wordIds, translateOptions,
-              undefined, options.deepThinking,
-              relatedWordEntries
-            );
-            break;
-          }
-          case 'meaning-select': {
-            const meaningSelectOptions = options.meaningSelect ?? { n: 5 };
-            await generateMeaningSelectWithQuestion(
-              pendingQuestionId, wordIds, meaningSelectOptions,
-              options.deepThinking,
-              relatedWordEntries
-            );
-            break;
-          }
-          case 'meaning-select-en': {
-            const meaningSelectEnOptions = options.meaningSelectEn ?? { n: 5 };
-            await generateMeaningSelectEnWithQuestion(
-              pendingQuestionId, wordIds, meaningSelectEnOptions,
-              options.deepThinking,
-              relatedWordEntries
-            );
-            break;
-          }
-          case 'definition-fill-blank': {
-            const definitionFillBlankOptions = options.definitionFillBlank ?? { n: 5, m: 0 };
-            await generateDefinitionFillBlankWithQuestion(
-              pendingQuestionId, wordIds, definitionFillBlankOptions,
-              undefined, options.deepThinking,
-              relatedWordEntries
-            );
-            break;
-          }
-          case 'word-select-translate': {
-            const wordSelectTranslateOptions = options.wordSelectTranslate ?? { n: 5 };
-            await generateWordSelectTranslateWithQuestion(
-              pendingQuestionId, wordIds, wordSelectTranslateOptions,
-              undefined, options.deepThinking,
-              relatedWordEntries
-            );
-            break;
-          }
+  const generateQuestionByItem = useCallback(async (item: {
+    questionId: string;
+    questionType: string;
+    wordIds: number[];
+    options: any;
+    relatedWordEntries: any[];
+  }) => {
+    const { questionId, questionType, wordIds, options, relatedWordEntries } = item;
+    console.log('[generateQuestionByItem]', questionId, questionType);
+    try {
+      switch (questionType) {
+        case 'fill-blank': {
+          const fillBlankOptions = options.fillBlank ?? { n: 5, m: 0 };
+          await generateFillBlankWithQuestion(
+            questionId, wordIds, fillBlankOptions,
+            undefined, options.deepThinking,
+            relatedWordEntries, options.allowFormChange
+          );
+          break;
         }
-        setTimeout(() => loadQueue(), 200);
-      } catch (error) {
-        console.error('AI 出题异常:', error);
-        try {
-          await markQuestionAsFailed(pendingQuestionId);
-          loadQueue();
-        } catch {
-          loadQueue();
+        case 'translate': {
+          const translateOptions = options.translate ?? { n: 5 };
+          await generateTranslateWithQuestion(
+            questionId, wordIds, translateOptions,
+            undefined, options.deepThinking,
+            relatedWordEntries
+          );
+          break;
+        }
+        case 'meaning-select': {
+          const meaningSelectOptions = options.meaningSelect ?? { n: 5 };
+          await generateMeaningSelectWithQuestion(
+            questionId, wordIds, meaningSelectOptions,
+            options.deepThinking,
+            relatedWordEntries
+          );
+          break;
+        }
+        case 'meaning-select-en': {
+          const meaningSelectEnOptions = options.meaningSelectEn ?? { n: 5 };
+          await generateMeaningSelectEnWithQuestion(
+            questionId, wordIds, meaningSelectEnOptions,
+            options.deepThinking,
+            relatedWordEntries
+          );
+          break;
+        }
+        case 'definition-fill-blank': {
+          const definitionFillBlankOptions = options.definitionFillBlank ?? { n: 5, m: 0 };
+          await generateDefinitionFillBlankWithQuestion(
+            questionId, wordIds, definitionFillBlankOptions,
+            undefined, options.deepThinking,
+            relatedWordEntries
+          );
+          break;
+        }
+        case 'word-select-translate': {
+          const wordSelectTranslateOptions = options.wordSelectTranslate ?? { n: 5 };
+          await generateWordSelectTranslateWithQuestion(
+            questionId, wordIds, wordSelectTranslateOptions,
+            undefined, options.deepThinking,
+            relatedWordEntries
+          );
+          break;
+        }
+        default: {
+          console.warn('[generateQuestionByItem] unknown questionType', questionType);
         }
       }
-    };
-
-    generate();
+      setTimeout(() => loadQueue(), 200);
+    } catch (error) {
+      console.error('AI 出题异常:', error);
+      try {
+        await markQuestionAsFailed(questionId);
+        loadQueue();
+      } catch {
+        loadQueue();
+      }
+    }
   }, [loadQueue]);
+
+  const processPendingQuestion = useCallback(() => {
+    const raw = sessionStorage.getItem('pendingQuestions');
+    if (!raw) return;
+
+    let items: Array<{
+      questionId: string;
+      questionType: string;
+      wordIds: number[];
+      options: any;
+      relatedWordEntries: any[];
+    }>;
+    try {
+      items = JSON.parse(raw);
+      if (!Array.isArray(items) || items.length === 0) return;
+    } catch {
+      sessionStorage.removeItem('pendingQuestions');
+      return;
+    }
+
+    sessionStorage.removeItem('pendingQuestions');
+
+    for (const item of items) {
+      generateQuestionByItem(item);
+    }
+  }, [generateQuestionByItem]);
 
   const handleRetryQuestion = useCallback(async (questionId: string, questionItem?: QuestionQueueItem) => {
     // 立即显示加载状态（用户友好性）
@@ -148,63 +162,67 @@ export function PracticePageContent() {
     
     try {
       const result = await retryQuestion(questionId);
-      sessionStorage.setItem('pendingQuestionId', result.id);
-      sessionStorage.setItem('pendingQuestionType', result.questionType);
-      sessionStorage.setItem('pendingWordIds', JSON.stringify(result.wordIds));
-      if (questionItem?.relatedWordEntries && questionItem.relatedWordEntries.length > 0) {
-        sessionStorage.setItem('pendingRelatedWords', JSON.stringify(questionItem.relatedWordEntries));
-      }
+
+      let retryOptions: any;
       if (result.questionType === 'fill-blank') {
         const wordCount = result.wordIds?.length || 2;
         const n = Math.min(1, wordCount);
         const m = Math.max(0, wordCount - n);
-        sessionStorage.setItem('pendingOptions', JSON.stringify({
+        retryOptions = {
           type: 'fill-blank',
           fillBlank: { n, m },
-        }));
+        };
       } else if (result.questionType === 'translate') {
         const wordCount = result.wordIds?.length || 2;
         const n = Math.min(1, wordCount);
-        sessionStorage.setItem('pendingOptions', JSON.stringify({
+        retryOptions = {
           type: 'translate',
           translate: { n },
-        }));
+        };
       } else if (result.questionType === 'meaning-select') {
-        sessionStorage.setItem('pendingOptions', JSON.stringify({
+        retryOptions = {
           type: 'meaning-select',
-        }));
+        };
       } else if (result.questionType === 'meaning-select-en') {
-        sessionStorage.setItem('pendingOptions', JSON.stringify({
+        retryOptions = {
           type: 'meaning-select-en',
-        }));
+        };
       } else if (result.questionType === 'definition-fill-blank') {
         const wordCount = result.wordIds?.length || 2;
         const n = Math.min(1, wordCount);
         const m = Math.max(0, wordCount - n);
-        sessionStorage.setItem('pendingOptions', JSON.stringify({
+        retryOptions = {
           type: 'definition-fill-blank',
           definitionFillBlank: { n, m },
-        }));
+        };
       } else if (result.questionType === 'word-select-translate') {
         const wordCount = result.wordIds?.length || 2;
         const n = Math.min(1, wordCount);
         const m = Math.max(0, wordCount - n);
-        sessionStorage.setItem('pendingOptions', JSON.stringify({
+        retryOptions = {
           type: 'word-select-translate',
           wordSelectTranslate: { n, m },
-        }));
+        };
       }
-      
+
+      const pendingItem = {
+        questionId: result.id,
+        questionType: result.questionType,
+        wordIds: result.wordIds,
+        options: retryOptions,
+        relatedWordEntries: questionItem?.relatedWordEntries || [],
+      };
+
+      // 直接启动 AI 生成，不经过 sessionStorage，避免多重重试时的覆盖问题
+      console.log('[Retry] starting generate for', pendingItem.questionId, pendingItem.questionType);
+      setTimeout(() => generateQuestionByItem(pendingItem), 0);
+
       // 清除加载状态
       setRetryingIds(prev => {
         const next = new Set(prev);
         next.delete(questionId);
         return next;
       });
-
-      // 如果已经在 /practice 页面，router.push 不会触发 useEffect 重新运行，
-      // 需要直接调用 processPendingQuestion 来启动 AI 生成
-      processPendingQuestion();
     } catch (error) {
       console.error('重试题目失败:', error);
       
@@ -220,7 +238,32 @@ export function PracticePageContent() {
         q.id === questionId ? { ...q, status: 'FAILED' as any } : q
       ));
     }
-  }, [router, processPendingQuestion]);
+  }, [generateQuestionByItem]);
+
+  const handleRetryAllFailed = useCallback(async () => {
+    const failedItems = queue.filter(q => q.status === 'FAILED');
+    if (failedItems.length === 0) return;
+
+    setBatchRetrying(true);
+
+    // 乐观更新：将失败的题目显示为生成中
+    setQueue(prev => prev.map(q =>
+      failedItems.some(f => f.id === q.id) ? { ...q, status: 'GENERATING' as any } : q
+    ));
+
+    try {
+      const questionIds = failedItems.map(q => q.id);
+      await retryQuestionsAndGenerate(questionIds);
+
+      // 服务器端已并行启动生成，本地定期刷新状态
+      setTimeout(() => loadQueue(), 300);
+    } catch (error) {
+      console.error('批量重试失败:', error);
+      loadQueue();
+    } finally {
+      setBatchRetrying(false);
+    }
+  }, [queue, loadQueue]);
 
   const handleToggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -303,6 +346,7 @@ export function PracticePageContent() {
   }
 
   const selectableCount = queue.filter(q => ['GENERATED', 'ANSWERED', 'GRADING'].includes(q.status)).length;
+  const failedCount = queue.filter(q => q.status === 'FAILED').length;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -346,6 +390,32 @@ export function PracticePageContent() {
                 <>
                   <FileDown className="h-4 w-4" />
                   导出为 PDF
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Batch retry toolbar */}
+        {failedCount > 0 && (
+          <div className="mb-4 flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 shadow-sm">
+            <span className="text-sm text-red-700 dark:text-red-300">
+              有 {failedCount} 道题目生成失败
+            </span>
+            <button
+              onClick={handleRetryAllFailed}
+              disabled={batchRetrying}
+              className="flex items-center gap-2 text-sm px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {batchRetrying ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  重试中...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  全部重试
                 </>
               )}
             </button>

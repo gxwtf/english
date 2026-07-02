@@ -904,6 +904,7 @@ export async function retryQuestion(questionId: string) {
     questionType: updated.questionType as QuestionType,
     status: updated.status,
     wordIds: updated.wordIds,
+    relatedWordEntries: (updated.relatedWordEntries as any[]) || [],
   };
 }
 

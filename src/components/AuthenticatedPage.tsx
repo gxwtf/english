@@ -284,15 +284,18 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
         }
       }
 
-      // 2. 跳转到题目页面，practice 页面会根据 sessionStorage 中的 pendingQuestionId
+      // 2. 跳转到题目页面，practice 页面会根据 sessionStorage 中的 pendingQuestions
       //    触发 AI 生成，同时自动刷新队列以获取 GENERATING 状态。
-      sessionStorage.setItem('pendingQuestionId', pendingItem.id);
-      sessionStorage.setItem('pendingQuestionType', questionType);
-      sessionStorage.setItem('pendingWordIds', JSON.stringify(wordIds));
-      sessionStorage.setItem('pendingOptions', JSON.stringify(options));
-      if (relatedWordEntries.length > 0) {
-        sessionStorage.setItem('pendingRelatedWords', JSON.stringify(relatedWordEntries));
-      }
+      const pendingItemData = {
+        questionId: pendingItem.id,
+        questionType,
+        wordIds,
+        options,
+        relatedWordEntries,
+      };
+      const existing = JSON.parse(sessionStorage.getItem('pendingQuestions') || '[]');
+      existing.push(pendingItemData);
+      sessionStorage.setItem('pendingQuestions', JSON.stringify(existing));
 
       router.push('/practice');
     } catch (error) {

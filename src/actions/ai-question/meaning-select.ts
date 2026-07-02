@@ -58,6 +58,7 @@ export async function generateMeaningSelectWithQuestion(
   deepThinking?: boolean,
   relatedWordEntries?: RelatedWordEntry[],
 ) {
+  console.log('[generateMeaningSelectWithQuestion]', questionId);
   return new Promise((resolve, reject) => {
     aiQueue.addTask(questionId, async () => {
       try {

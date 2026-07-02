@@ -68,6 +68,7 @@ export async function generateFillBlankWithQuestion(
   relatedWordEntries?: RelatedWordEntry[],
   allowFormChange?: boolean,
 ) {
+  console.log('[generateFillBlankWithQuestion]', questionId);
   return new Promise((resolve, reject) => {
     aiQueue.addTask(questionId, async () => {
       try {
