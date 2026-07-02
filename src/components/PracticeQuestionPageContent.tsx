@@ -10,6 +10,7 @@ import { MeaningSelectAnswer } from '@/components/MeaningSelectAnswer';
 import { MeaningSelectEnAnswer } from '@/components/MeaningSelectEnAnswer';
 import { DefinitionFillBlankAnswer } from '@/components/DefinitionFillBlankAnswer';
 import { WordSelectTranslateAnswer } from '@/components/WordSelectTranslateAnswer';
+import { WordCardAnswer } from '@/components/WordCardAnswer';
 import { QuestionDisplay } from '@/components/QuestionDisplay';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
@@ -157,6 +158,14 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
                 questions={question.questionContent.questions as any[]}
                 thinking={question.questionContent.thinking as string | null ?? undefined}
                 lastAnswer={question.lastAnswer}
+                status={question.status}
+                onSubmitted={() => { }}
+              />
+            ) : question.questionType === 'word-card' && question.questionContent.cards ? (
+              <WordCardAnswer
+                key={question.id}
+                questionId={question.id}
+                cards={question.questionContent.cards as any[]}
                 status={question.status}
                 onSubmitted={() => { }}
               />

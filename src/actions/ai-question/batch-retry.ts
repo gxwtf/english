@@ -7,6 +7,7 @@ import { generateMeaningSelectWithQuestion } from './meaning-select';
 import { generateMeaningSelectEnWithQuestion } from './meaning-select-en';
 import { generateDefinitionFillBlankWithQuestion } from './definition-fill-blank';
 import { generateWordSelectTranslateWithQuestion } from './word-select-translate';
+// word-card 不需要 AI，不需要 retry 流程
 
 interface RetryResult {
   id: string;
@@ -46,6 +47,10 @@ function startGenerate(item: RetryResult) {
     }
     case 'word-select-translate': {
       generateWordSelectTranslateWithQuestion(id, wordIds, { n, m }, undefined, undefined, relatedWordEntries);
+      break;
+    }
+    case 'word-card': {
+      // word-card 不需要 AI，不需要 retry
       break;
     }
   }

@@ -22,3 +22,7 @@ export interface WordSelectTranslateOptions {
   n: number; // 翻译句子的题目数量
   m: number; // 多余/干扰单词数量
 }
+
+export interface WordCardOptions {
+  // 单词卡片不需要额外参数，每个选中的单词生成一张卡片
+}

@@ -32,6 +32,11 @@ export {
   getQuestionsForPdf,
   type PdfQuestionData,
 } from './pdf';
+export {
+  createWordCardQuestion,
+  type WordCardItem,
+  type WordCardQuestion,
+} from './word-card';
 export { retryQuestionsAndGenerate } from './batch-retry';
 export {
   fetchEnrichedWords,

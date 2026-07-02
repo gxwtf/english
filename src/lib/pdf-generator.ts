@@ -23,6 +23,7 @@ function formatFilenameDate(): string {
 function renderQuestionHtml(q: PdfQuestionData, questionIndex: number): string {
   const content = q.questionContent;
   const questions = content.questions as any[] | undefined;
+  const cards = content.cards as any[] | undefined;
   const words = content.words as string[] | undefined;
   const title = content.title as string | undefined;
 
@@ -109,6 +110,18 @@ function renderQuestionHtml(q: PdfQuestionData, questionIndex: number): string {
         </div>`;
       });
     }
+  } else if (q.questionType === 'word-card') {
+    if (cards) {
+      html += `<p class="hint-text">点击卡片翻转查看释义</p>`;
+      cards.forEach((card, i) => {
+        html += `<div class="card-item">
+          <div class="card-front">
+            <p class="card-word">${escapeHtml(card.word)}</p>
+            <p class="card-hint">正面</p>
+          </div>
+        </div>`;
+      });
+    }
   }
 
   return html;
@@ -120,6 +133,7 @@ function renderQuestionHtml(q: PdfQuestionData, questionIndex: number): string {
 function renderAnswerHtml(q: PdfQuestionData, questionIndex: number): string {
   const content = q.questionContent;
   const questions = content.questions as any[] | undefined;
+  const cards = content.cards as any[] | undefined;
 
   let html = '';
 
@@ -182,6 +196,18 @@ function renderAnswerHtml(q: PdfQuestionData, questionIndex: number): string {
         html += `<div class="answer-item">
           <p class="question-number">第 ${i + 1} 题</p>
           <p class="answer-text">${escapeHtml(item.word)} 的英文释义是：${escapeHtml(correctLetter)}. ${escapeHtml(correctOption)}</p>
+        </div>`;
+      });
+    }
+  } else if (q.questionType === 'word-card') {
+    if (cards) {
+      cards.forEach((card, i) => {
+        html += `<div class="answer-item">
+          <p class="question-number">第 ${i + 1} 题</p>
+          <p class="answer-text">${escapeHtml(card.word)}</p>
+          <div class="card-meanings">
+            ${card.meanings?.map((m: any) => `<p class="meaning-line"><span class="meaning-type">${escapeHtml(m.type)}</span> ${escapeHtml(m.content)}</p>`).join('') || '<p class="meaning-line">暂无释义</p>'}
+          </div>
         </div>`;
       });
     }
@@ -282,7 +308,70 @@ const PDF_STYLES = `
   .wm-meanings { }
   .wm-meaning { }
   .wm-type { font-weight: bold; margin-right: 2px; }
+  .card-item { margin-bottom: 16px; padding: 12px; border: 2px solid #000; border-radius: 8px; text-align: center; }
+  .card-front { }
+  .card-word { font-size: 18px; font-weight: bold; margin-bottom: 8px; }
+  .card-hint { font-size: 12px; color: #666; }
+  .card-meanings { margin-top: 8px; }
+  .meaning-line { font-size: 13px; line-height: 1.6; margin-top: 4px; }
+  .meaning-type { font-weight: bold; margin-right: 4px; }
+  .card-word-page { display: flex; justify-content: center; align-items: center; height: 600px; }
+  .card-word-large { font-size: 48px; font-weight: bold; text-align: center; }
+  .card-meaning-page { padding: 20px; }
+  .card-word-title { font-size: 32px; font-weight: bold; text-align: center; margin-bottom: 24px; }
+  .card-all-meanings { }
 `;
+
+/**
+ * 单词卡片 - 奇数页：单词（粗体，居中）
+ */
+function renderWordCardWordHtml(card: any, cardIndex: number): string {
+  return `
+    <div class="header">
+      <h1>单词卡片</h1>
+      <p class="subtitle">第 ${cardIndex + 1} 张卡片</p>
+    </div>
+    <div class="card-word-page">
+      <p class="card-word-large">${escapeHtml(card.word)}</p>
+    </div>
+  `;
+}
+
+/**
+ * 单词卡片 - 偶数页：单词 + 所有释义（合并相同词性）
+ */
+function renderWordCardMeaningHtml(card: any, cardIndex: number): string {
+  const meanings = card.meanings || [];
+  // 合并相同词性的释义
+  const merged: Record<string, string[]> = {};
+  for (const m of meanings) {
+    const type = m.type || '';
+    if (!merged[type]) {
+      merged[type] = [];
+    }
+    merged[type].push(m.content);
+  }
+  const mergedMeanings = Object.entries(merged).map(([type, contents]) => ({
+    type,
+    content: contents.join('; '),
+  }));
+
+  return `
+    <div class="header">
+      <h1>单词卡片</h1>
+      <p class="subtitle">第 ${cardIndex + 1} 张卡片 - 释义</p>
+    </div>
+    <div class="card-meaning-page">
+      <p class="card-word-title">${escapeHtml(card.word)}</p>
+      <div class="card-all-meanings">
+        ${mergedMeanings.length > 0
+          ? mergedMeanings.map((m: any) => `<p class="meaning-line"><span class="meaning-type">${escapeHtml(m.type)}</span> ${escapeHtml(m.content)}</p>`).join('')
+          : '<p class="meaning-line">暂无释义</p>'
+        }
+      </div>
+    </div>
+  `;
+}
 
 export async function generatePdf(questionsData: PdfQuestionData[]): Promise<void> {
   const pdf = new jsPDF({
@@ -297,13 +386,27 @@ export async function generatePdf(questionsData: PdfQuestionData[]): Promise<voi
   for (let i = 0; i < questionsData.length; i++) {
     const q = questionsData[i];
 
-    // Odd page: question
-    const questionHtml = renderQuestionHtml(q, i);
-    await addPageFromHtml(pdf, questionHtml, contentWidthPx, contentHeightPx, i > 0);
+    // Word-card: 特殊处理，每个卡片生成奇偶两页
+    if (q.questionType === 'word-card') {
+      const cards = q.questionContent.cards as any[] || [];
+      for (let j = 0; j < cards.length; j++) {
+        const card = cards[j];
+        // 奇数页：单词（粗体，居中）
+        const wordHtml = renderWordCardWordHtml(card, j);
+        await addPageFromHtml(pdf, wordHtml, contentWidthPx, contentHeightPx, i > 0 || j > 0);
+        // 偶数页：单词 + 所有释义
+        const meaningHtml = renderWordCardMeaningHtml(card, j);
+        await addPageFromHtml(pdf, meaningHtml, contentWidthPx, contentHeightPx, true);
+      }
+    } else {
+      // Odd page: question
+      const questionHtml = renderQuestionHtml(q, i);
+      await addPageFromHtml(pdf, questionHtml, contentWidthPx, contentHeightPx, i > 0);
 
-    // Even page: answer + word meanings
-    const answerHtml = renderAnswerHtml(q, i);
-    await addPageFromHtml(pdf, answerHtml, contentWidthPx, contentHeightPx, true);
+      // Even page: answer + word meanings
+      const answerHtml = renderAnswerHtml(q, i);
+      await addPageFromHtml(pdf, answerHtml, contentWidthPx, contentHeightPx, true);
+    }
   }
 
   pdf.save(`广学英语_${formatFilenameDate()}.pdf`);

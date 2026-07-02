@@ -26,6 +26,7 @@ import {
   enqueuePendingMeaningSelectEn,
   enqueuePendingDefinitionFillBlank,
   enqueuePendingWordSelectTranslate,
+  createWordCardQuestion,
 } from '@/actions/ai-question';
 import { selectWordsForQuestion, type RelatedWordEntry } from '@/lib/word-selection';
 import { useRouter } from 'next/navigation';
@@ -200,11 +201,30 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     setShowAISelector(true);
   };
 
+  // 单词卡片直接生成（不需要 AI）
+  const handleCreateWordCard = async (selectedWords: Word[], includeRelatedWords?: boolean) => {
+    try {
+      const { wordIds, relatedWordEntries } = selectWordsForQuestion(
+        selectedWords, selectedWords.length, includeRelatedWords
+      );
+      await createWordCardQuestion(wordIds, relatedWordEntries);
+      router.push('/practice');
+    } catch (error) {
+      console.error('创建单词卡片异常:', error);
+    }
+  };
+
   const handleSelectQuestionType = (options: QuestionGenerationOptions) => {
     setShowAISelector(false);
 
     // 获取选中单词的完整信息
     const selectedWords = words.filter(w => selectedWordIds.includes(w.id));
+
+    // 单词卡片直接生成，不需要 AI
+    if (options.type === 'word-card') {
+      handleCreateWordCard(selectedWords, options.includeRelatedWords);
+      return;
+    }
 
     // 计算需要的单词数量
     let neededCount: number;
@@ -281,6 +301,9 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
           pendingItem = await enqueuePendingWordSelectTranslate(wordIds, wordSelectTranslateOptions, options.deepThinking, relatedWordEntries);
           questionType = 'word-select-translate';
           break;
+        }
+        default: {
+          throw new Error(`不支持的题目类型: ${options.type}`);
         }
       }
 

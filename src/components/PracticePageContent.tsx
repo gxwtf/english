@@ -109,6 +109,11 @@ export function PracticePageContent() {
           );
           break;
         }
+        case 'word-card': {
+          // word-card 不需要 AI 生成，直接生成完成
+          // 此分支不会被调用，因为 word-card 不经过 sessionStorage 处理
+          break;
+        }
         default: {
           console.warn('[generateQuestionByItem] unknown questionType', questionType);
         }
@@ -202,6 +207,11 @@ export function PracticePageContent() {
         retryOptions = {
           type: 'word-select-translate',
           wordSelectTranslate: { n, m },
+        };
+      } else if (result.questionType === 'word-card') {
+        retryOptions = {
+          type: 'word-card',
+          wordCard: {},
         };
       }
 

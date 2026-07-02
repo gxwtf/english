@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Type, ListFilter, PenLine, Languages } from 'lucide-react';
+import { BookOpen, Type, ListFilter, PenLine, Languages, CreditCard } from 'lucide-react';
 import type { QuestionType } from '@/types/word';
-import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions, DefinitionFillBlankOptions, WordSelectTranslateOptions } from '@/types/problem';
+import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions, DefinitionFillBlankOptions, WordSelectTranslateOptions, WordCardOptions } from '@/types/problem';
 
 const STORAGE_KEY_INCLUDE_RELATED = 'ai-question-include-related';
 const STORAGE_KEY_ALLOW_FORM_CHANGE = 'ai-question-allow-form-change';
@@ -16,6 +16,7 @@ export type QuestionGenerationOptions = {
   meaningSelectEn?: MeaningSelectOptions;
   definitionFillBlank?: DefinitionFillBlankOptions;
   wordSelectTranslate?: WordSelectTranslateOptions;
+  wordCard?: WordCardOptions;
   deepThinking?: boolean;
   includeRelatedWords?: boolean;
   allowFormChange?: boolean;
@@ -175,6 +176,12 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
       description: '翻译中文句子，并使用指定的候选单词',
       icon: Languages,
     },
+    {
+      id: 'word-card' as const,
+      title: '单词卡片',
+      description: '生成单词卡片，点击翻转查看释义',
+      icon: CreditCard,
+    },
   ];
 
   const handleGenerate = () => {
@@ -196,6 +203,8 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
       options.definitionFillBlank = { n: typeof definitionFillBlankN === 'number' ? definitionFillBlankN : 5, m: typeof definitionFillBlankM === 'number' ? definitionFillBlankM : 0 };
     } else if (selectedType === 'word-select-translate') {
       options.wordSelectTranslate = { n: typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 5, m: typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0 };
+    } else if (selectedType === 'word-card') {
+      options.wordCard = {};
     }
     onGenerate(options);
   };
@@ -604,6 +613,22 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
             </div>
           )}
 
+          {/* 单词卡片参数（不需要参数，只需提示） */}
+          {selectedType === 'word-card' && (
+            <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                题目说明
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                单词卡片直接生成，无需 AI 处理。每个选中的单词生成一张卡片，点击卡片可以翻转查看释义。
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                当前选中 {effectiveMaxWords} 个单词，将生成 {effectiveMaxWords} 张卡片
+                {includeRelatedWords && effectiveRelatedCount > 0 && `（关联词 ${effectiveRelatedCount} 个）`}
+              </p>
+            </div>
+          )}
+
           {/* 生成按钮 */}
           {selectedType && (
             <button
@@ -625,7 +650,9 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                       ? `生成词义填空（${typeof definitionFillBlankN === 'number' ? definitionFillBlankN : 0} 道小题，${typeof definitionFillBlankM === 'number' ? definitionFillBlankM : 0} 个干扰词）`
                       : selectedType === 'word-select-translate'
                         ? `生成选词翻译句子（${typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 0} 道小题，${typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0} 个干扰词）`
-                        : `生成翻译句子题目（${typeof translateN === 'number' ? translateN : 0} 道小题）`}
+                        : selectedType === 'word-card'
+                          ? `生成单词卡片（${effectiveMaxWords} 张）`
+                          : `生成翻译句子题目（${typeof translateN === 'number' ? translateN : 0} 道小题）`}
             </button>
           )}
         </div>

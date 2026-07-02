@@ -51,7 +51,8 @@ export type QuestionType =
 'meaning-select' | // 英译中（选释义）
 'meaning-select-en' | // 英英释义（选英文释义）
 'definition-fill-blank' | // 词义填空（英英释义填空）
-'word-select-translate'; // 选词翻译句子
+'word-select-translate' | // 选词翻译句子
+'word-card'; // 单词卡片
 
 export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   'fill-blank': '选词填空',
@@ -60,6 +61,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   'meaning-select-en': '英英释义',
   'definition-fill-blank': '词义填空',
   'word-select-translate': '选词翻译句子',
+  'word-card': '单词卡片',
 };
 
 
