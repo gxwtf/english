@@ -94,8 +94,8 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
   const meaningSelectValidationError = isMeaningSelect
     ? meaningSelectN === '' || meaningSelectN < 1
       ? '至少要有 1 道题'
-      : meaningSelectN > 5
-        ? '最多只能出 5 道题'
+      : meaningSelectN > 10
+        ? '最多只能出 10 道题'
         : meaningSelectN > effectiveTotalPool
           ? `题目数量不能超过可用单词数量 (${effectiveTotalPool})`
           : null
@@ -105,8 +105,8 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
   const meaningSelectEnValidationError = isMeaningSelectEn
     ? meaningSelectEnN === '' || meaningSelectEnN < 1
       ? '至少要有 1 道题'
-      : meaningSelectEnN > 5
-        ? '最多只能出 5 道题'
+      : meaningSelectEnN > 10
+        ? '最多只能出 10 道题'
         : meaningSelectEnN > effectiveTotalPool
           ? `题目数量不能超过可用单词数量 (${effectiveTotalPool})`
           : null
@@ -422,7 +422,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   type="text"
                   inputMode="numeric"
                   min={1}
-                  max={5}
+                  max={10}
                   value={meaningSelectN ?? ''}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -459,7 +459,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   type="text"
                   inputMode="numeric"
                   min={1}
-                  max={5}
+                  max={10}
                   value={meaningSelectEnN ?? ''}
                   onChange={(e) => {
                     const val = e.target.value;

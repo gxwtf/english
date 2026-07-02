@@ -47,15 +47,89 @@ export const PhotoWordRecognition = ({
 
   const processFile = useCallback(async (file: File) => {
     try {
-      // 直接读取原始文件，不经过 Canvas 重压缩
-      // （JPEG 二次压缩会引入伪影干扰 OCR；PaddleOCR 服务端已有 MAX_DIM=2000 分辨率限制）
+      const COMPRESSION_THRESHOLD = 1 * 1024 * 1024; // 1MB - 小于此值不压缩
+      const MAX_DIM = 2000; // 最大分辨率
+      const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB 目标大小
+
+      // 小图片直接使用，不压缩
+      if (file.size <= COMPRESSION_THRESHOLD) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.onerror = () => reject(new Error('文件读取失败'));
+          reader.readAsDataURL(file);
+        });
+        console.log(`📷 小图片不压缩: ${(file.size / 1024).toFixed(0)}KB`);
+        setImageData(dataUrl);
+        setError(null);
+        setStep('preview');
+        return;
+      }
+
+      // 大图片：读取并压缩
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => resolve(e.target?.result as string);
         reader.onerror = () => reject(new Error('文件读取失败'));
         reader.readAsDataURL(file);
       });
-      setImageData(dataUrl);
+
+      // 加载图片以获取尺寸信息
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('图片加载失败'));
+        img.src = dataUrl;
+      });
+
+      let width = img.naturalWidth;
+      let height = img.naturalHeight;
+      let needsResize = width > MAX_DIM || height > MAX_DIM;
+
+      // 计算缩放比例
+      if (needsResize) {
+        const scale = Math.min(MAX_DIM / width, MAX_DIM / height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+
+      // 使用 Canvas 压缩图片
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        throw new Error('Canvas 初始化失败');
+      }
+
+      // 高质量缩放
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // 先尝试高质量 JPEG
+      let quality = 0.9;
+      let compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+
+      // 如果仍然太大，逐步降低质量
+      while (compressedDataUrl.length > MAX_FILE_SIZE * 1.37 && quality > 0.5) { // base64 约为原始大小的 1.37 倍
+        quality -= 0.1;
+        compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+      }
+
+      // 如果还是太大，进一步缩小尺寸
+      if (compressedDataUrl.length > MAX_FILE_SIZE * 1.37) {
+        const scaleFactor = 0.7;
+        canvas.width = Math.round(width * scaleFactor);
+        canvas.height = Math.round(height * scaleFactor);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      }
+
+      console.log(`📷 图片压缩: ${img.naturalWidth}x${img.naturalHeight} → ${canvas.width}x${canvas.height}, 质量=${quality.toFixed(1)}, 大小=${(file.size / 1024).toFixed(0)}KB → ${(compressedDataUrl.length / 1024).toFixed(0)}KB`);
+
+      setImageData(compressedDataUrl);
       setError(null);
       setStep('preview');
     } catch (err) {

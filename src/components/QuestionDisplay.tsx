@@ -20,11 +20,13 @@ export function QuestionList({
   onRetry,
   selectedIds,
   onToggleSelect,
+  retryingIds, // 正在重试的题目ID集合
 }: {
   queue: QuestionQueueItem[];
-  onRetry?: (questionId: string) => void;
+  onRetry?: (questionId: string, questionItem?: QuestionQueueItem) => void; // 修改：添加 questionItem 参数
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
+  retryingIds?: Set<string>; // 正在重试的题目ID集合
 }) {
   return (
     <div className="space-y-3">
@@ -100,16 +102,28 @@ export function QuestionList({
               )}
 
               {q.status === 'GENERATING' && (
-                <span className="ml-2 text-xs text-gray-400">AI 正在生成...</span>
+                <span className="ml-2 text-xs text-gray-400 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  AI 正在生成...
+                </span>
               )}
 
               {q.status === 'FAILED' && onRetry && (
-                <button
-                  onClick={() => onRetry(q.id)}
-                  className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                >
-                  重试 <ArrowRight className="h-3 w-3" />
-                </button>
+                retryingIds?.has(q.id) ? (
+                  // 正在重试：显示加载状态（用户友好性）
+                  <span className="ml-2 text-xs text-red-500 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    正在重试...
+                  </span>
+                ) : (
+                  // 正常状态：显示重试按钮
+                  <button
+                    onClick={() => onRetry(q.id, q)} // 修改：传递完整的题目对象
+                    className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                  >
+                    重试 <ArrowRight className="h-3 w-3" />
+                  </button>
+                )
               )}
             </div>
           </div>
