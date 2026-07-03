@@ -68,7 +68,10 @@ export function selectWordsForQuestion(
   );
 
   let relatedCountNeeded: number;
-  if (neededCount <= 1 || maxRelatedCount === 0) {
+  if (neededCount <= 1) {
+    // 单单词场景：仍然抽取关联词作为干扰选项来源（不占用核心词名额）
+    relatedCountNeeded = Math.min(2, relatedWordEntries.length);
+  } else if (maxRelatedCount === 0) {
     relatedCountNeeded = 0;
   } else if (mustIncludeRelated) {
     relatedCountNeeded = Math.max(minRelatedNeeded, Math.min(maxRelatedCount, Math.random() < 0.4 ? 1 : Math.min(2, maxRelatedCount)));
@@ -83,8 +86,8 @@ export function selectWordsForQuestion(
     }
   }
 
-  // 核心词数量 = neededCount - 关联词数量
-  const coreCountNeeded = neededCount - relatedCountNeeded;
+  // 核心词数量：单单词场景下关联词不占用名额，多单词场景下从 neededCount 中扣除
+  const coreCountNeeded = neededCount <= 1 ? neededCount : neededCount - relatedCountNeeded;
 
   // 抽取核心词
   const coreWordIds = selectCoreWords(selectedWords, coreCountNeeded, wordTextToId);

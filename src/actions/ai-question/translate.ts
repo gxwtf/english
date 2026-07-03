@@ -5,7 +5,9 @@ import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { TranslateOptions } from '@/types/problem';
 import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
-import { aiQueue } from '@/lib/ai-queue';
+import { aiQueue, withTimeout } from '@/lib/ai-queue';
+
+const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
 
 interface TranslateQuestion {
   title: string;
@@ -74,10 +76,18 @@ export async function generateTranslateWithQuestion(
 ) {
   return new Promise((resolve, reject) => {
     aiQueue.addTask(questionId, async () => {
-      try {
+      const runGeneration = async () => {
         const parsed = await doGenerateTranslate(wordIds, options, customPrompt, deepThinking, relatedWordEntries);
         const result = await updateQuestionWithContent(questionId, parsed, 'translate', wordIds);
         resolve(result);
+      };
+
+      try {
+        await withTimeout(
+          runGeneration(),
+          GENERATION_TIMEOUT_MS,
+          new Error(`生成翻译句子题目超时（${GENERATION_TIMEOUT_MS / 1000}s）`)
+        );
       } catch (error) {
         try {
           await markQuestionAsFailed(questionId);

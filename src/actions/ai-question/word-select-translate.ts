@@ -5,7 +5,9 @@ import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { WordSelectTranslateOptions } from '@/types/problem';
 import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
-import { aiQueue } from '@/lib/ai-queue';
+import { aiQueue, withTimeout } from '@/lib/ai-queue';
+
+const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
 
 function extractJSON(rawContent: string, requiredFields: string[] = []): any {
   let content = rawContent.trim();
@@ -96,10 +98,18 @@ export async function generateWordSelectTranslateWithQuestion(
 ) {
   return new Promise((resolve, reject) => {
     aiQueue.addTask(questionId, async () => {
-      try {
+      const runGeneration = async () => {
         const parsed = await doGenerateWordSelectTranslate(wordIds, options, customPrompt, deepThinking, relatedWordEntries);
         const result = await updateQuestionWithContent(questionId, parsed, 'word-select-translate', wordIds);
         resolve(result);
+      };
+
+      try {
+        await withTimeout(
+          runGeneration(),
+          GENERATION_TIMEOUT_MS,
+          new Error(`生成选词翻译句子题目超时（${GENERATION_TIMEOUT_MS / 1000}s）`)
+        );
       } catch (error) {
         try { await markQuestionAsFailed(questionId); } catch (e) { console.error('标记题目失败状态时出错:', e); }
         reject(error);

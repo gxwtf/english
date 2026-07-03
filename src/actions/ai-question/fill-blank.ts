@@ -5,7 +5,9 @@ import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { FillBlankOptions } from '@/types/problem';
 import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
-import { aiQueue } from '@/lib/ai-queue';
+import { aiQueue, withTimeout } from '@/lib/ai-queue';
+
+const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
 
 interface FillBlankQuestion {
   words: string[];
@@ -71,10 +73,18 @@ export async function generateFillBlankWithQuestion(
   console.log('[generateFillBlankWithQuestion]', questionId);
   return new Promise((resolve, reject) => {
     aiQueue.addTask(questionId, async () => {
-      try {
+      const runGeneration = async () => {
         const parsed = await doGenerateFillBlank(wordIds, options, customPrompt, deepThinking, relatedWordEntries, allowFormChange);
         const result = await updateQuestionWithContent(questionId, parsed, 'fill-blank', wordIds);
         resolve(result);
+      };
+
+      try {
+        await withTimeout(
+          runGeneration(),
+          GENERATION_TIMEOUT_MS,
+          new Error(`生成选词填空题目超时（${GENERATION_TIMEOUT_MS / 1000}s）`)
+        );
       } catch (error) {
         try {
           await markQuestionAsFailed(questionId);
