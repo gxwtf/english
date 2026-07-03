@@ -62,6 +62,28 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     localStorage.setItem(STORAGE_KEY_ALLOW_FORM_CHANGE, String(allowFormChange));
   }, [allowFormChange]);
 
+  // 当可用单词池变化时，自动将各题型的题目数量调整到合法范围
+  useEffect(() => {
+    const pool = (includeRelatedWords ? (maxWords ?? 11) + (relatedWordsCount ?? 0) : (maxWords ?? 11));
+    if (pool < 1) return;
+    const n1 = typeof questionN === 'number' ? questionN : 1;
+    const m1 = typeof questionM === 'number' ? questionM : 0;
+    if (n1 > pool) setQuestionN(Math.max(1, pool));
+    if (n1 + m1 > pool) setQuestionM(Math.max(0, pool - Math.min(n1, pool)));
+    if (typeof translateN === 'number' && translateN > pool) setTranslateN(Math.min(5, pool));
+    if (typeof meaningSelectN === 'number' && meaningSelectN > pool) setMeaningSelectN(Math.min(10, pool));
+    if (typeof meaningSelectEnN === 'number' && meaningSelectEnN > pool) setMeaningSelectEnN(Math.min(10, pool));
+    const dn = typeof definitionFillBlankN === 'number' ? definitionFillBlankN : 1;
+    const dm = typeof definitionFillBlankM === 'number' ? definitionFillBlankM : 0;
+    if (dn > pool) setDefinitionFillBlankN(Math.max(1, pool));
+    if (dn + dm > pool) setDefinitionFillBlankM(Math.max(0, pool - Math.min(dn, pool)));
+    if (typeof wordSelectTranslateN === 'number' && wordSelectTranslateN > pool) setWordSelectTranslateN(Math.min(5, pool));
+    const wn = typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 1;
+    const wm = typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0;
+    if (wn + wm > pool) setWordSelectTranslateM(Math.max(0, pool - Math.min(wn, pool)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxWords, relatedWordsCount, includeRelatedWords]);
+
   const effectiveMaxWords = maxWords ?? 11;
   const effectiveRelatedCount = relatedWordsCount ?? 0;
   const effectiveTotalPool = includeRelatedWords ? effectiveMaxWords + effectiveRelatedCount : effectiveMaxWords;

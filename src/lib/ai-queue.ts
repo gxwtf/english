@@ -6,6 +6,20 @@ interface QueueItem {
   addedAt: Date;
 }
 
+/**
+ * 为 Promise 增加超时控制。
+ * 如果超时，返回的 Promise 会以 timeoutError 拒绝，但原始 Promise 仍会继续运行。
+ */
+export function withTimeout<T>(promise: Promise<T>, ms: number, timeoutError: Error): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(timeoutError), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); }
+    );
+  });
+}
+
 class AIRequestQueue {
   private queue: QueueItem[] = [];
   private runningCount = 0;

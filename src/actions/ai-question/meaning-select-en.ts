@@ -6,8 +6,10 @@ import type { RelatedWordEntry } from '@/lib/word-selection';
 import type { MeaningSelectOptions } from '@/types/problem';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
 import { query as queryDict } from '@/lib/dict/query';
-import { aiQueue } from '@/lib/ai-queue';
+import { aiQueue, withTimeout } from '@/lib/ai-queue';
 import { isOptionInMeanings } from '@/lib/utils';
+
+const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
 
 function shuffleArray<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
@@ -58,10 +60,18 @@ export async function generateMeaningSelectEnWithQuestion(
 ) {
   return new Promise((resolve, reject) => {
     aiQueue.addTask(questionId, async () => {
-      try {
+      const runGeneration = async () => {
         const parsed = await doGenerateMeaningSelectEn(wordIds, options, deepThinking, relatedWordEntries);
         const result = await updateQuestionWithContent(questionId, parsed, 'meaning-select-en', wordIds);
         resolve(result);
+      };
+
+      try {
+        await withTimeout(
+          runGeneration(),
+          GENERATION_TIMEOUT_MS,
+          new Error(`生成英英释义题目超时（${GENERATION_TIMEOUT_MS / 1000}s）`)
+        );
       } catch (error) {
         try { await markQuestionAsFailed(questionId); } catch (e) { console.error('标记题目失败状态时出错:', e); }
         reject(error);
@@ -76,8 +86,18 @@ async function getWordAllEnglishMeanings(word: string): Promise<string[]> {
   return dictEntry.meaning.map(m => m.content.toLowerCase().trim());
 }
 
-async function validateQuestion(q: MeaningSelectEnQuestionItem): Promise<{ valid: boolean; reason: string }> {
-  const allMeanings = await getWordAllEnglishMeanings(q.word);
+/**
+ * 验证题目：干扰选项不能是同一单词的释义（包括词典释义和用户单词本中的释义）
+ */
+async function validateQuestion(
+  q: MeaningSelectEnQuestionItem,
+  userWordMeanings?: string[],
+): Promise<{ valid: boolean; reason: string }> {
+  // 合并词典释义和用户单词本释义
+  const dictMeanings = await getWordAllEnglishMeanings(q.word);
+  const userMeanings = (userWordMeanings || []).map(m => m.toLowerCase().trim());
+  const allMeanings = [...new Set([...dictMeanings, ...userMeanings])];
+
   if (allMeanings.length === 0) return { valid: true, reason: '词典中未找到该单词，跳过验证' };
 
   const distractors = q.options.filter(o => o !== q.correctAnswer);
@@ -109,11 +129,20 @@ async function doGenerateMeaningSelectEn(
     selectedWordData = shuffled.slice(0, targetCount);
   }
 
+  // 构建单词到用户单词本释义的映射，用于验证干扰选项
+  const wordToUserMeanings = new Map<string, string[]>();
+  for (const wd of selectedWordData) {
+    const meanings = (wd.meanings || []).map((m: any) => m.content || '');
+    wordToUserMeanings.set(wd.text.toLowerCase(), meanings);
+  }
+
   let lastError: string | null = null;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const result = await generateQuestionsWithAI(selectedWordData, relatedWordEntries);
-      const validationResults = await Promise.all(result.questions.map(q => validateQuestion(q)));
+      const validationResults = await Promise.all(result.questions.map(q =>
+        validateQuestion(q, wordToUserMeanings.get(q.word.toLowerCase())),
+      ));
       const invalidResults = validationResults.filter(r => !r.valid);
       if (invalidResults.length === 0) return result as unknown as Record<string, unknown>;
       lastError = invalidResults.map(r => r.reason).join('; ');

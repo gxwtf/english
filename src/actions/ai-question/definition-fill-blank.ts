@@ -5,7 +5,9 @@ import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { DefinitionFillBlankOptions } from '@/types/problem';
 import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
-import { aiQueue } from '@/lib/ai-queue';
+import { aiQueue, withTimeout } from '@/lib/ai-queue';
+
+const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
 
 function shuffleArray<T>(array: T[]): T[] {
   for (let i = array.length - 1; i > 0; i--) {
@@ -98,10 +100,18 @@ export async function generateDefinitionFillBlankWithQuestion(
 ) {
   return new Promise((resolve, reject) => {
     aiQueue.addTask(questionId, async () => {
-      try {
+      const runGeneration = async () => {
         const parsed = await doGenerateDefinitionFillBlank(wordIds, options, customPrompt, deepThinking, relatedWordEntries);
         const result = await updateQuestionWithContent(questionId, parsed, 'definition-fill-blank', wordIds);
         resolve(result);
+      };
+
+      try {
+        await withTimeout(
+          runGeneration(),
+          GENERATION_TIMEOUT_MS,
+          new Error(`生成词义填空题目超时（${GENERATION_TIMEOUT_MS / 1000}s）`)
+        );
       } catch (error) {
         try { await markQuestionAsFailed(questionId); } catch (e) { console.error('标记题目失败状态时出错:', e); }
         reject(error);

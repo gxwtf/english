@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Check, AlertCircle, CheckSquare, Square, Settings, Camera, Sparkles, ListPlus } from 'lucide-react';
+import { X, Search, Check, AlertCircle, CheckSquare, Square, Settings, Camera, Sparkles, ListPlus, Plus, Pencil, Trash2, RotateCcw, Info } from 'lucide-react';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag, TagConfig, RelatedWord } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface WordModalProps {
   isOpen: boolean;
@@ -35,6 +36,8 @@ interface WordModalProps {
 export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [], queryWord, allTagConfigs, onTagsUpdate, onWordAdded, zIndex = 50 }: WordModalProps) => {
   const [word, setWord] = useState('');
   const [dictionaryData, setDictionaryData] = useState<DictionaryEntry | null>(null);
+  // 保存原始词典数据，用于"恢复默认释义"
+  const [originalDictData, setOriginalDictData] = useState<DictionaryEntry | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedMeanings, setSelectedMeanings] = useState<Meaning[]>([]);
@@ -45,6 +48,11 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
   const [showPhotoRecognition, setShowPhotoRecognition] = useState(false);
   const [showBatchAdd, setShowBatchAdd] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // 自定义释义输入状态
+  const [customMeaningContent, setCustomMeaningContent] = useState('');
+  const [customMeaningType, setCustomMeaningType] = useState('');
+  // 编辑释义状态：正在编辑的释义在 dictionaryData.meaning 中的索引
+  const [editingMeaningIndex, setEditingMeaningIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (initialWord) {
@@ -75,6 +83,23 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
     }
   }, [initialWord, isOpen]);
 
+  // 当编辑模式下已输入单词时，自动查询词典获取原始数据（用于"恢复默认释义"）
+  useEffect(() => {
+    if (initialWord && searchedWord && !originalDictData) {
+      const fetchOriginalDictData = async () => {
+        try {
+          const result = await queryWord(searchedWord);
+          if (result) {
+            setOriginalDictData(result);
+          }
+        } catch (err) {
+          console.error('查询词典失败:', err);
+        }
+      };
+      fetchOriginalDictData();
+    }
+  }, [initialWord, searchedWord, originalDictData, queryWord]);
+
   // 当编辑模式下已输入单词且词典数据为空时，自动查询词典
   useEffect(() => {
     if (initialWord && searchedWord && !dictionaryData) {
@@ -84,8 +109,8 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
           const result = await queryWord(searchedWord);
           if (result) {
             setDictionaryData(result);
+            setOriginalDictData(result);
           } else {
-            // 如果没有查询到结果，使用空数据
             setDictionaryData({
               word: searchedWord,
               pronunciation: '',
@@ -110,29 +135,49 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
 
     setLoading(true);
     setError('');
-    setSearchedWord(word.trim());
+    const newSearchedWord = word.trim();
+    setSearchedWord(newSearchedWord);
 
     try {
-      const result = await queryWord(word.trim());
-      if (result) {
-        // 校验词典返回的单词是否与请求一致
-        if (result.word.toLowerCase() !== word.trim().toLowerCase()) {
-          console.error(
-            `[WordModal] 词典结果不匹配: 请求="${word.trim()}", 返回="${result.word}"`
-          );
-          setError(`词典返回了 "${result.word}" 的释义，与请求的 "${word.trim()}" 不匹配，请重试`);
-          return;
-        }
-        setDictionaryData(result);
+      const result = await queryWord(newSearchedWord);
+
+      // 在编辑模式下（不清空释义时），保留已选择的释义
+      if (!clearSelectedMeanings && selectedMeanings.length > 0) {
+        // 创建新的 dictionaryData，包含词典释义和已选择的释义
+        const newMeanings = result ? result.meaning : [];
+        const selectedMeaningKeys = new Set(
+          selectedMeanings.map(m => `${m.content}-${m.type}`)
+        );
+
+        // 合并释义：先添加词典释义，再添加不在词典中的已选择释义
+        const mergedMeanings = [
+          ...newMeanings,
+          ...selectedMeanings.filter(m => !newMeanings.some(
+            nm => nm.content === m.content && nm.type === m.type
+          ))
+        ];
+
+        const newDictData = {
+          word: newSearchedWord,
+          pronunciation: result?.pronunciation || '',
+          meaning: mergedMeanings
+        };
+        setDictionaryData(newDictData);
+        setOriginalDictData(result);
       } else {
-        setDictionaryData({
-          word: word.trim(),
-          pronunciation: '',
-          meaning: []
-        });
-      }
-      // 只有用户主动查询时才清空已选择的释义
-      if (clearSelectedMeanings) {
+        // 添加模式下，直接使用词典数据
+        if (result) {
+          setDictionaryData(result);
+          setOriginalDictData(result);
+        } else {
+          setDictionaryData({
+            word: newSearchedWord,
+            pronunciation: '',
+            meaning: []
+          });
+          setOriginalDictData(null);
+        }
+        // 清空已选择的释义
         setSelectedMeanings([]);
       }
     } catch (err) {
@@ -146,6 +191,125 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
   // 编辑模式下查询单词（不清空已选择的释义）
   const handleEditSearch = async () => {
     await handleSearch(false);
+  };
+
+  // 添加或保存编辑释义
+  const saveCustomMeaning = () => {
+    if (!customMeaningContent.trim()) {
+      setError('请输入释义内容');
+      return;
+    }
+
+    // 确保有单词（使用 searchedWord 或 word 输入框的值）
+    const currentWord = searchedWord.trim() || word.trim();
+    if (!currentWord) {
+      setError('请先输入单词');
+      return;
+    }
+
+    const newMeaning: Meaning = {
+      content: customMeaningContent.trim(),
+      type: customMeaningType.trim() || '自定义',
+    };
+
+    // 如果还没有 searchedWord，设置它
+    if (!searchedWord.trim()) {
+      setSearchedWord(currentWord);
+    }
+
+    if (editingMeaningIndex !== null && dictionaryData) {
+      // 编辑模式：替换原有释义
+      const oldMeaning = dictionaryData.meaning[editingMeaningIndex];
+      setDictionaryData(prev => {
+        if (!prev) return null;
+        const newMeanings = [...prev.meaning];
+        newMeanings[editingMeaningIndex] = newMeaning;
+        return { ...prev, meaning: newMeanings };
+      });
+      // 同步更新 selectedMeanings 中的对应项
+      setSelectedMeanings(prev => {
+        const idx = prev.findIndex(m => m.content === oldMeaning.content && m.type === oldMeaning.type);
+        if (idx === -1) return [...prev, newMeaning]; // 原来没选中，则直接添加
+        const newArr = [...prev];
+        newArr[idx] = newMeaning;
+        return newArr;
+      });
+      setEditingMeaningIndex(null);
+    } else {
+      // 添加模式
+      setSelectedMeanings(prev => {
+        const exists = prev.some(m => m.content === newMeaning.content && m.type === newMeaning.type);
+        if (exists) return prev;
+        return [...prev, newMeaning];
+      });
+
+      if (dictionaryData) {
+        setDictionaryData(prev => {
+          if (!prev) return null;
+          const exists = prev.meaning.some(m => m.content === newMeaning.content && m.type === newMeaning.type);
+          if (exists) return prev;
+          return { ...prev, meaning: [...prev.meaning, newMeaning] };
+        });
+      } else {
+        setDictionaryData({
+          word: currentWord,
+          pronunciation: '',
+          meaning: [newMeaning]
+        });
+      }
+    }
+
+    setCustomMeaningContent('');
+    setCustomMeaningType('');
+    setError('');
+  };
+
+  // 开始编辑释义
+  const startEditMeaning = (index: number) => {
+    if (!dictionaryData) return;
+    const meaning = dictionaryData.meaning[index];
+    setCustomMeaningContent(meaning.content);
+    setCustomMeaningType(meaning.type === '自定义' ? '' : meaning.type);
+    setEditingMeaningIndex(index);
+    setError('');
+  };
+
+  // 取消编辑
+  const cancelEdit = () => {
+    setCustomMeaningContent('');
+    setCustomMeaningType('');
+    setEditingMeaningIndex(null);
+  };
+
+  // 删除释义
+  const deleteMeaning = (index: number) => {
+    if (!dictionaryData) return;
+    const meaning = dictionaryData.meaning[index];
+
+    setDictionaryData(prev => {
+      if (!prev) return null;
+      return { ...prev, meaning: prev.meaning.filter((_, i) => i !== index) };
+    });
+
+    setSelectedMeanings(prev =>
+      prev.filter(m => !(m.content === meaning.content && m.type === meaning.type))
+    );
+
+    // 如果正在编辑被删除的释义，取消编辑
+    if (editingMeaningIndex === index) {
+      cancelEdit();
+    } else if (editingMeaningIndex !== null && editingMeaningIndex > index) {
+      // 如果删除的释义在编辑的释义之前，调整索引
+      setEditingMeaningIndex(editingMeaningIndex - 1);
+    }
+  };
+
+  // 恢复默认释义（恢复为词典原始数据）
+  const restoreDefaultMeanings = () => {
+    if (!originalDictData) return;
+    setDictionaryData({ ...originalDictData });
+    setSelectedMeanings(originalDictData.meaning.map((m: any) => m));
+    cancelEdit();
   };
 
   const toggleMeaning = (meaning: Meaning) => {
@@ -272,113 +436,236 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
             )}
           </div>
 
-          {/* 查询结果 */}
-          {dictionaryData && (
+          {/* 单词信息 */}
+          {(dictionaryData || word.trim()) && (
             <div className="space-y-6">
-              {/* 单词信息 */}
+              {/* 单词标题 */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  {dictionaryData.word}
+                  {dictionaryData?.word || word.trim()}
                 </h3>
-                {dictionaryData.pronunciation && (
+                {dictionaryData?.pronunciation && (
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     音标: {dictionaryData.pronunciation}
                   </p>
                 )}
               </div>
 
-              {/* 释义选择 */}
-              <div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                  <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    选择不熟悉的释义（至少选一个）:
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedMeanings(dictionaryData.meaning.map((m: any) => m));
+              {/* 释义选择区域 */}
+              {dictionaryData && dictionaryData.meaning.length > 0 && (
+                <div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      选择不熟悉的释义（至少选一个）:
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {originalDictData && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={restoreDefaultMeanings}
+                          className="h-8 px-3 text-xs whitespace-nowrap text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          <span className="hidden sm:inline">恢复默认</span>
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedMeanings(dictionaryData.meaning.map((m: any) => m));
+                        }}
+                        className="h-8 px-3 text-xs whitespace-nowrap"
+                      >
+                        <CheckSquare className="h-3 w-3 mr-1" />
+                        <span className="hidden sm:inline">全选</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const meaningsWithoutDef = dictionaryData.meaning.filter((m: any) => m.type !== 'def.');
+                          setSelectedMeanings(meaningsWithoutDef);
+                        }}
+                        className="h-8 px-3 text-xs whitespace-nowrap"
+                      >
+                        <CheckSquare className="h-3 w-3 mr-1" />
+                        <span className="hidden sm:inline">全选（def.除外）</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedMeanings([])}
+                        className="h-8 px-3 text-xs whitespace-nowrap"
+                      >
+                        <Square className="h-3 w-3 mr-1" />
+                        <span className="hidden sm:inline">全不选</span>
+                      </Button>
+                    </div>
+                  </div>
+                  <ScrollArea className="h-64">
+                    <div className="space-y-2">
+                      {dictionaryData.meaning.map((meaning: any, index: number) => {
+                        const isSelected = selectedMeanings.some(
+                          m => m.content === meaning.content && m.type === meaning.type
+                        );
+                        const meaningKey = `${meaning.content}-${meaning.type}-${index}`;
+                        const isEditing = editingMeaningIndex === index;
+                        return (
+                          <div
+                            key={meaningKey}
+                            className={`p-3 rounded-lg border transition-colors ${
+                              isEditing
+                                ? 'bg-amber-50 border-amber-300 dark:bg-amber-900/20 dark:border-amber-700'
+                                : isSelected
+                                  ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                                  : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600'
+                            }`}
+                            onClick={() => !isEditing && toggleMeaning(meaning)}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <span className={`text-sm font-medium ${
+                                    isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'
+                                  }`}>
+                                    {meaning.content}
+                                  </span>
+                                  <Badge variant="outline" className="text-xs">
+                                    {meaning.type}
+                                  </Badge>
+                                  {isEditing && (
+                                    <Badge className="text-xs bg-amber-500 text-white">编辑中</Badge>
+                                  )}
+                                </div>
+                                {meaning.sentence && (
+                                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                    例句: {meaning.sentence}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                                {!isEditing && (
+                                  <>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); startEditMeaning(index); }}
+                                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                      title="编辑"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); deleteMeaning(index); }}
+                                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                      title="删除"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </>
+                                )}
+                                {isSelected && !isEditing && (
+                                  <Check className="h-5 w-5 text-blue-600 dark:text-blue-400 ml-1" />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                  {selectedMeanings.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        已选择 {selectedMeanings.length} 个释义
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 编辑释义区域（只要有单词就显示） */}
+              <div className={`${dictionaryData && dictionaryData.meaning.length > 0 ? 'mt-4 pt-4 border-t border-gray-200 dark:border-gray-700' : ''}`}>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  {editingMeaningIndex !== null ? '编辑释义:' : '添加释义:'}
+                </h4>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="输入释义内容..."
+                      value={customMeaningContent}
+                      onChange={(e) => setCustomMeaningContent(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && customMeaningContent.trim() && word.trim()) {
+                          saveCustomMeaning();
+                        }
                       }}
-                      className="h-8 px-3 text-xs whitespace-nowrap"
-                    >
-                      <CheckSquare className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">全选</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const meaningsWithoutDef = dictionaryData.meaning.filter((m: any) => m.type !== 'def.');
-                        setSelectedMeanings(meaningsWithoutDef);
-                      }}
-                      className="h-8 px-3 text-xs whitespace-nowrap"
-                    >
-                      <CheckSquare className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">全选（def.除外）</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedMeanings([])}
-                      className="h-8 px-3 text-xs whitespace-nowrap"
-                    >
-                      <Square className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">全不选</span>
-                    </Button>
+                      className="w-full"
+                      autoFocus={editingMeaningIndex !== null}
+                    />
+                  </div>
+                  <div className="w-full sm:w-36">
+                    <Select value={customMeaningType || '_empty_'} onValueChange={(v) => setCustomMeaningType(v === '_empty_' ? '' : v)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="选择词性" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_empty_">自定义</SelectItem>
+                        <SelectItem value="n.">n. 名词</SelectItem>
+                        <SelectItem value="v.">v. 动词</SelectItem>
+                        <SelectItem value="vt.">vt. 及物动词</SelectItem>
+                        <SelectItem value="vi.">vi. 不及物动词</SelectItem>
+                        <SelectItem value="a.">a. 形容词</SelectItem>
+                        <SelectItem value="adj.">adj. 形容词</SelectItem>
+                        <SelectItem value="adv.">adv. 副词</SelectItem>
+                        <SelectItem value="prep.">prep. 介词</SelectItem>
+                        <SelectItem value="conj.">conj. 连词</SelectItem>
+                        <SelectItem value="pron.">pron. 代词</SelectItem>
+                        <SelectItem value="interj.">interj. 感叹词</SelectItem>
+                        <SelectItem value="def.">def. 释义</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-2">
+                    {editingMeaningIndex !== null ? (
+                      <>
+                        <Button
+                          onClick={saveCustomMeaning}
+                          disabled={!customMeaningContent.trim() || !word.trim()}
+                          className="whitespace-nowrap"
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          保存
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={cancelEdit}
+                          className="whitespace-nowrap"
+                        >
+                          取消
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        onClick={saveCustomMeaning}
+                        disabled={!customMeaningContent.trim() || !word.trim()}
+                        className="whitespace-nowrap"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        添加
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <ScrollArea className="h-64">
-                  <div className="space-y-2">
-                    {dictionaryData.meaning.map((meaning: any, index: number) => {
-                      const isSelected = selectedMeanings.some(
-                        m => m.content === meaning.content && m.type === meaning.type
-                      );
-                      const meaningKey = `${meaning.content}-${meaning.type}-${index}`;
-                      return (
-                        <div
-                          key={meaningKey}
-                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700'
-                              : 'bg-gray-50 border-gray-200 dark:bg-gray-700 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
-                          }`}
-                          onClick={() => toggleMeaning(meaning)}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className={`text-sm font-medium ${
-                                  isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'
-                                }`}>
-                                  {meaning.content}
-                                </span>
-                                <Badge variant="outline" className="text-xs">
-                                  {meaning.type}
-                                </Badge>
-                              </div>
-                              {meaning.sentence && (
-                                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                  例句: {meaning.sentence}
-                                </p>
-                              )}
-                            </div>
-                            {isSelected && (
-                              <Check className="h-5 w-5 text-blue-600 dark:text-blue-400 ml-2" />
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-                {selectedMeanings.length > 0 && (
-                  <div className="mt-3">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      已选择 {selectedMeanings.length} 个释义
-                    </p>
-                  </div>
-                )}
+                <div className="flex items-start gap-1.5 mt-2">
+                  <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {editingMeaningIndex !== null
+                      ? '修改完成后点击"保存"。词性不选则默认为"自定义"。'
+                      : '如果词典释义不全，可自行添加释义。词性不选则默认为"自定义"。添加后自动选中。列表中的释义可点击 ✏️ 编辑或 🗑️ 删除。'
+                    }
+                  </p>
+                </div>
               </div>
 
               {/* 标签选择 */}
