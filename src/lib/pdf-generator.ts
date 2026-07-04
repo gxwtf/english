@@ -323,23 +323,23 @@ const PDF_STYLES = `
   .card-all-meanings { }
 `;
 
-const WORDBOOK_MAX_COLUMN_UNITS = 57;
+const WORDBOOK_MAX_COLUMN_UNITS = 50;
 
 const WORDBOOK_PDF_STYLES = `${PDF_STYLES}
-  .wordbook-page { font-size: 10.5px; line-height: 1.35; color: #000; }
-  .wordbook-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1.5px solid #000; }
+  .wordbook-page { font-size: 10.3px; line-height: 1.48; color: #000; }
+  .wordbook-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 12px; padding-bottom: 7px; border-bottom: 1.5px solid #000; }
   .wordbook-title { font-size: 18px; font-weight: 800; }
   .wordbook-meta { font-size: 10px; color: #333; white-space: nowrap; }
-  .wordbook-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; align-items: start; }
+  .wordbook-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 18px; align-items: start; }
   .wordbook-column { min-width: 0; }
-  .wordbook-entry { padding: 3px 0 4px; border-bottom: 1px solid #ddd; break-inside: avoid; }
-  .wordbook-entry-head { display: flex; align-items: baseline; gap: 4px; margin-bottom: 1px; min-width: 0; }
-  .wordbook-index { font-size: 9px; color: #555; min-width: 18px; }
-  .wordbook-word { font-size: 12px; font-weight: 800; word-break: break-word; }
-  .wordbook-tags { margin-left: auto; font-size: 8.5px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
-  .wordbook-meaning { margin-left: 22px; margin-top: 1px; word-break: break-word; }
+  .wordbook-entry { padding: 4px 0 5px; border-bottom: 1px solid #ddd; break-inside: avoid; }
+  .wordbook-entry-head { display: grid; grid-template-columns: 25px minmax(0, 1fr); column-gap: 6px; align-items: baseline; margin-bottom: 1px; min-width: 0; }
+  .wordbook-index { font-size: 9px; color: #555; min-width: 0; }
+  .wordbook-word { font-size: 12px; line-height: 1.22; font-weight: 800; overflow-wrap: anywhere; word-break: normal; }
+  .wordbook-tags { grid-column: 2; display: block; margin-top: 1px; font-size: 8.5px; line-height: 1.25; color: #555; white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+  .wordbook-meaning { margin-left: 31px; margin-top: 1px; overflow-wrap: anywhere; word-break: normal; }
   .wordbook-type { font-weight: 800; margin-right: 3px; }
-  .wordbook-related { margin-left: 22px; margin-top: 1px; color: #444; word-break: break-word; }
+  .wordbook-related { margin-left: 31px; margin-top: 1px; color: #444; overflow-wrap: anywhere; word-break: normal; }
 `;
 
 function estimateTextUnits(text: string, charsPerLine: number): number {
@@ -365,19 +365,21 @@ function mergeWordMeanings(meanings: Word['meanings']): Array<{ type: string; co
 
 function estimateWordbookUnits(word: Word): number {
   const meanings = mergeWordMeanings(word.meanings);
-  let units = 1.45;
+  let units = 1.85;
 
   for (const meaning of meanings) {
-    units += estimateTextUnits(`${meaning.type} ${meaning.content}`, 48) * 0.92;
+    units += estimateTextUnits(`${meaning.type} ${meaning.content}`, 42) * 1.08;
   }
 
-  if (meanings.length === 0) units += 0.9;
-  if (word.tags.length > 0) units += 0.35;
+  if (meanings.length === 0) units += 1;
+  if (word.tags.length > 0) {
+    units += estimateTextUnits(word.tags.join(' / '), 34) * 0.62;
+  }
   if (word.relatedWords.length > 0) {
-    units += estimateTextUnits(word.relatedWords.map((rw) => rw.text).join('、'), 46) * 0.75;
+    units += estimateTextUnits(word.relatedWords.map((rw) => rw.text).join('、'), 40) * 0.86;
   }
 
-  return units + 0.25;
+  return units + 0.45;
 }
 
 function splitWordbookPages(words: Word[]): Word[][][] {
