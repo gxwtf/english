@@ -13,11 +13,11 @@ const dict = new DictCsv(DICT_PATH);
 
 export function query(word: string): DictionaryEntry | null {
     const result = dict.query(word);
+    if (!result) return null;
     let ret: DictionaryEntry = {
-        word: word,
+        word: result.word,
         meaning: []
     };
-    if (!result)return null;
     for (const meaning of result.meaning) {
         const content = meaning.content.trim().replaceAll(';', ',').replaceAll('，', ',').replaceAll('；', '.').replaceAll(' ','').replaceAll('.',',').split(',');
         for (const c of content) {

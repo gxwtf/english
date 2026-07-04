@@ -115,6 +115,14 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
     try {
       const result = await queryWord(word.trim());
       if (result) {
+        // 校验词典返回的单词是否与请求一致
+        if (result.word.toLowerCase() !== word.trim().toLowerCase()) {
+          console.error(
+            `[WordModal] 词典结果不匹配: 请求="${word.trim()}", 返回="${result.word}"`
+          );
+          setError(`词典返回了 "${result.word}" 的释义，与请求的 "${word.trim()}" 不匹配，请重试`);
+          return;
+        }
         setDictionaryData(result);
       } else {
         setDictionaryData({

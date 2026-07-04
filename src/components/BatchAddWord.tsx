@@ -98,6 +98,17 @@ export const BatchAddWord = ({
         return { status: 'failed', error: '词典中未找到该单词' };
       }
 
+      // 校验词典返回的单词是否与请求一致，防止缓存导致释义错乱
+      if (dictEntry.word.toLowerCase() !== wordText.trim().toLowerCase()) {
+        console.error(
+          `[BatchAddWord] 词典结果不匹配: 请求="${wordText}", 返回="${dictEntry.word}"，跳过保存`
+        );
+        return {
+          status: 'failed',
+          error: `词典返回了 "${dictEntry.word}" 的释义，与请求的 "${wordText}" 不匹配`,
+        };
+      }
+
       const meanings = skipDefMeanings
         ? dictEntry.meaning.filter((m) => m.type !== 'def.')
         : dictEntry.meaning;
