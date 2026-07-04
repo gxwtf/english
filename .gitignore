@@ -63,3 +63,4 @@ scripts/sync-user-data.mjs
 
 # 临时测试文件（包含敏感信息）
 temp/
+.aider*

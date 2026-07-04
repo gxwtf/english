@@ -1,0 +1,2 @@
+[permissions]
+allow = ["Bash(cp /home/kevin/kevin/git/gxwtf_english/public/favicon.ico:*)", "Bash(ls -la /home/kevin/kevin/git/gxwtf_english/public/favicon.ico /home/kevin/kevin/git/gxwtf_english/src/app/favicon.ico && md5sum /home/kevin/kevin/git/gxwtf_english/public/favicon.ico /home/kevin/kevin/git/gxwtf_english/src/app/favicon.ico)"]
