@@ -10,7 +10,9 @@ import {
   Trash2,
   Search,
   Settings,
-  Tag
+  Tag,
+  FileDown,
+  Loader2
 } from 'lucide-react';
 import { WordTag, TagConfig } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
@@ -33,7 +35,9 @@ interface WordToolbarProps {
   onFilterChange: (tags: WordTag[], logic: 'and' | 'or') => void;
   onTagConfigsUpdate: (newConfigs: Record<WordTag, TagConfig>) => void;
   onAIGenerate: () => void;
+  onExportSelected: () => void;
   onDeleteSelected: () => void;
+  isExportingSelected?: boolean;
   onSearchChange: (term: string) => void;
   onSetTags: (tags: WordTag[]) => void;
 }
@@ -51,9 +55,11 @@ export const WordToolbar = ({
   onFilterChange,
   onTagConfigsUpdate,
   onAIGenerate,
+  onExportSelected,
   onDeleteSelected,
   onSearchChange,
-  onSetTags
+  onSetTags,
+  isExportingSelected = false
 }: WordToolbarProps) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showBatchDropdown, setShowBatchDropdown] = useState(false);
@@ -344,6 +350,25 @@ export const WordToolbar = ({
                     <span className="text-sm">AI 出题</span>
                   </button>
 
+                  {/* 导出选中选项 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBatchDropdown(false);
+                      onExportSelected();
+                    }}
+                    disabled={isExportingSelected}
+                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    {isExportingSelected ? (
+                      <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                    ) : (
+                      <FileDown className="h-4 w-4 text-blue-600" />
+                    )}
+                    <span className="text-sm">{isExportingSelected ? '导出中...' : '导出 PDF'}</span>
+                  </button>
                   {/* 删除选中选项 */}
                   <button
                     onClick={(e) => {
@@ -587,6 +612,25 @@ export const WordToolbar = ({
                     <span className="text-sm">AI 出题</span>
                   </button>
 
+                  {/* 导出选中选项 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBatchDropdown(false);
+                      onExportSelected();
+                    }}
+                    disabled={isExportingSelected}
+                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    {isExportingSelected ? (
+                      <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                    ) : (
+                      <FileDown className="h-4 w-4 text-blue-600" />
+                    )}
+                    <span className="text-sm">{isExportingSelected ? '导出中...' : '导出 PDF'}</span>
+                  </button>
                   {/* 删除选中选项 */}
                   <button
                     onClick={(e) => {

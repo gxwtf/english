@@ -29,6 +29,7 @@ import {
   createWordCardQuestion,
 } from '@/actions/ai-question';
 import { selectWordsForQuestion, type RelatedWordEntry } from '@/lib/word-selection';
+import { generateWordbookPdf } from '@/lib/pdf-generator';
 import { useRouter } from 'next/navigation';
 
 interface AuthenticatedPageProps {
@@ -49,6 +50,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   const [allTagConfigs, setAllTagConfigs] = useState<Record<WordTag, TagConfig>>({});
   const [showAISelector, setShowAISelector] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [exportingWords, setExportingWords] = useState(false);
   const router = useRouter();
 
   const relatedWordsCount = useMemo(() => {
@@ -227,6 +229,27 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     setShowAISelector(true);
   };
 
+  const handleExportSelectedWords = async () => {
+    if (selectedWordIds.length === 0 || exportingWords) return;
+
+    const selectedSet = new Set(selectedWordIds);
+    const visibleSelectedWords = filteredAndSortedWords.filter(word => selectedSet.has(word.id));
+    const visibleSelectedIds = new Set(visibleSelectedWords.map(word => word.id));
+    const hiddenSelectedWords = words.filter(word =>
+      selectedSet.has(word.id) && !visibleSelectedIds.has(word.id)
+    );
+    const selectedWords = [...visibleSelectedWords, ...hiddenSelectedWords];
+
+    setExportingWords(true);
+    try {
+      await generateWordbookPdf(selectedWords);
+    } catch (error) {
+      console.error('导出单词本 PDF 失败:', error);
+      alert('导出单词本 PDF 失败，请稍后重试');
+    } finally {
+      setExportingWords(false);
+    }
+  };
   // 单词卡片直接生成（不需要 AI）
   const handleCreateWordCard = async (selectedWords: Word[], includeRelatedWords?: boolean) => {
     try {
@@ -425,7 +448,9 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
           }}
           onTagConfigsUpdate={handleTagsUpdate}
           onAIGenerate={handleAIGenerate}
+          onExportSelected={handleExportSelectedWords}
           onDeleteSelected={() => setShowDeleteConfirm(true)}
+          isExportingSelected={exportingWords}
           onSearchChange={setSearchTerm}
           onSetTags={handleSetTags}
         />

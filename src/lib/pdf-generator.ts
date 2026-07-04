@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import type { PdfQuestionData } from '@/actions/ai-question/pdf';
+import type { Word } from '@/types/word';
 
 const A4_WIDTH_MM = 210;
 const A4_HEIGHT_MM = 297;
@@ -322,6 +323,139 @@ const PDF_STYLES = `
   .card-all-meanings { }
 `;
 
+const WORDBOOK_MAX_COLUMN_UNITS = 57;
+
+const WORDBOOK_PDF_STYLES = `${PDF_STYLES}
+  .wordbook-page { font-size: 10.5px; line-height: 1.35; color: #000; }
+  .wordbook-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1.5px solid #000; }
+  .wordbook-title { font-size: 18px; font-weight: 800; }
+  .wordbook-meta { font-size: 10px; color: #333; white-space: nowrap; }
+  .wordbook-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; align-items: start; }
+  .wordbook-column { min-width: 0; }
+  .wordbook-entry { padding: 3px 0 4px; border-bottom: 1px solid #ddd; break-inside: avoid; }
+  .wordbook-entry-head { display: flex; align-items: baseline; gap: 4px; margin-bottom: 1px; min-width: 0; }
+  .wordbook-index { font-size: 9px; color: #555; min-width: 18px; }
+  .wordbook-word { font-size: 12px; font-weight: 800; word-break: break-word; }
+  .wordbook-tags { margin-left: auto; font-size: 8.5px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+  .wordbook-meaning { margin-left: 22px; margin-top: 1px; word-break: break-word; }
+  .wordbook-type { font-weight: 800; margin-right: 3px; }
+  .wordbook-related { margin-left: 22px; margin-top: 1px; color: #444; word-break: break-word; }
+`;
+
+function estimateTextUnits(text: string, charsPerLine: number): number {
+  return Math.max(1, Math.ceil(Array.from(text).length / charsPerLine));
+}
+
+function mergeWordMeanings(meanings: Word['meanings']): Array<{ type: string; content: string }> {
+  const merged: Record<string, string[]> = {};
+
+  for (const meaning of meanings || []) {
+    const type = (meaning.type || '').trim() || '释义';
+    const content = (meaning.content || '').trim();
+    if (!content) continue;
+    if (!merged[type]) merged[type] = [];
+    merged[type].push(content);
+  }
+
+  return Object.entries(merged).map(([type, contents]) => ({
+    type,
+    content: contents.join('；'),
+  }));
+}
+
+function estimateWordbookUnits(word: Word): number {
+  const meanings = mergeWordMeanings(word.meanings);
+  let units = 1.45;
+
+  for (const meaning of meanings) {
+    units += estimateTextUnits(`${meaning.type} ${meaning.content}`, 48) * 0.92;
+  }
+
+  if (meanings.length === 0) units += 0.9;
+  if (word.tags.length > 0) units += 0.35;
+  if (word.relatedWords.length > 0) {
+    units += estimateTextUnits(word.relatedWords.map((rw) => rw.text).join('、'), 46) * 0.75;
+  }
+
+  return units + 0.25;
+}
+
+function splitWordbookPages(words: Word[]): Word[][][] {
+  const pages: Word[][][] = [];
+  let currentPage: Word[][] = [[], []];
+  let currentUnits = [0, 0];
+  let columnIndex = 0;
+
+  for (const word of words) {
+    const units = estimateWordbookUnits(word);
+
+    if (currentUnits[columnIndex] + units > WORDBOOK_MAX_COLUMN_UNITS && currentPage[columnIndex].length > 0) {
+      if (columnIndex === 0) {
+        columnIndex = 1;
+      } else {
+        pages.push(currentPage);
+        currentPage = [[], []];
+        currentUnits = [0, 0];
+        columnIndex = 0;
+      }
+    }
+
+    currentPage[columnIndex].push(word);
+    currentUnits[columnIndex] += units;
+  }
+
+  if (currentPage[0].length > 0 || currentPage[1].length > 0) {
+    pages.push(currentPage);
+  }
+
+  return pages;
+}
+
+function renderWordbookItemHtml(word: Word, index: number): string {
+  const meanings = mergeWordMeanings(word.meanings);
+  const tagsHtml = word.tags.length > 0
+    ? `<span class="wordbook-tags">${word.tags.map((tag) => escapeHtml(tag)).join(' / ')}</span>`
+    : '';
+  const meaningsHtml = meanings.length > 0
+    ? meanings.map((meaning) => `<div class="wordbook-meaning"><span class="wordbook-type">${escapeHtml(meaning.type)}</span>${escapeHtml(meaning.content)}</div>`).join('')
+    : '<div class="wordbook-meaning">暂无释义</div>';
+  const relatedHtml = word.relatedWords.length > 0
+    ? `<div class="wordbook-related">关联：${word.relatedWords.map((rw) => escapeHtml(rw.text)).join('、')}</div>`
+    : '';
+
+  return `<div class="wordbook-entry">
+    <div class="wordbook-entry-head">
+      <span class="wordbook-index">${index}.</span>
+      <span class="wordbook-word">${escapeHtml(word.text)}</span>
+      ${tagsHtml}
+    </div>
+    ${meaningsHtml}
+    ${relatedHtml}
+  </div>`;
+}
+
+function renderWordbookPageHtml(
+  columns: Word[][],
+  pageIndex: number,
+  totalPages: number,
+  totalWords: number,
+  startIndex: number,
+): string {
+  let nextIndex = startIndex;
+  const columnHtml = columns.map((column) => {
+    const items = column.map((word) => renderWordbookItemHtml(word, nextIndex++)).join('');
+    return `<div class="wordbook-column">${items}</div>`;
+  }).join('');
+
+  return `<div class="wordbook-page">
+    <div class="wordbook-header">
+      <div class="wordbook-title">单词本</div>
+      <div class="wordbook-meta">共 ${totalWords} 词 · 第 ${pageIndex + 1} / ${totalPages} 页</div>
+    </div>
+    <div class="wordbook-grid">${columnHtml}</div>
+  </div>`;
+}
+
 /**
  * 单词卡片 - 奇数页：单词（粗体，居中）
  */
@@ -373,6 +507,30 @@ function renderWordCardMeaningHtml(card: any, cardIndex: number): string {
   `;
 }
 
+export async function generateWordbookPdf(words: Word[]): Promise<void> {
+  if (words.length === 0) return;
+
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const contentWidthPx = mmToPx(CONTENT_WIDTH_MM);
+  const contentHeightPx = mmToPx(A4_HEIGHT_MM - MARGIN_MM * 2);
+  const pages = splitWordbookPages(words);
+  let startIndex = 1;
+
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+    const html = renderWordbookPageHtml(page, i, pages.length, words.length, startIndex);
+    await addPageFromHtml(pdf, html, contentWidthPx, contentHeightPx, i > 0, WORDBOOK_PDF_STYLES);
+    startIndex += page.reduce((count, column) => count + column.length, 0);
+  }
+
+  pdf.save(`广学英语单词本_${formatFilenameDate()}.pdf`);
+}
+
 export async function generatePdf(questionsData: PdfQuestionData[]): Promise<void> {
   const pdf = new jsPDF({
     orientation: 'portrait',
@@ -418,6 +576,7 @@ async function addPageFromHtml(
   widthPx: number,
   heightPx: number,
   newPage: boolean,
+  styles = PDF_STYLES,
 ): Promise<void> {
   // Use an iframe to isolate rendering from the main page's CSS
   const iframe = document.createElement('iframe');
@@ -433,7 +592,7 @@ async function addPageFromHtml(
   try {
     const iframeDoc = iframe.contentDocument!;
     iframeDoc.open();
-    iframeDoc.write(`<!DOCTYPE html><html><head><style>${PDF_STYLES}</style></head><body style="margin:0;padding:20px;background:white;"><div style="width:${widthPx - 40}px;">${htmlContent}</div></body></html>`);
+    iframeDoc.write(`<!DOCTYPE html><html><head><style>${styles}</style></head><body style="margin:0;padding:20px;background:white;"><div style="width:${widthPx - 40}px;">${htmlContent}</div></body></html>`);
     iframeDoc.close();
 
     const container = iframeDoc.body;
