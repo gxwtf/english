@@ -115,10 +115,10 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
         answerMap[i] = answers[i];
       }
       await submitAnswer(questionId, answerMap);
-      
+
       setSavedAnswers([...answers]);
       setSavedGradingResults(null);
-      
+
       setIsLoadingGrading(true);
       gradeFillBlankAnswerBatch(questionId, answerMap)
         .then(results => {
@@ -135,8 +135,9 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
         .finally(() => {
           setIsLoadingGrading(false);
         });
-      
+
       onSubmitted?.();
+      router.push('/practice');
     } catch (error) {
       console.error('提交答案失败:', error);
       alert('提交答案失败，请重试');

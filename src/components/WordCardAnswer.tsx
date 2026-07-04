@@ -4,7 +4,6 @@ import { useState, useCallback, useRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import type { WordCardItem } from '@/actions/ai-question/word-card';
 import type { Meaning } from '@/types/dict';
-import { markQuestionAsAnswered } from '@/actions/ai-question';
 
 interface WordCardAnswerProps {
   questionId: string;
@@ -32,8 +31,6 @@ function mergeMeaningsByType(meanings: Meaning[]): { type: string; content: stri
 export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordCardAnswerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [submitted, setSubmitted] = useState(status === 'ANSWERED');
-  const [submitting, setSubmitting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
@@ -76,27 +73,6 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
       handlePrevCard();
     }
   }, [handleNextCard, handlePrevCard]);
-
-  const handleSubmit = useCallback(async () => {
-    setSubmitting(true);
-    try {
-      await markQuestionAsAnswered(questionId);
-      setSubmitted(true);
-      onSubmitted?.();
-    } catch (error) {
-      console.error('提交答案失败:', error);
-      alert('提交答案失败，请重试');
-    } finally {
-      setSubmitting(false);
-    }
-  }, [questionId, onSubmitted]);
-
-  const handleReset = useCallback(() => {
-    setIsFlipped(false);
-    setCurrentIndex(0);
-    setSubmitted(false);
-    onSubmitted?.();
-  }, [onSubmitted]);
 
   if (!currentCard) {
     return <div className="text-center py-12 text-gray-500">暂无卡片数据</div>;
@@ -179,42 +155,26 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
         </button>
       </div>
 
-      {/* 提交按钮 */}
-      {!submitted ? (
-        <button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="w-full py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white disabled:opacity-50"
-        >
-          {submitting ? '提交中...' : '完成练习'}
-        </button>
-      ) : (
-        <div className="space-y-4">
-          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-            <p className="text-sm font-medium text-green-700 dark:text-green-300">
-              练习已完成！
-            </p>
-            <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
-              共 {cards.length} 张卡片
-            </p>
-          </div>
-
-          <div className="flex gap-3">
-            <a
-              href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-            >
-              返回题目列表
-            </a>
-            <button
-              onClick={handleReset}
-              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white"
-            >
-              重新练习
-            </button>
-          </div>
+      {/* 提示信息和返回按钮 */}
+      <div className="space-y-4">
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+            单词卡片已生成完毕
+          </p>
+          <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+            共 {cards.length} 张卡片，可随时翻阅学习
+          </p>
         </div>
-      )}
+
+        <div className="flex gap-3">
+          <a
+            href="/practice"
+            className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+          >
+            返回题目列表
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

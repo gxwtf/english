@@ -14,6 +14,7 @@ import { WordCardAnswer } from '@/components/WordCardAnswer';
 import { QuestionDisplay } from '@/components/QuestionDisplay';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
+import { ConsolidatePracticeButton } from '@/components/ConsolidatePracticeButton';
 import Link from 'next/link';
 
 export function PracticeQuestionPageContent({ params }: { params: Promise<{ questionId: string }> }) {
@@ -173,6 +174,14 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
               <QuestionDisplay
                 content={question.questionContent}
                 questionId={question.id}
+              />
+            )}
+
+            {/* 巩固练习按钮 - 仅在题目已作答时显示 */}
+            {question.status === 'ANSWERED' && question.wordIds.length > 0 && (
+              <ConsolidatePracticeButton
+                wordIds={question.wordIds}
+                relatedWordEntries={question.relatedWordEntries as any[] || []}
               />
             )}
           </div>

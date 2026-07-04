@@ -161,7 +161,8 @@ export async function loadQuestionQueue() {
 export async function enqueueQuestion(
   questionContent: object,
   questionType: QuestionType,
-  wordIds: number[]
+  wordIds: number[],
+  initialStatus?: 'GENERATED' | 'ANSWERED'
 ) {
   const user = await getAuthUser();
   if (!user) throw new Error('未登录');
@@ -174,7 +175,7 @@ export async function enqueueQuestion(
     data: {
       userId: user.userId,
       questionType: questionType as any,
-      status: 'GENERATED',
+      status: initialStatus || 'GENERATED',
       questionContent,
       wordIds,
     },
@@ -435,12 +436,43 @@ async function doGradeFillBlankAnswerBatch(
   const results: GradeResult[] = [];
   let gradingSuccess = true;
 
+  // 获取题目类型，用于区分不同题型的批改逻辑
+  const questionType = q.questionType as string;
+
   for (let i = 0; i < questions.length; i++) {
     const question = questions[i];
     const userAnswer = answers[i]?.trim() || '';
     const isCorrect = userAnswer === question.answer;
 
-    const systemPrompt = `你是一位专业的英语老师。请根据题目句子、标准答案和用户答案，生成一句点评。
+    // 根据题型选择不同的 prompt
+    let systemPrompt: string;
+    let userPrompt: string;
+
+    if (questionType === 'definition-fill-blank') {
+      // 词义填空题型：题目是英文释义，答案是单词
+      systemPrompt = `你是一位专业的英语老师。请根据英文释义、标准答案单词和用户答案，生成一句点评。
+
+## 点评要求：
+- 解释这个单词的含义和用法（包括词性、常见语境、搭配等）
+- 可以补充说明这个释义的关键特征
+- 如果用户答对了，肯定用户的理解并简要说明单词特点
+- 如果用户答错了，解释为什么用户错了（可能的原因：词义混淆、拼写错误、形近词干扰等）
+- 点评要简洁明了，1-2 句话即可
+
+## 重要：
+- 在生成点评之前，请先用 <reason> 和 </reason> 标签包裹你的思考过程
+- 思考内容包括：释义分析、答案单词分析、用户答案分析
+- 在 </reason> 之后再输出最终的 JSON 答案
+- JSON 格式：{"feedback": "点评内容"}
+- 只返回 JSON，不要其他文字`;
+
+      userPrompt = `英文释义：${question.sentence}
+标准答案单词：${question.answer}
+用户答案：${userAnswer}
+是否正确：${isCorrect ? '正确' : '错误'}`;
+    } else {
+      // 其他题型（选词填空等）：题目是完整句子
+      systemPrompt = `你是一位专业的英语老师。请根据题目句子、标准答案和用户答案，生成一句点评。
 
 ## 点评要求：
 - 至少需要翻译这句话（中文）
@@ -455,10 +487,11 @@ async function doGradeFillBlankAnswerBatch(
 - JSON 格式：{"feedback": "点评内容"}
 - 只返回 JSON，不要其他文字`;
 
-    const userPrompt = `题目句子：${question.sentence}
+      userPrompt = `题目句子：${question.sentence}
 标准答案：${question.answer}${question.originalWord && question.originalWord !== question.answer ? `（原词：${question.originalWord}）` : ''}
 用户答案：${userAnswer}
 是否正确：${isCorrect ? '正确' : '错误'}`;
+    }
 
     let result: Awaited<ReturnType<typeof callOpenAI>>;
     try {

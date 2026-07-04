@@ -7,6 +7,14 @@ import type { RelatedWordEntry } from '@/lib/word-selection';
 import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
 import { aiQueue } from '@/lib/ai-queue';
 
+function shuffleArray<T>(array: T[]): T[] {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 interface FillBlankQuestion {
   words: string[];
   questions: { sentence: string; answer: string; originalWord?: string }[];
@@ -269,6 +277,10 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
   if (missingWords.size > 0) {
     throw new Error(`AI 返回的答案中包含不在单词池中的单词: ${Array.from(missingWords).join(', ')}`);
   }
+
+  // 打乱可选单词顺序和题目顺序，避免答案与原始单词表顺序一致
+  parsed.words = shuffleArray([...parsed.words]);
+  parsed.questions = shuffleArray([...parsed.questions]);
 
   const resultContent: Record<string, unknown> = { ...parsed };
   if (thinkingContent) {

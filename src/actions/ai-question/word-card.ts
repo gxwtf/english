@@ -68,9 +68,9 @@ export async function createWordCardQuestion(
     cards: allCards,
   };
 
-  // 直接创建已生成的题目（不需要 GENERATING 状态）
+  // 单词卡片不需要作答，直接创建为已作答状态
   const allWordIds = [...wordIds];
-  const result = await enqueueQuestion(content, 'word-card', allWordIds);
+  const result = await enqueueQuestion(content, 'word-card', allWordIds, 'ANSWERED');
 
   return result;
 }
