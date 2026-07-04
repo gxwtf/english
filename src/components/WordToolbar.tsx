@@ -9,7 +9,8 @@ import {
   Sparkles,
   Trash2,
   Search,
-  Settings
+  Settings,
+  Tag
 } from 'lucide-react';
 import { WordTag, TagConfig } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { TagEditModal } from '@/components/TagEditModal';
+import { BatchTagModal } from '@/components/BatchTagModal';
 
 interface WordToolbarProps {
   selectedWordIds: number[];
@@ -33,6 +35,7 @@ interface WordToolbarProps {
   onAIGenerate: () => void;
   onDeleteSelected: () => void;
   onSearchChange: (term: string) => void;
+  onSetTags: (tags: WordTag[]) => void;
 }
 
 export const WordToolbar = ({
@@ -49,10 +52,13 @@ export const WordToolbar = ({
   onTagConfigsUpdate,
   onAIGenerate,
   onDeleteSelected,
-  onSearchChange
+  onSearchChange,
+  onSetTags
 }: WordToolbarProps) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [showBatchDropdown, setShowBatchDropdown] = useState(false);
   const [showTagEditModal, setShowTagEditModal] = useState(false);
+  const [showBatchTagModal, setShowBatchTagModal] = useState(false);
 
   // 点击外部关闭下拉框
   useEffect(() => {
@@ -60,7 +66,7 @@ export const WordToolbar = ({
       const target = event.target as Node;
 
       // 查找所有可能的下拉框（桌面端和移动端）
-      const dropdowns = document.querySelectorAll('[data-filter-dropdown-inner]');
+      const dropdowns = document.querySelectorAll('[data-filter-dropdown-inner], [data-batch-dropdown-inner]');
 
       // 检查点击是否在任意一个下拉框内部
       const isInDropdown = Array.from(dropdowns).some(dropdown =>
@@ -78,8 +84,15 @@ export const WordToolbar = ({
         return;
       }
 
+      // 如果点击的是批量操作按钮，不关闭（让按钮的 onClick 处理）
+      const batchButton = document.querySelector('[data-batch-button]');
+      if (batchButton && batchButton.contains(target as Element)) {
+        return;
+      }
+
       // 点击外部关闭下拉框
       setShowFilterDropdown(false);
+      setShowBatchDropdown(false);
     };
 
     // 在捕获阶段监听，这样可以在事件被 React 处理前先拦截
@@ -90,8 +103,12 @@ export const WordToolbar = ({
   }, []);
 
   const isAllSelected = selectedWordIds.length === allWordIds.length && allWordIds.length > 0;
-  const canGenerateAI = selectedWordIds.length > 0;
-  const canDeleteSelected = selectedWordIds.length > 0;
+  const canBatchOperate = selectedWordIds.length > 0;
+
+  const handleOpenBatchTagModal = () => {
+    setShowBatchDropdown(false);
+    setShowBatchTagModal(true);
+  };
 
   const filteredAndSortedWords = useMemo(() => {
     // 这里会在主组件中实现
@@ -288,37 +305,77 @@ export const WordToolbar = ({
             />
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAIGenerate}
-            disabled={!canGenerateAI}
-            className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            <span className="hidden lg:inline">AI 出题</span>
-            {canGenerateAI && (
-              <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs bg-white/20 text-white backdrop-blur-sm">
-                {selectedWordIds.length}
-              </Badge>
-            )}
-          </Button>
+          <div className="relative">
+            <Button
+              data-batch-button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowBatchDropdown((prev) => !prev);
+              }}
+              disabled={!canBatchOperate}
+              className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              <span className="hidden lg:inline">批量操作</span>
+              {canBatchOperate && (
+                <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs bg-white/20 text-white backdrop-blur-sm">
+                  {selectedWordIds.length}
+                </Badge>
+              )}
+            </Button>
 
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onDeleteSelected}
-            disabled={!canDeleteSelected}
-            className="h-9 text-sm whitespace-nowrap"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            <span className="hidden lg:inline">删除选中</span>
-            {canDeleteSelected && (
-              <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs bg-red-100 text-red-700">
-                {selectedWordIds.length}
-              </Badge>
+            {showBatchDropdown && (
+              <div className="absolute top-full right-0 mt-2 w-64 sm:w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                <div className="p-3 sm:p-4" data-batch-dropdown-inner onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                  {/* AI 出题选项 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBatchDropdown(false);
+                      onAIGenerate();
+                    }}
+                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Sparkles className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm">AI 出题</span>
+                  </button>
+
+                  {/* 删除选中选项 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBatchDropdown(false);
+                      onDeleteSelected();
+                    }}
+                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                    <span className="text-sm">删除选中</span>
+                  </button>
+
+                  {/* 设置标签选项 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenBatchTagModal();
+                    }}
+                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Tag className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm">设置标签</span>
+                  </button>
+                </div>
+              </div>
             )}
-          </Button>
+          </div>
 
           <Button
             variant="outline"
@@ -491,37 +548,77 @@ export const WordToolbar = ({
             />
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAIGenerate}
-            disabled={!canGenerateAI}
-            className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
-            aria-label="AI 出题"
-          >
-            <Sparkles className="h-4 w-4" />
-            {canGenerateAI && (
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-white/20 text-white backdrop-blur-sm">
-                {selectedWordIds.length}
-              </Badge>
-            )}
-          </Button>
+          <div className="relative">
+            <Button
+              data-batch-button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowBatchDropdown((prev) => !prev);
+              }}
+              disabled={!canBatchOperate}
+              className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+              aria-label="批量操作"
+            >
+              <Settings className="h-4 w-4" />
+              {canBatchOperate && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-white/20 text-white backdrop-blur-sm">
+                  {selectedWordIds.length}
+                </Badge>
+              )}
+            </Button>
 
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onDeleteSelected}
-            disabled={!canDeleteSelected}
-            className="h-9 px-2 text-xs whitespace-nowrap"
-            aria-label="删除选中"
-          >
-            <Trash2 className="h-4 w-4" />
-            {canDeleteSelected && (
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-red-100 text-red-700">
-                {selectedWordIds.length}
-              </Badge>
+            {showBatchDropdown && (
+              <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 max-h-80 overflow-y-auto">
+                <div className="p-3" data-batch-dropdown-inner onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                  {/* AI 出题选项 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBatchDropdown(false);
+                      onAIGenerate();
+                    }}
+                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Sparkles className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm">AI 出题</span>
+                  </button>
+
+                  {/* 删除选中选项 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBatchDropdown(false);
+                      onDeleteSelected();
+                    }}
+                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-600" />
+                    <span className="text-sm">删除选中</span>
+                  </button>
+
+                  {/* 设置标签选项 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenBatchTagModal();
+                    }}
+                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Tag className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm">设置标签</span>
+                  </button>
+                </div>
+              </div>
             )}
-          </Button>
+          </div>
 
           <Button
             variant="outline"
@@ -541,6 +638,16 @@ export const WordToolbar = ({
         onClose={() => setShowTagEditModal(false)}
         onTagsUpdate={handleTagConfigUpdate}
         currentTags={allTagConfigs}
+      />
+
+      {/* 批量设置标签弹窗 */}
+      <BatchTagModal
+        isOpen={showBatchTagModal}
+        onClose={() => setShowBatchTagModal(false)}
+        onSave={onSetTags}
+        selectedCount={selectedWordIds.length}
+        allTagConfigs={allTagConfigs}
+        onTagsUpdate={onTagConfigsUpdate}
       />
     </div>
   );

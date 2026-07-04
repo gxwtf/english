@@ -41,6 +41,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
   const [savedGradingResults, setSavedGradingResults] = useState<GradeResult[] | null>(null);
   const [isRetryingGrading, setIsRetryingGrading] = useState(false);
   const [savedAnswers, setSavedAnswers] = useState<string[]>(initialAnswers);
+  const [usedWords, setUsedWords] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (currentStatus === 'ANSWERED' && lastAnswer && !savedGradingResults && !isLoadingGrading) {
@@ -102,6 +103,18 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
     });
   }, []);
 
+  const toggleWordUsed = useCallback((word: string) => {
+    setUsedWords(prev => {
+      const next = new Set(prev);
+      if (next.has(word)) {
+        next.delete(word);
+      } else {
+        next.add(word);
+      }
+      return next;
+    });
+  }, []);
+
   const handleSubmit = useCallback(async () => {
     if (answers.some(a => !a.trim())) {
       alert('请填写所有空白后再提交');
@@ -155,6 +168,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
       setAnswers(Array(questions.length).fill(''));
       setGradingResults(null);
       setSavedGradingResults(null);
+      setUsedWords(new Set());
       router.refresh();
       onSubmitted?.();
     } catch (error) {
@@ -380,16 +394,28 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
       ) : (
         <>
           <div>
-            <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">可选单词：</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">可选单词（点击可标记已用）：</p>
             <div className="flex flex-wrap gap-2">
-              {words.map((word, i) => (
-                <span
-                  key={i}
-                  className="text-sm px-3 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full border border-green-200 dark:border-green-800"
-                >
-                  {word}
-                </span>
-              ))}
+              {[
+                ...words.filter(w => !usedWords.has(w)),
+                ...words.filter(w => usedWords.has(w))
+              ].map((word, i) => {
+                const isUsed = usedWords.has(word);
+                return (
+                  <button
+                    key={`${word}-${i}`}
+                    type="button"
+                    onClick={() => toggleWordUsed(word)}
+                    className={`text-sm px-3 py-1 rounded-full border transition-all ${
+                      isUsed
+                        ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 line-through decoration-2 decoration-red-400 dark:decoration-red-500'
+                        : 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/50'
+                    }`}
+                  >
+                    {word}
+                  </button>
+                );
+              })}
               {questions.some(q => q.originalWord) && (
                 <span className="text-xs text-gray-500 dark:text-gray-400 self-center ml-1">
                   (部分题目可能需要填写单词的不同形式)

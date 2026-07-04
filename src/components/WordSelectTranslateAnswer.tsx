@@ -43,6 +43,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
   const [isLoadingGrading, setIsLoadingGrading] = useState(false);
   const [savedGradingResults, setSavedGradingResults] = useState<GradeResult[] | null>(null);
   const [isRetryingGrading, setIsRetryingGrading] = useState(false);
+  const [usedWords, setUsedWords] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (currentStatus === 'ANSWERED' && lastAnswer && !savedGradingResults && !isLoadingGrading) {
@@ -99,6 +100,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
       setAnswers({});
       setGradingResults(null);
       setSavedGradingResults(null);
+      setUsedWords(new Set());
       router.refresh();
     } catch (error) {
       console.error('重置失败:', error);
@@ -107,6 +109,18 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
       setIsResetting(false);
     }
   }, [questionId, router]);
+
+  const toggleWordUsed = useCallback((word: string) => {
+    setUsedWords(prev => {
+      const next = new Set(prev);
+      if (next.has(word)) {
+        next.delete(word);
+      } else {
+        next.add(word);
+      }
+      return next;
+    });
+  }, []);
 
   const handleRetryGrading = useCallback(async () => {
     setIsRetryingGrading(true);
@@ -346,13 +360,28 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
         <>
           {/* 候选单词区 */}
           <div>
-            <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">候选单词：</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">候选单词（点击可标记已用）：</p>
             <div className="flex flex-wrap gap-2">
-              {words.map((word, i) => (
-                <span key={i} className="text-sm px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-full border border-amber-200 dark:border-amber-800 font-medium">
-                  {word}
-                </span>
-              ))}
+              {[
+                ...words.filter(w => !usedWords.has(w)),
+                ...words.filter(w => usedWords.has(w))
+              ].map((word, i) => {
+                const isUsed = usedWords.has(word);
+                return (
+                  <button
+                    key={`${word}-${i}`}
+                    type="button"
+                    onClick={() => toggleWordUsed(word)}
+                    className={`text-sm px-3 py-1.5 rounded-full border font-medium transition-all ${
+                      isUsed
+                        ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 line-through decoration-2 decoration-red-400 dark:decoration-red-500'
+                        : 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/50'
+                    }`}
+                  >
+                    {word}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

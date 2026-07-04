@@ -226,3 +226,59 @@ export async function saveTagConfigs(tagConfigs: Record<string, { name: string; 
 
   return result;
 }
+
+// 批量更新单词标签
+export async function updateWordTags(wordIds: number[], tags: string[]): Promise<Word[]> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const userId = user.userId;
+
+  // 更新每个单词的标签
+  for (const wordId of wordIds) {
+    const word = await prisma.word.findFirst({
+      where: { id: wordId, userId },
+    });
+
+    if (!word) continue;
+
+    await prisma.word.update({
+      where: { id: wordId },
+      data: {
+        wordTags: {
+          deleteMany: {},
+          create: tags.map((tag: string) => ({
+            tag: {
+              connectOrCreate: {
+                where: { name: tag },
+                create: { name: tag, colorId: 'blue' },
+              },
+            },
+          })),
+        },
+      },
+    });
+  }
+
+  // 返回更新后的单词列表
+  const updatedWords = await prisma.word.findMany({
+    where: { id: { in: wordIds }, userId },
+    include: {
+      wordTags: { include: { tag: true } },
+    },
+  });
+
+  const relatedWordsDb = await prisma.relatedWord.findMany({
+    where: { userId },
+  });
+
+  return updatedWords.map((word: any) => {
+    const wordRelated = relatedWordsDb
+      .filter((rw: any) => rw.wordText === word.text)
+      .map((rw: any) => ({
+        text: rw.relatedText,
+        type: rw.type as string,
+      }));
+    return buildWordResult(word, wordRelated);
+  });
+}

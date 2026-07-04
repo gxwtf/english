@@ -18,7 +18,7 @@ import {
 } from '@/types/word';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { storage } from '@/lib/storage';
-import { saveWord as saveWordAction, deleteWords as deleteWordsAction } from '@/actions/words';
+import { saveWord as saveWordAction, deleteWords as deleteWordsAction, updateWordTags as updateWordTagsAction } from '@/actions/words';
 import {
   enqueuePendingFillBlank,
   enqueuePendingTranslate,
@@ -146,6 +146,32 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   const handleTagsUpdate = (newTagConfigs: Record<WordTag, TagConfig>) => {
     storage.updateTagConfigs(newTagConfigs);
     setAllTagConfigs(newTagConfigs);
+  };
+
+  // 处理批量设置标签
+  const handleSetTags = async (tags: WordTag[]) => {
+    if (selectedWordIds.length === 0) return;
+
+    try {
+      const updatedWords = await updateWordTagsAction(selectedWordIds, tags);
+
+      // 更新本地状态
+      setWords(prev => {
+        const updated = [...prev];
+        for (const updatedWord of updatedWords) {
+          const index = updated.findIndex(w => w.id === updatedWord.id);
+          if (index >= 0) {
+            updated[index] = updatedWord;
+          }
+        }
+        return updated;
+      });
+
+      // 清空选中
+      setSelectedWordIds([]);
+    } catch (error) {
+      console.error('批量设置标签失败:', error);
+    }
   };
 
   // 筛选和排序单词
@@ -401,6 +427,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
           onAIGenerate={handleAIGenerate}
           onDeleteSelected={() => setShowDeleteConfirm(true)}
           onSearchChange={setSearchTerm}
+          onSetTags={handleSetTags}
         />
 
         {/* 确认删除弹窗 */}
