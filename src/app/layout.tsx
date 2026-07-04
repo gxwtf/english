@@ -20,7 +20,6 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    allowedTileAreas: true,
     title: "广学英语",
     startupImage: [
       {
