@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     title: "广学英语",
     startupImage: [
       {
-        url: "/favicon.ico",
+        url: "/apple-touch-icon.png",
       },
     ],
   },
@@ -32,10 +32,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
     ],
     apple: [
-      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" },
     ],
   },
 };
@@ -55,8 +56,8 @@ export default function RootLayout({
         <meta name="application-name" content="广学英语" />
         <meta name="msapplication-TileColor" content="#3b82f6" />
         <meta name="msapplication-tap-highlight" content="no" />
-        <link rel="apple-touch-icon" href="/favicon.ico" />
-        <link rel="mask-icon" href="/favicon.ico" color="#3b82f6" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+        <link rel="mask-icon" href="/icon-512.png" color="#3b82f6" />
       </head>
       <body className="antialiased flex flex-col min-h-screen">
         <main className="flex-1">
