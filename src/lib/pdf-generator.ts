@@ -323,29 +323,6 @@ const PDF_STYLES = `
   .card-all-meanings { }
 `;
 
-const WORDBOOK_MAX_COLUMN_UNITS = 50;
-
-const WORDBOOK_PDF_STYLES = `${PDF_STYLES}
-  .wordbook-page { font-size: 10.3px; line-height: 1.48; color: #000; }
-  .wordbook-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 12px; padding-bottom: 7px; border-bottom: 1.5px solid #000; }
-  .wordbook-title { font-size: 18px; font-weight: 800; }
-  .wordbook-meta { font-size: 10px; color: #333; white-space: nowrap; }
-  .wordbook-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 18px; align-items: start; }
-  .wordbook-column { min-width: 0; }
-  .wordbook-entry { padding: 4px 0 5px; border-bottom: 1px solid #ddd; break-inside: avoid; }
-  .wordbook-entry-head { display: grid; grid-template-columns: 25px minmax(0, 1fr); column-gap: 6px; align-items: baseline; margin-bottom: 1px; min-width: 0; }
-  .wordbook-index { font-size: 9px; color: #555; min-width: 0; }
-  .wordbook-word { font-size: 12px; line-height: 1.22; font-weight: 800; overflow-wrap: anywhere; word-break: normal; }
-  .wordbook-tags { grid-column: 2; display: block; margin-top: 1px; font-size: 8.5px; line-height: 1.25; color: #555; white-space: normal; overflow: visible; overflow-wrap: anywhere; }
-  .wordbook-meaning { margin-left: 31px; margin-top: 1px; overflow-wrap: anywhere; word-break: normal; }
-  .wordbook-type { font-weight: 800; margin-right: 3px; }
-  .wordbook-related { margin-left: 31px; margin-top: 1px; color: #444; overflow-wrap: anywhere; word-break: normal; }
-`;
-
-function estimateTextUnits(text: string, charsPerLine: number): number {
-  return Math.max(1, Math.ceil(Array.from(text).length / charsPerLine));
-}
-
 function mergeWordMeanings(meanings: Word['meanings']): Array<{ type: string; content: string }> {
   const merged: Record<string, string[]> = {};
 
@@ -363,99 +340,365 @@ function mergeWordMeanings(meanings: Word['meanings']): Array<{ type: string; co
   }));
 }
 
-function estimateWordbookUnits(word: Word): number {
-  const meanings = mergeWordMeanings(word.meanings);
-  let units = 1.85;
+const WORDBOOK_FONT = {
+  simsunFile: 'simsun.ttf',
+  simsunName: 'SimSun',
+  timesFile: 'times.ttf',
+  timesBoldFile: 'timesbd.ttf',
+  timesName: 'TimesNewRoman',
+} as const;
 
-  for (const meaning of meanings) {
-    units += estimateTextUnits(`${meaning.type} ${meaning.content}`, 42) * 1.08;
-  }
+const WORDBOOK_VECTOR = {
+  columnGap: 8,
+  headerBottomY: MARGIN_MM + 12,
+  contentTopY: MARGIN_MM + 18,
+  contentBottomY: A4_HEIGHT_MM - MARGIN_MM,
+  wordSize: 11.2,
+  indexSize: 9.2,
+  bodySize: 9.5,
+  tagSize: 8.2,
+  wordLineHeight: 4.7,
+  bodyLineHeight: 4.25,
+  tagLineHeight: 3.7,
+  entryPaddingTop: 1,
+  entryPaddingBottom: 1.8,
+};
 
-  if (meanings.length === 0) units += 1;
-  if (word.tags.length > 0) {
-    units += estimateTextUnits(word.tags.join(' / '), 34) * 0.62;
-  }
-  if (word.relatedWords.length > 0) {
-    units += estimateTextUnits(word.relatedWords.map((rw) => rw.text).join('、'), 40) * 0.86;
-  }
+type WordbookFontName = typeof WORDBOOK_FONT.simsunName | typeof WORDBOOK_FONT.timesName;
+type WordbookFontStyle = 'normal' | 'bold';
 
-  return units + 0.45;
+interface WordbookTextRun {
+  text: string;
+  font: WordbookFontName;
+  style: WordbookFontStyle;
+  size: number;
 }
 
-function splitWordbookPages(words: Word[]): Word[][][] {
-  const pages: Word[][][] = [];
-  let currentPage: Word[][] = [[], []];
-  let currentUnits = [0, 0];
-  let columnIndex = 0;
+interface WordbookLine {
+  runs: WordbookTextRun[];
+  indent: number;
+  lineHeight: number;
+}
 
-  for (const word of words) {
-    const units = estimateWordbookUnits(word);
+interface WordbookEntryLayout {
+  lines: WordbookLine[];
+  height: number;
+}
 
-    if (currentUnits[columnIndex] + units > WORDBOOK_MAX_COLUMN_UNITS && currentPage[columnIndex].length > 0) {
+interface WordbookPlacedEntry {
+  layout: WordbookEntryLayout;
+}
+
+type WordbookPageLayout = [WordbookPlacedEntry[], WordbookPlacedEntry[]];
+
+const fontBase64Cache: Record<string, string> = {};
+
+function wordbookColumnWidth(): number {
+  return (CONTENT_WIDTH_MM - WORDBOOK_VECTOR.columnGap) / 2;
+}
+
+function isCjkChar(char: string): boolean {
+  return /[\u2E80-\u9FFF\uF900-\uFAFF\u3400-\u4DBF\u3000-\u303F\uFF00-\uFFEF]/.test(char);
+}
+
+function compactRuns(runs: WordbookTextRun[]): WordbookTextRun[] {
+  const result: WordbookTextRun[] = [];
+  for (const run of runs) {
+    if (!run.text) continue;
+    const prev = result[result.length - 1];
+    if (prev && prev.font === run.font && prev.style === run.style && prev.size === run.size) {
+      prev.text += run.text;
+    } else {
+      result.push({ ...run });
+    }
+  }
+  return result;
+}
+
+function textRuns(
+  text: string,
+  size: number,
+  englishStyle: WordbookFontStyle = 'normal',
+): WordbookTextRun[] {
+  const runs: WordbookTextRun[] = [];
+  let current = '';
+  let currentIsCjk: boolean | null = null;
+
+  for (const char of Array.from(text)) {
+    const nextIsCjk = isCjkChar(char);
+    if (current && nextIsCjk !== currentIsCjk) {
+      runs.push({
+        text: current,
+        font: currentIsCjk ? WORDBOOK_FONT.simsunName : WORDBOOK_FONT.timesName,
+        style: currentIsCjk ? 'normal' : englishStyle,
+        size,
+      });
+      current = '';
+    }
+    current += char;
+    currentIsCjk = nextIsCjk;
+  }
+
+  if (current && currentIsCjk !== null) {
+    runs.push({
+      text: current,
+      font: currentIsCjk ? WORDBOOK_FONT.simsunName : WORDBOOK_FONT.timesName,
+      style: currentIsCjk ? 'normal' : englishStyle,
+      size,
+    });
+  }
+
+  return compactRuns(runs);
+}
+
+function setWordbookFont(pdf: jsPDF, run: WordbookTextRun): void {
+  pdf.setFont(run.font, run.font === WORDBOOK_FONT.simsunName ? 'normal' : run.style);
+  pdf.setFontSize(run.size);
+}
+
+function measureRun(pdf: jsPDF, run: WordbookTextRun): number {
+  setWordbookFont(pdf, run);
+  return pdf.getTextWidth(run.text);
+}
+
+function tokenizeRun(run: WordbookTextRun): WordbookTextRun[] {
+  if (run.font === WORDBOOK_FONT.simsunName) {
+    return Array.from(run.text).map((text) => ({ ...run, text }));
+  }
+
+  const parts = run.text.match(/\S+\s*|\s+/g) ?? [];
+  return parts.map((text) => ({ ...run, text }));
+}
+
+function wrapWordbookRuns(
+  pdf: jsPDF,
+  runs: WordbookTextRun[],
+  maxWidth: number,
+  indent: number,
+  lineHeight: number,
+): WordbookLine[] {
+  const lines: WordbookLine[] = [];
+  let current: WordbookTextRun[] = [];
+  let currentWidth = 0;
+  const availableWidth = Math.max(8, maxWidth - indent);
+
+  const pushLine = () => {
+    const cleanRuns = compactRuns(current).map((run, index) => (
+      index === 0 ? { ...run, text: run.text.replace(/^\s+/, '') } : run
+    )).filter((run) => run.text.length > 0);
+    if (cleanRuns.length > 0) {
+      lines.push({ runs: cleanRuns, indent, lineHeight });
+    }
+    current = [];
+    currentWidth = 0;
+  };
+
+  for (const run of runs) {
+    for (const token of tokenizeRun(run)) {
+      const tokenWidth = measureRun(pdf, token);
+      if (current.length > 0 && currentWidth + tokenWidth > availableWidth) {
+        pushLine();
+      }
+
+      if (tokenWidth > availableWidth) {
+        for (const char of Array.from(token.text)) {
+          const charRun = { ...token, text: char };
+          const charWidth = measureRun(pdf, charRun);
+          if (current.length > 0 && currentWidth + charWidth > availableWidth) {
+            pushLine();
+          }
+          current.push(charRun);
+          currentWidth += charWidth;
+        }
+      } else {
+        current.push(token);
+        currentWidth += tokenWidth;
+      }
+    }
+  }
+
+  pushLine();
+  return lines;
+}
+
+function layoutWordbookEntry(pdf: jsPDF, word: Word, index: number, columnWidth: number): WordbookEntryLayout {
+  const lines: WordbookLine[] = [];
+  const bodyIndent = 8.7;
+  const headRuns: WordbookTextRun[] = [
+    { text: `${index}. `, font: WORDBOOK_FONT.timesName, style: 'normal', size: WORDBOOK_VECTOR.indexSize },
+    ...textRuns(word.text, WORDBOOK_VECTOR.wordSize, 'bold'),
+  ];
+
+  lines.push(...wrapWordbookRuns(pdf, headRuns, columnWidth, 0, WORDBOOK_VECTOR.wordLineHeight));
+
+  if (word.tags.length > 0) {
+    lines.push(...wrapWordbookRuns(
+      pdf,
+      textRuns(`标签：${word.tags.join(' / ')}`, WORDBOOK_VECTOR.tagSize),
+      columnWidth,
+      bodyIndent,
+      WORDBOOK_VECTOR.tagLineHeight,
+    ));
+  }
+
+  const meanings = mergeWordMeanings(word.meanings);
+  if (meanings.length > 0) {
+    for (const meaning of meanings) {
+      const runs = [
+        ...textRuns(`${meaning.type} `, WORDBOOK_VECTOR.bodySize, 'bold'),
+        ...textRuns(meaning.content, WORDBOOK_VECTOR.bodySize),
+      ];
+      lines.push(...wrapWordbookRuns(pdf, runs, columnWidth, bodyIndent, WORDBOOK_VECTOR.bodyLineHeight));
+    }
+  } else {
+    lines.push(...wrapWordbookRuns(
+      pdf,
+      textRuns('暂无释义', WORDBOOK_VECTOR.bodySize),
+      columnWidth,
+      bodyIndent,
+      WORDBOOK_VECTOR.bodyLineHeight,
+    ));
+  }
+
+  if (word.relatedWords.length > 0) {
+    const related = word.relatedWords.map((rw) => rw.text).join('、');
+    lines.push(...wrapWordbookRuns(
+      pdf,
+      textRuns(`关联：${related}`, WORDBOOK_VECTOR.tagSize),
+      columnWidth,
+      bodyIndent,
+      WORDBOOK_VECTOR.tagLineHeight,
+    ));
+  }
+
+  const textHeight = lines.reduce((sum, line) => sum + line.lineHeight, 0);
+  return {
+    lines,
+    height: WORDBOOK_VECTOR.entryPaddingTop + textHeight + WORDBOOK_VECTOR.entryPaddingBottom,
+  };
+}
+
+function paginateWordbookEntries(entries: WordbookEntryLayout[]): WordbookPageLayout[] {
+  const pages: WordbookPageLayout[] = [[[], []]];
+  let page = pages[0];
+  let columnIndex: 0 | 1 = 0;
+  let y = WORDBOOK_VECTOR.contentTopY;
+
+  for (const layout of entries) {
+    if (
+      page[columnIndex].length > 0 &&
+      y + layout.height > WORDBOOK_VECTOR.contentBottomY
+    ) {
       if (columnIndex === 0) {
         columnIndex = 1;
+        y = WORDBOOK_VECTOR.contentTopY;
       } else {
-        pages.push(currentPage);
-        currentPage = [[], []];
-        currentUnits = [0, 0];
+        page = [[], []];
+        pages.push(page);
         columnIndex = 0;
+        y = WORDBOOK_VECTOR.contentTopY;
       }
     }
 
-    currentPage[columnIndex].push(word);
-    currentUnits[columnIndex] += units;
-  }
-
-  if (currentPage[0].length > 0 || currentPage[1].length > 0) {
-    pages.push(currentPage);
+    page[columnIndex].push({ layout });
+    y += layout.height;
   }
 
   return pages;
 }
 
-function renderWordbookItemHtml(word: Word, index: number): string {
-  const meanings = mergeWordMeanings(word.meanings);
-  const tagsHtml = word.tags.length > 0
-    ? `<span class="wordbook-tags">${word.tags.map((tag) => escapeHtml(tag)).join(' / ')}</span>`
-    : '';
-  const meaningsHtml = meanings.length > 0
-    ? meanings.map((meaning) => `<div class="wordbook-meaning"><span class="wordbook-type">${escapeHtml(meaning.type)}</span>${escapeHtml(meaning.content)}</div>`).join('')
-    : '<div class="wordbook-meaning">暂无释义</div>';
-  const relatedHtml = word.relatedWords.length > 0
-    ? `<div class="wordbook-related">关联：${word.relatedWords.map((rw) => escapeHtml(rw.text)).join('、')}</div>`
-    : '';
+function drawWordbookHeader(pdf: jsPDF, pageIndex: number, totalPages: number, totalWords: number): void {
+  pdf.setDrawColor(0);
+  pdf.setLineWidth(0.35);
+  pdf.line(MARGIN_MM, WORDBOOK_VECTOR.headerBottomY, A4_WIDTH_MM - MARGIN_MM, WORDBOOK_VECTOR.headerBottomY);
 
-  return `<div class="wordbook-entry">
-    <div class="wordbook-entry-head">
-      <span class="wordbook-index">${index}.</span>
-      <span class="wordbook-word">${escapeHtml(word.text)}</span>
-      ${tagsHtml}
-    </div>
-    ${meaningsHtml}
-    ${relatedHtml}
-  </div>`;
+  pdf.setTextColor(0);
+  pdf.setFont(WORDBOOK_FONT.simsunName, 'normal');
+  pdf.setFontSize(18);
+  pdf.text('单词本', MARGIN_MM, MARGIN_MM + 7.2);
+
+  const metaRuns = [
+    ...textRuns(`共 ${totalWords} 词 · 第 `, 10),
+    { text: `${pageIndex + 1} / ${totalPages}`, font: WORDBOOK_FONT.timesName, style: 'bold' as const, size: 10 },
+    ...textRuns(' 页', 10),
+  ];
+  const metaWidth = metaRuns.reduce((sum, run) => sum + measureRun(pdf, run), 0);
+  let x = A4_WIDTH_MM - MARGIN_MM - metaWidth;
+  const y = MARGIN_MM + 6.8;
+  for (const run of metaRuns) {
+    setWordbookFont(pdf, run);
+    pdf.text(run.text, x, y);
+    x += measureRun(pdf, run);
+  }
 }
 
-function renderWordbookPageHtml(
-  columns: Word[][],
-  pageIndex: number,
-  totalPages: number,
-  totalWords: number,
-  startIndex: number,
-): string {
-  let nextIndex = startIndex;
-  const columnHtml = columns.map((column) => {
-    const items = column.map((word) => renderWordbookItemHtml(word, nextIndex++)).join('');
-    return `<div class="wordbook-column">${items}</div>`;
-  }).join('');
+function drawWordbookLine(pdf: jsPDF, line: WordbookLine, x: number, baselineY: number): void {
+  let runX = x + line.indent;
+  for (const run of line.runs) {
+    setWordbookFont(pdf, run);
+    pdf.text(run.text, runX, baselineY);
+    runX += measureRun(pdf, run);
+  }
+}
 
-  return `<div class="wordbook-page">
-    <div class="wordbook-header">
-      <div class="wordbook-title">单词本</div>
-      <div class="wordbook-meta">共 ${totalWords} 词 · 第 ${pageIndex + 1} / ${totalPages} 页</div>
-    </div>
-    <div class="wordbook-grid">${columnHtml}</div>
-  </div>`;
+function drawWordbookPage(pdf: jsPDF, page: WordbookPageLayout, pageIndex: number, totalPages: number, totalWords: number): void {
+  drawWordbookHeader(pdf, pageIndex, totalPages, totalWords);
+
+  const columnWidth = wordbookColumnWidth();
+  for (let columnIndex = 0; columnIndex < page.length; columnIndex++) {
+    const entries = page[columnIndex];
+    const x = MARGIN_MM + columnIndex * (columnWidth + WORDBOOK_VECTOR.columnGap);
+    let y = WORDBOOK_VECTOR.contentTopY;
+
+    for (const entry of entries) {
+      y += WORDBOOK_VECTOR.entryPaddingTop;
+      for (const line of entry.layout.lines) {
+        const baselineY = y + line.lineHeight * 0.73;
+        drawWordbookLine(pdf, line, x, baselineY);
+        y += line.lineHeight;
+      }
+      y += WORDBOOK_VECTOR.entryPaddingBottom - 0.8;
+      pdf.setDrawColor(225);
+      pdf.setLineWidth(0.15);
+      pdf.line(x, y, x + columnWidth, y);
+      y += 0.8;
+    }
+  }
+}
+
+async function fetchFontBase64(url: string): Promise<string> {
+  if (fontBase64Cache[url]) return fontBase64Cache[url];
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`字体加载失败：${url}`);
+  }
+
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+
+  const base64 = btoa(binary);
+  fontBase64Cache[url] = base64;
+  return base64;
+}
+
+async function registerWordbookFonts(pdf: jsPDF): Promise<void> {
+  const [simsun, times, timesBold] = await Promise.all([
+    fetchFontBase64(`/fonts/${WORDBOOK_FONT.simsunFile}`),
+    fetchFontBase64(`/fonts/${WORDBOOK_FONT.timesFile}`),
+    fetchFontBase64(`/fonts/${WORDBOOK_FONT.timesBoldFile}`),
+  ]);
+
+  pdf.addFileToVFS(WORDBOOK_FONT.simsunFile, simsun);
+  pdf.addFont(WORDBOOK_FONT.simsunFile, WORDBOOK_FONT.simsunName, 'normal');
+  pdf.addFileToVFS(WORDBOOK_FONT.timesFile, times);
+  pdf.addFont(WORDBOOK_FONT.timesFile, WORDBOOK_FONT.timesName, 'normal');
+  pdf.addFileToVFS(WORDBOOK_FONT.timesBoldFile, timesBold);
+  pdf.addFont(WORDBOOK_FONT.timesBoldFile, WORDBOOK_FONT.timesName, 'bold');
 }
 
 /**
@@ -516,18 +759,26 @@ export async function generateWordbookPdf(words: Word[]): Promise<void> {
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
+    putOnlyUsedFonts: true,
+    compress: true,
   });
 
-  const contentWidthPx = mmToPx(CONTENT_WIDTH_MM);
-  const contentHeightPx = mmToPx(A4_HEIGHT_MM - MARGIN_MM * 2);
-  const pages = splitWordbookPages(words);
-  let startIndex = 1;
+  await registerWordbookFonts(pdf);
+  pdf.setProperties({
+    title: '广学英语单词本',
+    subject: '单词本',
+    creator: '广学英语',
+  });
+
+  const columnWidth = wordbookColumnWidth();
+  const entries = words.map((word, index) => layoutWordbookEntry(pdf, word, index + 1, columnWidth));
+  const pages = paginateWordbookEntries(entries);
 
   for (let i = 0; i < pages.length; i++) {
-    const page = pages[i];
-    const html = renderWordbookPageHtml(page, i, pages.length, words.length, startIndex);
-    await addPageFromHtml(pdf, html, contentWidthPx, contentHeightPx, i > 0, WORDBOOK_PDF_STYLES);
-    startIndex += page.reduce((count, column) => count + column.length, 0);
+    if (i > 0) {
+      pdf.addPage();
+    }
+    drawWordbookPage(pdf, pages[i], i, pages.length, words.length);
   }
 
   pdf.save(`广学英语单词本_${formatFilenameDate()}.pdf`);

@@ -43,6 +43,11 @@ next-env.d.ts
 # 词典文件
 src/dict/*
 
+# PDF export fonts are deployment assets; do not commit proprietary font binaries.
+public/fonts/*.ttf
+public/fonts/*.ttc
+public/fonts/*.otf
+
 # prisma
 /src/generated/prisma
 
