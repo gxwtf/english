@@ -531,16 +531,6 @@ function layoutWordbookEntry(pdf: jsPDF, word: Word, index: number, columnWidth:
 
   lines.push(...wrapWordbookRuns(pdf, headRuns, columnWidth, 0, WORDBOOK_VECTOR.wordLineHeight));
 
-  if (word.tags.length > 0) {
-    lines.push(...wrapWordbookRuns(
-      pdf,
-      textRuns(`标签：${word.tags.join(' / ')}`, WORDBOOK_VECTOR.tagSize),
-      columnWidth,
-      bodyIndent,
-      WORDBOOK_VECTOR.tagLineHeight,
-    ));
-  }
-
   const meanings = mergeWordMeanings(word.meanings);
   if (meanings.length > 0) {
     for (const meaning of meanings) {
