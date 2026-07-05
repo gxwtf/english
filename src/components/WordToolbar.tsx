@@ -9,7 +9,7 @@ import {
   Sparkles,
   Trash2,
   Search,
-  Settings,
+  Layers,
   Tag,
   FileDown,
   Loader2
@@ -323,7 +323,7 @@ export const WordToolbar = ({
               disabled={!canBatchOperate}
               className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             >
-              <Settings className="h-4 w-4 mr-2" />
+              <Layers className="h-4 w-4 mr-2" />
               <span className="hidden lg:inline">批量操作</span>
               {canBatchOperate && (
                 <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs bg-white/20 text-white backdrop-blur-sm">
@@ -408,7 +408,7 @@ export const WordToolbar = ({
             onClick={() => setShowTagEditModal(true)}
             className="h-9 text-sm whitespace-nowrap"
           >
-            <Settings className="h-4 w-4 mr-2" />
+            <Tag className="h-4 w-4 mr-2" />
             <span className="hidden lg:inline">标签管理</span>
           </Button>
         </div>
@@ -586,7 +586,7 @@ export const WordToolbar = ({
               className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               aria-label="批量操作"
             >
-              <Settings className="h-4 w-4" />
+              <Layers className="h-4 w-4" />
               {canBatchOperate && (
                 <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-white/20 text-white backdrop-blur-sm">
                   {selectedWordIds.length}
@@ -671,7 +671,7 @@ export const WordToolbar = ({
             className="h-9 px-2 text-xs whitespace-nowrap"
             aria-label="标签管理"
           >
-            <Settings className="h-4 w-4" />
+            <Tag className="h-4 w-4" />
           </Button>
         </div>
       </div>
