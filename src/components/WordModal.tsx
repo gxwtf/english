@@ -555,13 +555,15 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                                     >
                                       <Pencil className="h-3.5 w-3.5" />
                                     </button>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); deleteMeaning(index); }}
-                                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                                      title="删除"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
+                                    {meaning.type === '自定义' && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); deleteMeaning(index); }}
+                                        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                        title="删除"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
                                   </>
                                 )}
                                 {isSelected && !isEditing && (

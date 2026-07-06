@@ -137,6 +137,11 @@ async function doGenerateFillBlank(
   if (wordData.length === 0) {
     throw new Error('所选单词不存在');
   }
+  // 检查至少有一些单词含有释义，避免无意义消耗 AI 配额
+  const wordsWithMeanings = wordData.filter((w: any) => w.meanings && Array.isArray(w.meanings) && w.meanings.length > 0);
+  if (wordsWithMeanings.length === 0) {
+    throw new Error('选中的单词均无释义数据，请先为单词添加释义后再出题');
+  }
 
   const randomTool = {
     type: 'function' as const,
