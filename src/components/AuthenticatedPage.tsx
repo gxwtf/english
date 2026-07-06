@@ -30,6 +30,7 @@ import {
 } from '@/actions/ai-question';
 import { selectWordsForQuestion, type RelatedWordEntry } from '@/lib/word-selection';
 import { generateWordbookPdf } from '@/lib/pdf-generator';
+import { fuzzySearchWords } from '@/lib/word-search';
 import { useRouter } from 'next/navigation';
 
 interface AuthenticatedPageProps {
@@ -181,10 +182,8 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     let filtered = words;
 
     // 搜索筛选
-    if (searchTerm) {
-      filtered = filtered.filter(word =>
-        word.text.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    if (searchTerm.trim()) {
+      filtered = fuzzySearchWords(filtered, searchTerm, allTagConfigs);
     }
 
     // 标签筛选
@@ -208,7 +207,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     }
 
     return filtered;
-  }, [words, searchTerm, filterTags, filterLogic, sortBy]);
+  }, [words, searchTerm, filterTags, filterLogic, sortBy, allTagConfigs]);
 
   const handleToggleSelect = (id: number) => {
     setSelectedWordIds(prev =>
