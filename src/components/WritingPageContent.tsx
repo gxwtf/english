@@ -351,9 +351,10 @@ export function WritingPageContent() {
       <BatchTagModal
         isOpen={showBatchTagModal}
         onClose={() => setShowBatchTagModal(false)}
-        onUpdateTags={handleBatchTagUpdate}
+        onSave={handleBatchTagUpdate}
         selectedCount={selectedIds.length}
-        currentTags={allTagConfigs}
+        allTagConfigs={allTagConfigs}
+        onTagsUpdate={handleTagConfigUpdate}
       />
     </div>
   );

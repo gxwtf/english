@@ -777,7 +777,7 @@ export async function generateWordbookPdf(words: Word[]): Promise<void> {
 export interface WritingEntryPdf {
   id: number;
   content: string;
-  note: string | null;
+  note?: string | null;
   tags: string[];
   createdAt: Date;
   updatedAt: Date;
