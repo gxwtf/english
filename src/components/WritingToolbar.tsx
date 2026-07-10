@@ -1,49 +1,43 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   CheckSquare,
   SortAsc,
   List,
   Filter,
-  Sparkles,
   Trash2,
   Search,
   Layers,
   Tag,
-  FileDown,
-  Loader2
+  FileDown
 } from 'lucide-react';
-import { WordTag, TagConfig } from '@/types/word';
-import { COLOR_PRESETS } from '@/constants/word-tags';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { BatchTagModal } from '@/components/BatchTagModal';
+import { COLOR_PRESETS } from '@/constants/word-tags';
+import type { TagConfig, WordTag } from '@/types/word';
 
-interface WordToolbarProps {
-  selectedWordIds: number[];
-  allWordIds: number[];
+interface WritingToolbarProps {
+  selectedEntryIds: number[];
+  allEntryIds: number[];
   sortBy: 'default' | 'alphabet';
-  filterTags: WordTag[];
+  filterTags: string[];
   filterLogic: 'and' | 'or';
   searchTerm: string;
   allTagConfigs: Record<WordTag, TagConfig>;
   onToggleSelectAll: () => void;
   onSort: (sort: 'default' | 'alphabet') => void;
-  onFilterChange: (tags: WordTag[], logic: 'and' | 'or') => void;
-  onTagConfigsUpdate: (newConfigs: Record<WordTag, TagConfig>) => void;
-  onAIGenerate: () => void;
-  onExportSelected: () => void;
+  onFilterChange: (tags: string[], logic: 'and' | 'or') => void;
   onDeleteSelected: () => void;
-  isExportingSelected?: boolean;
   onSearchChange: (term: string) => void;
-  onSetTags: (tags: WordTag[]) => void;
+  onSetTags: () => void;
+  onExportPdf: () => void;
 }
 
-export const WordToolbar = ({
-  selectedWordIds,
-  allWordIds,
+export const WritingToolbar = ({
+  selectedEntryIds,
+  allEntryIds,
   sortBy,
   filterTags,
   filterLogic,
@@ -52,74 +46,44 @@ export const WordToolbar = ({
   onToggleSelectAll,
   onSort,
   onFilterChange,
-  onTagConfigsUpdate,
-  onAIGenerate,
-  onExportSelected,
   onDeleteSelected,
   onSearchChange,
   onSetTags,
-  isExportingSelected = false
-}: WordToolbarProps) => {
+  onExportPdf,
+}: WritingToolbarProps) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showBatchDropdown, setShowBatchDropdown] = useState(false);
-  const [showBatchTagModal, setShowBatchTagModal] = useState(false);
 
   // 点击外部关闭下拉框
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
-
-      // 查找所有可能的下拉框（桌面端和移动端）
       const dropdowns = document.querySelectorAll('[data-filter-dropdown-inner], [data-batch-dropdown-inner]');
-
-      // 检查点击是否在任意一个下拉框内部
       const isInDropdown = Array.from(dropdowns).some(dropdown =>
         dropdown.contains(target as Element)
       );
+      if (isInDropdown) return;
 
-      // 如果点击的是下拉框内部，不关闭
-      if (isInDropdown) {
-        return;
-      }
-
-      // 如果点击的是筛选按钮，不关闭（让按钮的 onClick 处理）
       const filterButton = document.querySelector('[data-filter-button]');
-      if (filterButton && filterButton.contains(target as Element)) {
-        return;
-      }
+      if (filterButton && filterButton.contains(target as Element)) return;
 
-      // 如果点击的是批量操作按钮，不关闭（让按钮的 onClick 处理）
       const batchButton = document.querySelector('[data-batch-button]');
-      if (batchButton && batchButton.contains(target as Element)) {
-        return;
-      }
+      if (batchButton && batchButton.contains(target as Element)) return;
 
-      // 点击外部关闭下拉框
       setShowFilterDropdown(false);
       setShowBatchDropdown(false);
     };
 
-    // 在捕获阶段监听，这样可以在事件被 React 处理前先拦截
     document.addEventListener('click', handleClickOutside, true);
     return () => {
       document.removeEventListener('click', handleClickOutside, true);
     };
   }, []);
 
-  const isAllSelected = selectedWordIds.length === allWordIds.length && allWordIds.length > 0;
-  const canBatchOperate = selectedWordIds.length > 0;
+  const isAllSelected = selectedEntryIds.length === allEntryIds.length && allEntryIds.length > 0;
+  const canBatchOperate = selectedEntryIds.length > 0;
 
-  const handleOpenBatchTagModal = () => {
-    setShowBatchDropdown(false);
-    setShowBatchTagModal(true);
-  };
-
-  const filteredAndSortedWords = useMemo(() => {
-    // 这里会在主组件中实现
-    return [];
-  }, []);
-
-  const handleTagToggle = (tag: WordTag, event?: React.MouseEvent | React.ChangeEvent<HTMLInputElement>) => {
+  const handleTagToggle = (tag: string, event?: React.MouseEvent | React.ChangeEvent<HTMLInputElement>) => {
     if (event) {
       event.stopPropagation();
     }
@@ -131,10 +95,6 @@ export const WordToolbar = ({
 
   const handleFilterLogicToggle = () => {
     onFilterChange(filterTags, filterLogic === 'and' ? 'or' : 'and');
-  };
-
-  const handleTagConfigUpdate = (newTagConfigs: Record<WordTag, TagConfig>) => {
-    onTagConfigsUpdate(newTagConfigs);
   };
 
   return (
@@ -206,67 +166,51 @@ export const WordToolbar = ({
             {showFilterDropdown && (
               <div className="absolute top-full left-0 mt-2 w-64 sm:w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                 <div className="p-3 sm:p-4" data-filter-dropdown-inner onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                                   <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">
                     选择标签筛选
                   </p>
 
                   <div className="space-y-2 mb-4">
-                    {(Object.keys(allTagConfigs) as WordTag[]).map(tag => {
-                      const tagConfig = allTagConfigs[tag];
-                      if (!tagConfig) return null;
-                      const inputId = `tag-filter-${tag}`;
-                      return (
-                        <div
-                          key={tag}
-                          className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                          }}
-                          onPointerDown={(e) => {
-                            e.stopPropagation();
-                          }}
-                        >
-                          <input
-                            id={inputId}
-                            type="checkbox"
-                            checked={filterTags.includes(tag)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onPointerDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onChange={(e) => {
-                              handleTagToggle(tag, e);
-                            }}
-                            className="rounded border-gray-300 dark:border-gray-600"
-                          />
-                          <label
-                            htmlFor={inputId}
-                            className="flex items-center cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onPointerDown={(e) => {
-                              e.stopPropagation();
-                            }}
+                    {Object.keys(allTagConfigs).length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">暂无标签</p>
+                    ) : (
+                      Object.keys(allTagConfigs).map(tag => {
+                        const tagConfig = allTagConfigs[tag];
+                        if (!tagConfig) return null;
+                        const inputId = `tag-filter-${tag}`;
+                        return (
+                          <div
+                            key={tag}
+                            className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
                           >
-                            <span className={`${COLOR_PRESETS.find(c => c.id === tagConfig.colorId)?.className || 'bg-gray-200'} text-sm px-2 py-1 rounded-full`}>
-                              {tagConfig.name}
-                            </span>
-                          </label>
-                        </div>
-                      );
-                    })}
+                            <input
+                              id={inputId}
+                              type="checkbox"
+                              checked={filterTags.includes(tag)}
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onChange={(e) => handleTagToggle(tag, e)}
+                              className="rounded border-gray-300 dark:border-gray-600"
+                            />
+                            <label
+                              htmlFor={inputId}
+                              className="flex items-center cursor-pointer"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
+                            >
+                              <span className={`${COLOR_PRESETS.find(c => c.id === tagConfig.colorId)?.className || 'bg-gray-200'} text-sm px-2 py-1 rounded-full`}>
+                                {tagConfig.name}
+                              </span>
+                            </label>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -281,9 +225,7 @@ export const WordToolbar = ({
                         e.stopPropagation();
                         handleFilterLogicToggle();
                       }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
                       className="text-xs"
                     >
                       {filterLogic === 'and' ? '全部满足' : '任一满足'}
@@ -298,11 +240,11 @@ export const WordToolbar = ({
         {/* 右侧：搜索和功能按钮 */}
         <div className="flex items-center gap-2">
           <div className="relative">
-            <label htmlFor="word-search" className="sr-only">搜索单词</label>
+            <label htmlFor="writing-search" className="sr-only">搜索内容</label>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              id="word-search"
-              placeholder="搜索单词..."
+              id="writing-search"
+              placeholder="搜索内容..."
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
               className="pl-10 w-40 h-9"
@@ -325,7 +267,7 @@ export const WordToolbar = ({
               <span className="hidden lg:inline">批量操作</span>
               {canBatchOperate && (
                 <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs bg-white/20 text-white backdrop-blur-sm">
-                  {selectedWordIds.length}
+                  {selectedEntryIds.length}
                 </Badge>
               )}
             </Button>
@@ -333,45 +275,27 @@ export const WordToolbar = ({
             {showBatchDropdown && (
               <div className="absolute top-full right-0 mt-2 w-64 sm:w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                 <div className="p-3 sm:p-4" data-batch-dropdown-inner onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                  {/* AI 出题选项 */}
+                  {/* 导出PDF选项 */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowBatchDropdown(false);
-                      onAIGenerate();
+                      onExportPdf();
                     }}
                     className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     onMouseDown={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <Sparkles className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm">AI 出题</span>
+                    <FileDown className="h-4 w-4 text-green-600" />
+                    <span className="text-sm">导出PDF</span>
                   </button>
 
-                  {/* 导出选中选项 */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowBatchDropdown(false);
-                      onExportSelected();
-                    }}
-                    disabled={isExportingSelected}
-                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    {isExportingSelected ? (
-                      <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-                    ) : (
-                      <FileDown className="h-4 w-4 text-blue-600" />
-                    )}
-                    <span className="text-sm">{isExportingSelected ? '导出中...' : '导出 PDF'}</span>
-                  </button>
                   {/* 设置标签选项 */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleOpenBatchTagModal();
+                      setShowBatchDropdown(false);
+                      onSetTags();
                     }}
                     className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     onMouseDown={(e) => e.stopPropagation()}
@@ -464,62 +388,46 @@ export const WordToolbar = ({
                   </p>
 
                   <div className="space-y-2 mb-4">
-                    {(Object.keys(allTagConfigs) as WordTag[]).map(tag => {
-                      const tagConfig = allTagConfigs[tag];
-                      if (!tagConfig) return null;
-                      const inputId = `tag-filter-${tag}`;
-                      return (
-                        <div
-                          key={tag}
-                          className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                          }}
-                          onPointerDown={(e) => {
-                            e.stopPropagation();
-                          }}
-                        >
-                          <input
-                            id={inputId}
-                            type="checkbox"
-                            checked={filterTags.includes(tag)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onPointerDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onChange={(e) => {
-                              handleTagToggle(tag, e);
-                            }}
-                            className="rounded border-gray-300 dark:border-gray-600"
-                          />
-                          <label
-                            htmlFor={inputId}
-                            className="flex items-center cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onPointerDown={(e) => {
-                              e.stopPropagation();
-                            }}
+                    {Object.keys(allTagConfigs).length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">暂无标签</p>
+                    ) : (
+                      Object.keys(allTagConfigs).map(tag => {
+                        const tagConfig = allTagConfigs[tag];
+                        if (!tagConfig) return null;
+                        const inputId = `tag-filter-mobile-${tag}`;
+                        return (
+                          <div
+                            key={tag}
+                            className="flex items-center space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
                           >
-                            <span className={`${COLOR_PRESETS.find(c => c.id === tagConfig.colorId)?.className || 'bg-gray-200'} text-sm px-2 py-1 rounded-full`}>
-                              {tagConfig.name}
-                            </span>
-                          </label>
-                        </div>
-                      );
-                    })}
+                            <input
+                              id={inputId}
+                              type="checkbox"
+                              checked={filterTags.includes(tag)}
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onChange={(e) => handleTagToggle(tag, e)}
+                              className="rounded border-gray-300 dark:border-gray-600"
+                            />
+                            <label
+                              htmlFor={inputId}
+                              className="flex items-center cursor-pointer"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
+                            >
+                              <span className={`${COLOR_PRESETS.find(c => c.id === tagConfig.colorId)?.className || 'bg-gray-200'} text-sm px-2 py-1 rounded-full`}>
+                                {tagConfig.name}
+                              </span>
+                            </label>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -534,9 +442,7 @@ export const WordToolbar = ({
                         e.stopPropagation();
                         handleFilterLogicToggle();
                       }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
                       className="text-xs"
                     >
                       {filterLogic === 'and' ? '全部满足' : '任一满足'}
@@ -550,11 +456,11 @@ export const WordToolbar = ({
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-0">
-            <label htmlFor="word-search-mobile" className="sr-only">搜索单词</label>
+            <label htmlFor="writing-search-mobile" className="sr-only">搜索内容</label>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              id="word-search-mobile"
-              placeholder="搜索单词..."
+              id="writing-search-mobile"
+              placeholder="搜索内容..."
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
               className="pl-10 w-full h-9"
@@ -577,7 +483,7 @@ export const WordToolbar = ({
               <Layers className="h-4 w-4" />
               {canBatchOperate && (
                 <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-white/20 text-white backdrop-blur-sm">
-                  {selectedWordIds.length}
+                  {selectedEntryIds.length}
                 </Badge>
               )}
             </Button>
@@ -585,45 +491,27 @@ export const WordToolbar = ({
             {showBatchDropdown && (
               <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 max-h-80 overflow-y-auto">
                 <div className="p-3" data-batch-dropdown-inner onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                  {/* AI 出题选项 */}
+                  {/* 导出PDF选项 */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowBatchDropdown(false);
-                      onAIGenerate();
+                      onExportPdf();
                     }}
                     className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     onMouseDown={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <Sparkles className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm">AI 出题</span>
+                    <FileDown className="h-4 w-4 text-green-600" />
+                    <span className="text-sm">导出PDF</span>
                   </button>
 
-                  {/* 导出选中选项 */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowBatchDropdown(false);
-                      onExportSelected();
-                    }}
-                    disabled={isExportingSelected}
-                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    {isExportingSelected ? (
-                      <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-                    ) : (
-                      <FileDown className="h-4 w-4 text-blue-600" />
-                    )}
-                    <span className="text-sm">{isExportingSelected ? '导出中...' : '导出 PDF'}</span>
-                  </button>
                   {/* 设置标签选项 */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleOpenBatchTagModal();
+                      setShowBatchDropdown(false);
+                      onSetTags();
                     }}
                     className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                     onMouseDown={(e) => e.stopPropagation()}
@@ -653,16 +541,6 @@ export const WordToolbar = ({
           </div>
         </div>
       </div>
-
-      {/* 批量设置标签弹窗 */}
-      <BatchTagModal
-        isOpen={showBatchTagModal}
-        onClose={() => setShowBatchTagModal(false)}
-        onSave={onSetTags}
-        selectedCount={selectedWordIds.length}
-        allTagConfigs={allTagConfigs}
-        onTagsUpdate={onTagConfigsUpdate}
-      />
     </div>
   );
 };

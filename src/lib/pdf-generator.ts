@@ -774,6 +774,125 @@ export async function generateWordbookPdf(words: Word[]): Promise<void> {
   pdf.save(`广学英语单词本_${formatFilenameDate()}.pdf`);
 }
 
+export interface WritingEntryPdf {
+  id: number;
+  content: string;
+  note: string | null;
+  tags: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export async function generateWritingEntriesPdf(entries: WritingEntryPdf[]): Promise<void> {
+  if (entries.length === 0) return;
+
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+    putOnlyUsedFonts: true,
+    compress: true,
+  });
+
+  await registerWordbookFonts(pdf);
+  pdf.setProperties({
+    title: '广学英语作文积累本',
+    subject: '作文积累本',
+    creator: '广学英语',
+  });
+
+  const columnWidth = wordbookColumnWidth();
+  const layouts = entries.map((entry, index) => layoutWritingEntry(pdf, entry, index + 1, columnWidth));
+  const pages = paginateWordbookEntries(layouts);
+
+  for (let i = 0; i < pages.length; i++) {
+    if (i > 0) {
+      pdf.addPage();
+    }
+    drawWritingEntriesPage(pdf, pages[i], i, pages.length, entries.length);
+  }
+
+  pdf.save(`广学英语作文积累本_${formatFilenameDate()}.pdf`);
+}
+
+function layoutWritingEntry(pdf: jsPDF, entry: WritingEntryPdf, index: number, columnWidth: number): WordbookEntryLayout {
+  const lines: WordbookLine[] = [];
+  const bodyIndent = 8.7;
+
+  // 标题：序号 + 内容
+  const headRuns: WordbookTextRun[] = [
+    { text: `${index}. `, font: WORDBOOK_FONT.timesName, style: 'normal', size: WORDBOOK_VECTOR.indexSize },
+    ...textRuns(entry.content, WORDBOOK_VECTOR.wordSize, 'bold'),
+  ];
+  lines.push(...wrapWordbookRuns(pdf, headRuns, columnWidth, 0, WORDBOOK_VECTOR.wordLineHeight));
+
+  // 备注（如果有）
+  if (entry.note && entry.note.trim()) {
+    const noteRuns = textRuns(entry.note, WORDBOOK_VECTOR.bodySize);
+    lines.push(...wrapWordbookRuns(pdf, noteRuns, columnWidth, bodyIndent, WORDBOOK_VECTOR.bodyLineHeight));
+  }
+
+  // 标签（如果有）
+  if (entry.tags.length > 0) {
+    const tags = entry.tags.join('、');
+    const tagRuns = textRuns(`标签：${tags}`, WORDBOOK_VECTOR.tagSize);
+    lines.push(...wrapWordbookRuns(pdf, tagRuns, columnWidth, bodyIndent, WORDBOOK_VECTOR.tagLineHeight));
+  }
+
+  const textHeight = lines.reduce((sum, line) => sum + line.lineHeight, 0);
+  return {
+    lines,
+    height: WORDBOOK_VECTOR.entryPaddingTop + textHeight + WORDBOOK_VECTOR.entryPaddingBottom,
+  };
+}
+
+function drawWritingEntriesPage(pdf: jsPDF, page: WordbookPageLayout, pageIndex: number, totalPages: number, totalEntries: number): void {
+  // 绘制标题和页码
+  pdf.setDrawColor(0);
+  pdf.setLineWidth(0.35);
+  pdf.line(MARGIN_MM, WORDBOOK_VECTOR.headerBottomY, A4_WIDTH_MM - MARGIN_MM, WORDBOOK_VECTOR.headerBottomY);
+
+  pdf.setTextColor(0);
+  pdf.setFont(WORDBOOK_FONT.simsunName, 'normal');
+  pdf.setFontSize(18);
+  pdf.text('作文积累本', MARGIN_MM, MARGIN_MM + 7.2);
+
+  const metaRuns = [
+    ...textRuns(`共 ${totalEntries} 条 · 第 `, 10),
+    { text: `${pageIndex + 1} / ${totalPages}`, font: WORDBOOK_FONT.timesName, style: 'bold' as const, size: 10 },
+    ...textRuns(' 页', 10),
+  ];
+  const metaWidth = metaRuns.reduce((sum, run) => sum + measureRun(pdf, run), 0);
+  let x = A4_WIDTH_MM - MARGIN_MM - metaWidth;
+  const y = MARGIN_MM + 6.8;
+  for (const run of metaRuns) {
+    setWordbookFont(pdf, run);
+    pdf.text(run.text, x, y);
+    x += measureRun(pdf, run);
+  }
+
+  // 绘制内容
+  for (let columnIndex = 0; columnIndex < page.length; columnIndex++) {
+    const entries = page[columnIndex];
+    const x = MARGIN_MM + columnIndex * (wordbookColumnWidth() + WORDBOOK_VECTOR.columnGap);
+    let y = WORDBOOK_VECTOR.contentTopY;
+
+    for (const entry of entries) {
+      y += WORDBOOK_VECTOR.entryPaddingTop;
+      for (const line of entry.layout.lines) {
+        const baselineY = y + line.lineHeight * 0.73;
+        drawWordbookLine(pdf, line, x, baselineY);
+        y += line.lineHeight;
+      }
+      y += WORDBOOK_VECTOR.entryPaddingBottom - 0.8;
+      pdf.setDrawColor(225);
+      pdf.setLineWidth(0.15);
+      pdf.line(x, y, x + wordbookColumnWidth(), y);
+      y += 0.8;
+    }
+  }
+}
+
 export async function generatePdf(questionsData: PdfQuestionData[]): Promise<void> {
   const pdf = new jsPDF({
     orientation: 'portrait',

@@ -1,7 +1,9 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { getIronSession } from 'iron-session';
 import { prisma } from '@/lib/db';
+import { sessionOptions, SessionData } from '@/lib/iron';
 
 export interface UserInfo {
   userId: number;
@@ -11,47 +13,43 @@ export interface UserInfo {
   realName?: string;
 }
 
-async function getUserFromCookie(): Promise<UserInfo> {
-  const cookieStore = await cookies();
-  const authCookie = cookieStore.get('gxwtf_auth');
-  if (!authCookie) throw new Error('未登录');
-  try {
-    const userInfo = JSON.parse(authCookie.value);
-    return { userId: userInfo.userId, userName: userInfo.userName, admin: userInfo.admin, email: userInfo.email, realName: userInfo.realName };
-  } catch {
-    throw new Error('未登录');
-  }
+async function getSession() {
+  return getIronSession<SessionData>(await cookies(), sessionOptions);
 }
 
 export async function verifyAuth() {
   try {
-    const user = await getUserFromCookie();
+    const session = await getSession();
+
+    if (!session.isLoggedIn || !session.userId) {
+      return { loggedIn: false };
+    }
 
     // 自动创建或更新用户到数据库
     await prisma.user.upsert({
-      where: { userId: user.userId },
+      where: { userId: session.userId },
       update: {
-        userName: user.userName,
-        admin: user.admin,
-        email: user.email,
-        realName: user.realName,
+        userName: session.userName ?? '',
+        admin: session.admin ?? 0,
+        email: session.email,
+        realName: session.realName,
       },
       create: {
-        userId: user.userId,
-        userName: user.userName,
-        admin: user.admin,
-        email: user.email,
-        realName: user.realName,
+        userId: session.userId,
+        userName: session.userName ?? '',
+        admin: session.admin ?? 0,
+        email: session.email,
+        realName: session.realName,
       },
     });
 
     return {
       loggedIn: true,
-      userId: user.userId,
-      userName: user.userName,
-      admin: user.admin,
-      email: user.email,
-      realName: user.realName,
+      userId: session.userId,
+      userName: session.userName,
+      admin: session.admin,
+      email: session.email,
+      realName: session.realName,
     };
   } catch {
     return { loggedIn: false };
@@ -59,35 +57,33 @@ export async function verifyAuth() {
 }
 
 export async function logout() {
-  const cookieStore = await cookies();
-  cookieStore.set('gxwtf_auth', '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 0,
-    path: '/',
-  });
+  const session = await getSession();
+  session.destroy();
   return { success: true };
 }
 
 export async function createUser() {
   try {
-    const user = await getUserFromCookie();
+    const session = await getSession();
+
+    if (!session.isLoggedIn || !session.userId) {
+      return { success: false, error: '未登录' };
+    }
 
     const created = await prisma.user.upsert({
-      where: { userId: user.userId },
+      where: { userId: session.userId },
       update: {
-        userName: user.userName,
-        admin: user.admin || 0,
-        email: user.email,
-        realName: user.realName,
+        userName: session.userName ?? '',
+        admin: session.admin ?? 0,
+        email: session.email,
+        realName: session.realName,
       },
       create: {
-        userId: user.userId,
-        userName: user.userName,
-        admin: user.admin || 0,
-        email: user.email,
-        realName: user.realName,
+        userId: session.userId,
+        userName: session.userName ?? '',
+        admin: session.admin ?? 0,
+        email: session.email,
+        realName: session.realName,
       },
     });
 
@@ -100,7 +96,19 @@ export async function createUser() {
 
 export async function getAuthUser(): Promise<UserInfo | null> {
   try {
-    return getUserFromCookie();
+    const session = await getSession();
+
+    if (!session.isLoggedIn || !session.userId) {
+      return null;
+    }
+
+    return {
+      userId: session.userId,
+      userName: session.userName ?? '',
+      admin: session.admin ?? 0,
+      email: session.email,
+      realName: session.realName,
+    };
   } catch {
     return null;
   }

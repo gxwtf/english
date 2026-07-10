@@ -8,18 +8,19 @@ datasource db {
 }
 
 model User {
-  id           Int             @id @default(autoincrement())
-  userId       Int             @unique
-  userName     String
-  admin        Int             @default(0)
-  email        String?
-  realName     String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  questions    QuestionQueue[]
-  relatedWords RelatedWord[]
-  tagConfigs   TagConfig[]
-  words        Word[]
+  id             Int               @id @default(autoincrement())
+  userId         Int               @unique
+  userName       String
+  admin          Int               @default(0)
+  email          String?
+  realName       String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  questions      QuestionQueue[]
+  relatedWords   RelatedWord[]
+  tagConfigs     TagConfig[]
+  words          Word[]
+  writingEntries WritingEntry[]
 }
 
 model Word {
@@ -52,13 +53,14 @@ model QuestionQueue {
 }
 
 model Tag {
-  id          Int       @id @default(autoincrement())
-  name        String    @unique
-  colorId     String    @default("blue")
-  description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  wordTags    WordTag[]
+  id               Int               @id @default(autoincrement())
+  name             String            @unique
+  colorId          String            @default("blue")
+  description      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  wordTags         WordTag[]
+  writingEntryTags WritingEntryTag[]
 }
 
 model WordTag {
@@ -123,4 +125,28 @@ enum QuestionStatus {
   FAILED
   GRADING
   GRADING_FAILED
+}
+
+model WritingEntry {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  content   String
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  tags      WritingEntryTag[]
+
+  @@index([userId])
+}
+
+model WritingEntryTag {
+  id             Int           @id @default(autoincrement())
+  writingEntryId Int
+  tagId          Int
+  createdAt      DateTime      @default(now())
+  tag            Tag           @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  writingEntry   WritingEntry  @relation(fields: [writingEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([writingEntryId, tagId])
 }

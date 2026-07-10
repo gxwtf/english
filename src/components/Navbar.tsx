@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, FileQuestion, LogOut, User } from 'lucide-react';
+import { BookOpen, FileQuestion, LogOut, User, Edit, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavbarProps {
-  currentPage: 'wordbook' | 'practice';
+  currentPage: 'wordbook' | 'practice' | 'writing' | 'settings';
 }
 
 export const Navbar = ({ currentPage }: NavbarProps) => {
@@ -38,6 +38,18 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
             </Link>
 
             <Link
+              href="/writing"
+              className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                currentPage === 'writing'
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">作文积累</span>
+            </Link>
+
+            <Link
               href="/practice"
               className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 currentPage === 'practice'
@@ -52,6 +64,17 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
             {/* 用户信息和登出 - 由于 SSR 限制，登出后需要刷新页面 */}
             {userInfo && (
               <div className="flex items-center space-x-2 sm:space-x-4 pl-2 sm:pl-4 border-l border-gray-200 dark:border-gray-700">
+                <Link
+                  href="/settings"
+                  className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                    currentPage === 'settings'
+                      ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+                      : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">设置</span>
+                </Link>
                 <div className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
                   <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   <span className="hidden sm:inline">{userInfo.userName}</span>
