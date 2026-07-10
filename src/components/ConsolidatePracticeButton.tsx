@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AIQuestionTypeSelector, type QuestionGenerationOptions } from '@/components/AIQuestionTypeSelector';
+import { Button } from '@/components/ui/button';
 import {
   enqueuePendingFillBlank,
   enqueuePendingTranslate,
@@ -128,14 +129,14 @@ export function ConsolidatePracticeButton({ wordIds, relatedWordEntries, disable
             点击下方按钮，选择其他题型继续练习本次涉及的单词
           </p>
         </div>
-        <button
+        <Button
           onClick={() => setShowSelector(true)}
           disabled={disabled}
-          className="w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-xl transition-all shadow-md hover:shadow-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-xl shadow-md hover:shadow-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed h-auto"
         >
           <GraduationCap className="h-5 w-5" />
           巩固练习
-        </button>
+        </Button>
       </div>
 
       <AIQuestionTypeSelector

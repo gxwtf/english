@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Type, ListFilter, PenLine, Languages, CreditCard } from 'lucide-react';
+import { BookOpen, Type, ListFilter, PenLine, Languages, CreditCard, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import type { QuestionType } from '@/types/word';
 import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions, DefinitionFillBlankOptions, WordSelectTranslateOptions, WordCardOptions } from '@/types/problem';
 
@@ -29,6 +33,51 @@ interface AIQuestionTypeSelectorProps {
   maxWords?: number;
   relatedWordsCount?: number;
 }
+
+const questionTypes = [
+  {
+    id: 'fill-blank' as const,
+    title: '选词填空',
+    description: '根据句子上下文，选择合适的单词填空',
+    icon: BookOpen,
+  },
+  {
+    id: 'translate' as const,
+    title: '翻译句子',
+    description: '将中文句子翻译成对应的英文',
+    icon: Type,
+  },
+  {
+    id: 'meaning-select' as const,
+    title: '英译中',
+    description: '从 4 个中文释义中选择正确的意思',
+    icon: ListFilter,
+  },
+  {
+    id: 'meaning-select-en' as const,
+    title: '英英释义',
+    description: '从 4 个英文释义中选择正确的意思',
+    icon: ListFilter,
+  },
+  {
+    id: 'definition-fill-blank' as const,
+    title: '词义填空',
+    description: '根据英文释义，从候选词中选出正确的单词',
+    icon: PenLine,
+  },
+  {
+    id: 'word-select-translate' as const,
+    title: '选词翻译句子',
+    description: '翻译中文句子，并使用指定的候选单词',
+    icon: Languages,
+  },
+  {
+    id: 'word-card' as const,
+    title: '单词卡片',
+    description: '生成单词卡片，点击翻转查看释义',
+    icon: CreditCard,
+  },
+];
 
 export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, relatedWordsCount }: AIQuestionTypeSelectorProps) => {
   const [selectedType, setSelectedType] = useState<QuestionType | null>(null);
@@ -159,53 +208,6 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
 
   const validationError = fillBlankValidationError || translateValidationError || meaningSelectValidationError || meaningSelectEnValidationError || definitionFillBlankValidationError || wordSelectTranslateValidationError;
 
-  if (!isOpen) return null;
-
-  const questionTypes = [
-    {
-      id: 'fill-blank' as const,
-      title: '选词填空',
-      description: '根据句子上下文，选择合适的单词填空',
-      icon: BookOpen,
-    },
-    {
-      id: 'translate' as const,
-      title: '翻译句子',
-      description: '将中文句子翻译成对应的英文',
-      icon: Type,
-    },
-    {
-      id: 'meaning-select' as const,
-      title: '英译中',
-      description: '从 4 个中文释义中选择正确的意思',
-      icon: ListFilter,
-    },
-    {
-      id: 'meaning-select-en' as const,
-      title: '英英释义',
-      description: '从 4 个英文释义中选择正确的意思',
-      icon: ListFilter,
-    },
-    {
-      id: 'definition-fill-blank' as const,
-      title: '词义填空',
-      description: '根据英文释义，从候选词中选出正确的单词',
-      icon: PenLine,
-    },
-    {
-      id: 'word-select-translate' as const,
-      title: '选词翻译句子',
-      description: '翻译中文句子，并使用指定的候选单词',
-      icon: Languages,
-    },
-    {
-      id: 'word-card' as const,
-      title: '单词卡片',
-      description: '生成单词卡片，点击翻转查看释义',
-      icon: CreditCard,
-    },
-  ];
-
   const handleGenerate = () => {
     if (!selectedType || validationError) return;
     const options: QuestionGenerationOptions = {
@@ -232,8 +234,8 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
         {/* 头部 */}
         <div className="flex items-center justify-between p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
@@ -249,36 +251,40 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
+          <Button variant="ghost" size="sm" onClick={onClose} className="p-2 h-9 w-9 shrink-0">
+            <X className="h-5 w-5" />
+          </Button>
         </div>
 
         {/* 内容区 - 题目类型选择 */}
-        <div className="p-6">
+        <div className="p-6 overflow-auto max-h-[calc(90vh-90px)]">
           {/* 通用选项 - 在题型选择之前展示 */}
           <div className="mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
             <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
               选项设置
             </h4>
             <label className="flex items-center gap-3 cursor-pointer select-none">
-              <input
-                type="checkbox"
+              <Checkbox
+                id="include-related-words"
                 checked={includeRelatedWords}
-                onChange={(e) => setIncludeRelatedWords(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 accent-green-600"
+                onCheckedChange={(checked) => setIncludeRelatedWords(!!checked)}
               />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
+              <label htmlFor="include-related-words" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                 包含这些词的关联词
-              </span>
+              </label>
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 — 关联词会以较低概率被随机抽取加入单词列表，AI 可考察其任意释义
                 {effectiveRelatedCount > 0 && `（当前有 ${effectiveRelatedCount} 个关联词可用）`}
+              </span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer select-none mt-3">
+              <Checkbox
+                id="allow-form-change"
+                checked={allowFormChange}
+                onCheckedChange={(checked) => setAllowFormChange(!!checked)}
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                允许改变形式
               </span>
             </label>
           </div>
@@ -288,31 +294,24 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
               const Icon = type.icon;
               const isSelected = selectedType === type.id;
               return (
-                <button
+                <Button
                   key={type.id}
                   onClick={() => setSelectedType(type.id)}
-                  className={`group flex items-center gap-3 p-3 rounded-xl border-2 transition-all duration-200 ${
-                    isSelected
-                      ? 'border-green-500 dark:border-green-400 bg-green-50 dark:bg-green-900/20 shadow-lg'
-                      : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-green-500 dark:hover:border-green-400 hover:shadow-lg'
-                  }`}
+                  variant={isSelected ? 'default' : 'outline'}
+                  className={`group flex items-center gap-3 p-3 rounded-xl h-auto w-full justify-start text-left ${isSelected ? 'border-green-500 dark:border-green-400 bg-green-50 dark:bg-green-900/20 shadow-lg' : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-green-500 dark:hover:border-green-400 hover:shadow-lg'}`}
                 >
                   <div className={`w-9 h-9 shrink-0 flex items-center justify-center rounded-lg transition-all duration-200 ${
                     isSelected
                       ? 'bg-green-500 dark:bg-green-600 text-white shadow-sm'
                       : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 group-hover:bg-green-200 dark:group-hover:bg-green-800/40'
                   }`}>
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-5 w-5" />
                   </div>
                   <div className="text-left min-w-0">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">
-                      {type.title}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-snug line-clamp-2">
-                      {type.description}
-                    </p>
+                    <div className="font-medium text-sm">{type.title}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{type.description}</div>
                   </div>
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -323,27 +322,12 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
               <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                 题目参数设置
               </h4>
-              {/* 允许改变形式 - 仅适用于选词填空 */}
-              <label className="flex items-center gap-3 cursor-pointer select-none mb-4">
-                <input
-                  type="checkbox"
-                  checked={allowFormChange}
-                  onChange={(e) => setAllowFormChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500 accent-green-600"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  允许改变形式
-                </span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  — 以一定概率允许单词变为不同形式（如不同时态、动词/名词形式等）
-                </span>
-              </label>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                    题目数量 n（需回答的句子数）
+                    题目数量 n
                   </label>
-                  <input
+                  <Input
                     type="text"
                     inputMode="numeric"
                     min={1}
@@ -351,23 +335,20 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                     value={questionN}
                     onChange={(e) => {
                       const val = e.target.value;
-                      // Allow empty string or valid positive integers
                       if (val === '') {
                         setQuestionN('');
                       } else if (/^\d+$/.test(val)) {
                         const numVal = Math.max(1, Math.min(11, parseInt(val) || 1));
                         setQuestionN(numVal);
                       }
-                      // Ignore invalid input (non-numeric characters)
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                     干扰词数量 m（多余单词数）
                   </label>
-                  <input
+                  <Input
                     type="text"
                     inputMode="numeric"
                     min={0}
@@ -375,16 +356,13 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                     value={questionM}
                     onChange={(e) => {
                       const val = e.target.value;
-                      // Allow empty string or valid non-negative integers
                       if (val === '') {
                         setQuestionM('');
                       } else if (/^\d+$/.test(val)) {
                         const numVal = Math.max(0, Math.min(11, parseInt(val) || 0));
                         setQuestionM(numVal);
                       }
-                      // Ignore invalid input (non-numeric characters)
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -410,7 +388,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                   题目数量 n
                 </label>
-                <input
+                <Input
                   type="text"
                   inputMode="numeric"
                   min={1}
@@ -418,16 +396,13 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   value={translateN ?? ''}
                   onChange={(e) => {
                     const val = e.target.value;
-                    // 空输入时设置为空字符串，有效数字输入时解析为数字
                     if (val === '') {
                       setTranslateN('');
                     } else if (/^\d+$/.test(val)) {
                       const numVal = parseInt(val) || 1;
                       setTranslateN(numVal);
                     }
-                    // 忽略无效输入（非数字字符）
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
                 {translateValidationError && (
                   <p className="text-xs text-red-500 mt-1">{translateValidationError}</p>
@@ -449,7 +424,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                   题目数量 n
                 </label>
-                <input
+                <Input
                   type="text"
                   inputMode="numeric"
                   min={1}
@@ -464,7 +439,6 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                       setMeaningSelectN(numVal);
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
                 {meaningSelectValidationError && (
                   <p className="text-xs text-red-500 mt-1">{meaningSelectValidationError}</p>
@@ -486,7 +460,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                   题目数量 n
                 </label>
-                <input
+                <Input
                   type="text"
                   inputMode="numeric"
                   min={1}
@@ -501,7 +475,6 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                       setMeaningSelectEnN(numVal);
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
                 {meaningSelectEnValidationError && (
                   <p className="text-xs text-red-500 mt-1">{meaningSelectEnValidationError}</p>
@@ -524,7 +497,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                     题目数量 n（需回答的释义数）
                   </label>
-                  <input
+                  <Input
                     type="text"
                     inputMode="numeric"
                     min={1}
@@ -539,14 +512,13 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                         setDefinitionFillBlankN(numVal);
                       }
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                     干扰词数量 m（多余单词数）
                   </label>
-                  <input
+                  <Input
                     type="text"
                     inputMode="numeric"
                     min={0}
@@ -561,7 +533,6 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                         setDefinitionFillBlankM(numVal);
                       }
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -585,7 +556,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                     题目数量 n（需回答的句子数）
                   </label>
-                  <input
+                  <Input
                     type="text"
                     inputMode="numeric"
                     min={1}
@@ -600,14 +571,13 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                         setWordSelectTranslateN(numVal);
                       }
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
                     干扰词数量 m（多余单词数）
                   </label>
-                  <input
+                  <Input
                     type="text"
                     inputMode="numeric"
                     min={0}
@@ -622,7 +592,6 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                         setWordSelectTranslateM(numVal);
                       }
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -653,14 +622,10 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
 
           {/* 生成按钮 */}
           {selectedType && (
-            <button
+            <Button
               onClick={handleGenerate}
               disabled={!!validationError}
-              className={`mt-4 w-full py-3 font-semibold rounded-xl transition-all duration-200 shadow-md hover:shadow-lg ${
-                validationError
-                  ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'
-              }`}
+              className={`mt-4 w-full py-3 font-semibold rounded-xl shadow-md hover:shadow-lg h-auto ${validationError ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'}`}
             >
               {selectedType === 'fill-blank'
                 ? `生成选词填空（${typeof questionN === 'number' ? questionN : 0} 道小题，${typeof questionM === 'number' ? questionM : 0} 个干扰词）`
@@ -675,10 +640,10 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                         : selectedType === 'word-card'
                           ? `生成单词卡片（${effectiveMaxWords} 张）`
                           : `生成翻译句子题目（${typeof translateN === 'number' ? translateN : 0} 道小题）`}
-            </button>
+            </Button>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

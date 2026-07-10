@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { WordModal } from '@/components/WordModal';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag, TagConfig, RelatedWord } from '@/types/word';
@@ -271,8 +272,6 @@ export const BatchAddWord = ({
     setTimeout(() => textareaRef.current?.focus(), 100);
   };
 
-  if (!isOpen) return null;
-
   const successCount = items.filter((i) => i.status === 'success').length;
   const failedCount = items.filter((i) => i.status === 'failed').length;
   const skippedCount = items.filter((i) => i.status === 'skipped').length;
@@ -300,8 +299,8 @@ export const BatchAddWord = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-3 sm:p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
           {/* Header */}
           <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-emerald-50 dark:bg-gray-700">
             <div className="flex items-center gap-3 min-w-0">
@@ -329,7 +328,7 @@ export const BatchAddWord = ({
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-auto p-5 space-y-4">
+          <div className="overflow-auto p-5 space-y-4 max-h-[calc(90vh-140px)]">
             {/* Input view */}
             {!hasStarted && (
               <>
@@ -541,8 +540,8 @@ export const BatchAddWord = ({
               </>
             )}
           </div>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
 
       {editingWordIndex !== null && editingWord && (
         <WordModal
@@ -564,7 +563,6 @@ export const BatchAddWord = ({
           allTagConfigs={allTagConfigs}
           onTagsUpdate={onTagsUpdate}
           onWordAdded={onWordAdded}
-          zIndex={70}
         />
       )}
     </>

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface WordModalProps {
   isOpen: boolean;
@@ -356,20 +357,16 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
 
   return (
     <>
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4" style={{ zIndex }}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
-        {/* 头部 */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 gap-2">
-          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate flex-1">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader>
+          <DialogTitle className="truncate">
             {initialWord ? '编辑单词' : '添加单词'}
-          </h2>
-          <Button variant="ghost" size="sm" onClick={onClose} className="flex-shrink-0">
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
         {/* 内容区 */}
-        <div className="flex-1 overflow-auto p-4 sm:p-6">
+        <div className="flex-1 overflow-auto">
           {/* 搜索单词 */}
           <div className="mb-4 sm:mb-6">
             <label htmlFor="word-search-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -392,13 +389,13 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
             </div>
             {!initialWord && (
               <div className="flex flex-col sm:flex-row gap-2">
-                <button
+                <Button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setShowPhotoRecognition(true);
                   }}
-                  className="group relative flex-1 cursor-pointer rounded-xl bg-purple-500 hover:bg-purple-600 active:scale-[0.98] pointer-events-auto px-4 py-3 text-white font-medium transition-all"
+                  className="flex-1 rounded-xl bg-purple-500 hover:bg-purple-600 active:scale-[0.98] px-4 py-3 text-white font-medium transition-all h-auto"
                 >
                   <div className="flex items-center justify-center gap-2">
                     <div className="flex items-center gap-2">
@@ -412,20 +409,18 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                       NEW
                     </span>
                   </div>
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     setShowBatchAdd(true);
                   }}
-                  className="group relative flex-1 cursor-pointer rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] pointer-events-auto px-4 py-3 text-white font-medium transition-all"
+                  className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] px-4 py-3 text-white font-medium transition-all h-auto"
                 >
-                  <div className="flex items-center justify-center gap-2">
-                    <ListPlus className="h-5 w-5" />
-                    <span>批量添加单词</span>
-                  </div>
-                </button>
+                  <ListPlus className="h-5 w-5" />
+                  <span>批量添加单词</span>
+                </Button>
               </div>
             )}
             {error && (
@@ -735,8 +730,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
           )}
         </div>
 
-        {/* 底部 */}
-        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 gap-3">
+        <DialogFooter className="flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-gray-200 dark:border-gray-700 pt-4 sm:pt-6">
           <div className="text-sm text-gray-500 dark:text-gray-400 text-center sm:text-left">
             {selectedMeanings.length > 0 && (
               <span>已选择 {selectedMeanings.length} 个释义</span>
@@ -754,9 +748,9 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
               保存
             </Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
       {showTagEditModal && (
         <TagEditModal
           isOpen={showTagEditModal}

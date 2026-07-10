@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { WordTag, TagConfig } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
 import { TagEditModal } from '@/components/TagEditModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface BatchTagModalProps {
   isOpen: boolean;
@@ -44,24 +45,15 @@ export const BatchTagModal = ({
     setSelectedTags([]);
   };
 
-  if (!isOpen) return null;
-
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4" style={{ zIndex: 50 }}>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
-          {/* 头部 */}
-          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
-              批量设置标签
-            </h2>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>批量设置标签</DialogTitle>
+          </DialogHeader>
 
-          {/* 内容区 */}
-          <div className="flex-1 overflow-auto p-4 sm:p-6">
+          <div className="flex-1 overflow-auto">
             <div className="mb-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 将为选中的 {selectedCount} 个单词设置标签
@@ -124,11 +116,9 @@ export const BatchTagModal = ({
                       className={`
                         ${
                           isSelected
-                            // 选中时保持原背景，添加蓝色边框
                             ? colorPreset
                               ? `${colorPreset.className} dark:bg-gray-800 dark:text-gray-300 ring-2 ring-blue-500 ring-offset-1 shadow-md`
                               : 'bg-blue-100 text-blue-800 border-blue-500 ring-2 ring-blue-500 ring-offset-1'
-                            // 未选中时使用浅色背景
                             : colorPreset
                               ? `${colorPreset.className} dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-opacity-80`
                               : 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-opacity-80'
@@ -145,8 +135,7 @@ export const BatchTagModal = ({
             </div>
           </div>
 
-          {/* 底部 */}
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 gap-3">
+          <DialogFooter className="flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="text-sm text-gray-500 dark:text-gray-400 text-center sm:text-left">
               {selectedTags.length > 0 ? (
                 <span>已选择 {selectedTags.length} 个标签</span>
@@ -165,9 +154,9 @@ export const BatchTagModal = ({
                 应用
               </Button>
             </div>
-          </div>
-        </div>
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showTagEditModal && (
         <TagEditModal

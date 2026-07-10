@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   CheckSquare,
   SortAsc,
@@ -113,11 +113,6 @@ export const WordToolbar = ({
     setShowBatchDropdown(false);
     setShowBatchTagModal(true);
   };
-
-  const filteredAndSortedWords = useMemo(() => {
-    // 这里会在主组件中实现
-    return [];
-  }, []);
 
   const handleTagToggle = (tag: WordTag, event?: React.MouseEvent | React.ChangeEvent<HTMLInputElement>) => {
     if (event) {

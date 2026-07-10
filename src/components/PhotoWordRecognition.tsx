@@ -5,6 +5,7 @@ import { X, AlertCircle, Minus, Plus, Sparkles, Image as ImageIcon, Zap, Chevron
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { WordModal } from '@/components/WordModal';
 import { recognizeWordsFromImage } from '@/actions/image-recognition';
 import { DictionaryEntry, Meaning } from '@/types/dict';
@@ -301,8 +302,6 @@ export const PhotoWordRecognition = ({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   const editingWord = editingWordIndex !== null ? recognizedWords[editingWordIndex] : null;
 
   return (
@@ -315,8 +314,8 @@ export const PhotoWordRecognition = ({
         className="hidden"
       />
 
-      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-3 sm:p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
           <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-amber-50 dark:bg-gray-700">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500">
@@ -332,7 +331,7 @@ export const PhotoWordRecognition = ({
             </Button>
           </div>
 
-          <div className="flex-1 overflow-auto p-5">
+          <div className="overflow-auto p-5 max-h-[calc(90vh-140px)]">
             {step === 'idle' && (
                 <div className="flex flex-col items-center justify-center py-16 gap-5">
                   <div className="relative">
@@ -386,10 +385,10 @@ export const PhotoWordRecognition = ({
                     </div>
                   )}
 
-                  <button
+                  <Button
                     onClick={handleRecognize}
                     disabled={loading}
-                    className="group relative w-full rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 active:scale-[0.98] px-6 py-3 text-white font-semibold transition-all"
+                    className="group relative w-full rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 active:scale-[0.98] px-6 py-3 text-white font-semibold transition-all h-auto"
                   >
                     <div className="flex items-center justify-center gap-2">
                       {loading ? (
@@ -405,7 +404,7 @@ export const PhotoWordRecognition = ({
                         </>
                       )}
                     </div>
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -449,13 +448,15 @@ export const PhotoWordRecognition = ({
                           <Brain className="h-4 w-4" />
                           识别详情
                         </div>
-                        <button
+                        <Button
                           onClick={() => setShowDetails(!showDetails)}
-                          className="text-xs text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+                          variant="link"
+                          size="sm"
+                          className="text-xs text-amber-600 dark:text-amber-400"
                         >
                           {showDetails ? '收起' : '展开'}
-                          <Maximize2 className={`h-3 w-3 transition-transform ${showDetails ? 'rotate-180' : ''}`} />
-                        </button>
+                          <Maximize2 className={`h-3 w-3 ml-1 transition-transform ${showDetails ? 'rotate-180' : ''}`} />
+                        </Button>
                       </div>
 
                       {!showDetails ? (
@@ -516,12 +517,14 @@ export const PhotoWordRecognition = ({
                                 <div className="space-y-1">
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs text-gray-500 dark:text-gray-400">选择释义：</span>
-                                    <button
+                                    <Button
+                                      variant="link"
+                                      size="sm"
                                       onClick={() => handleSelectAllMeanings(index)}
-                                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                      className="text-xs"
                                     >
                                       全选
-                                    </button>
+                                    </Button>
                                   </div>
                                   <div className="flex flex-wrap gap-1">
                                     {word.meanings.map((meaning, mIndex) => {
@@ -559,8 +562,8 @@ export const PhotoWordRecognition = ({
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
 
       {editingWordIndex !== null && editingWord && (
         <WordModal

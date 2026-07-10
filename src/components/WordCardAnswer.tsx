@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import type { WordCardItem } from '@/actions/ai-question/word-card';
 import type { Meaning } from '@/types/dict';
 
@@ -139,20 +140,24 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
 
       {/* 左右导航按钮 */}
       <div className="flex items-center justify-center gap-4">
-        <button
+        <Button
           onClick={handlePrevCard}
           disabled={currentIndex === 0}
-          className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          variant="outline"
+          size="icon"
+          className="rounded-full h-10 w-10"
         >
           <ChevronLeft className="w-6 h-6" />
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={handleNextCard}
           disabled={currentIndex === cards.length - 1}
-          className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          variant="outline"
+          size="icon"
+          className="rounded-full h-10 w-10"
         >
           <ChevronRight className="w-6 h-6" />
-        </button>
+        </Button>
       </div>
 
       {/* 提示信息和返回按钮 */}

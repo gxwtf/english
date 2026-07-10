@@ -1,7 +1,9 @@
 'use client';
 
 import { QuestionQueueItem } from '@/types/word';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { QuestionList } from '@/components/QuestionDisplay';
 
 interface QuestionPanelProps {
@@ -15,30 +17,25 @@ export const QuestionPanel = ({
   isOpen,
   onClose,
 }: QuestionPanelProps) => {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-500" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">AI 出题队列</h2>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col" showCloseButton={false}>
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              AI 出题队列
+            </DialogTitle>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            关闭
-          </button>
-        </div>
+        </DialogHeader>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto -mx-6 -mb-6 px-6 pb-6">
           <QuestionList queue={queue} />
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { COLOR_PRESETS } from '@/constants/word-tags';
 import type { ColorConfig } from '@/types/word';
 
@@ -28,20 +28,12 @@ export const ColorSelector = ({ isOpen, onClose, onColorSelect, currentColorId }
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-        {/* 头部 */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            选择颜色
-          </h3>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>选择颜色</DialogTitle>
+        </DialogHeader>
 
         {/* 颜色网格 */}
         <div className="grid grid-cols-4 gap-3 mb-4">
@@ -55,9 +47,6 @@ export const ColorSelector = ({ isOpen, onClose, onColorSelect, currentColorId }
               }`}
               onClick={() => handleColorSelect(color)}
             >
-              {/* 悬停效果 */}
-              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-600 dark:to-gray-700 opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-
               {/* 颜色预览 */}
               <div className={`relative h-full w-full flex flex-col items-center justify-center rounded-lg ${color.className}`}>
                 <div className="w-6 h-6 rounded-full bg-current opacity-80"></div>
@@ -91,16 +80,15 @@ export const ColorSelector = ({ isOpen, onClose, onColorSelect, currentColorId }
           </div>
         </div>
 
-        {/* 底部按钮 */}
-        <div className="flex justify-end gap-2">
+        <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             取消
           </Button>
           <Button onClick={handleConfirm}>
             确认
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

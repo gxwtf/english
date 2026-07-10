@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { WritingEntry } from '@/actions/writing-entries';
 import type { WordTag, TagConfig } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
 import { TagEditModal } from '@/components/TagEditModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface WritingEntryModalProps {
   isOpen: boolean;
@@ -62,23 +64,14 @@ export const WritingEntryModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-3">
-        <div className="p-4 sm:p-6">
-          {/* 标题 */}
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
               {initialEntry ? '编辑积累内容' : '添加积累内容'}
-            </h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="p-2 h-8 w-8 hover:bg-gray-100 dark:hover:bg-gray-700"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+            </DialogTitle>
+          </DialogHeader>
 
           {/* 内容输入 */}
           <div className="space-y-4">
@@ -86,11 +79,10 @@ export const WritingEntryModal = ({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 内容 <span className="text-red-500">*</span>
               </label>
-              <textarea
+              <Textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="输入单词、短语或句子..."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 rows={4}
                 autoFocus
               />
@@ -100,11 +92,10 @@ export const WritingEntryModal = ({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 备注（可选）
               </label>
-              <textarea
+              <Textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="添加备注说明..."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 rows={2}
               />
             </div>
@@ -158,8 +149,7 @@ export const WritingEntryModal = ({
             </div>
           </div>
 
-          {/* 操作按钮 */}
-          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-6">
+          <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-3">
             <Button
               variant="outline"
               onClick={onClose}
@@ -174,9 +164,9 @@ export const WritingEntryModal = ({
             >
               {initialEntry ? '保存' : '添加'}
             </Button>
-          </div>
-        </div>
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 标签管理弹窗 */}
       {showTagEditModal && (
@@ -190,6 +180,6 @@ export const WritingEntryModal = ({
           currentTags={allTagConfigs}
         />
       )}
-    </div>
+    </>
   );
 };
