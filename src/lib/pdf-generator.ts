@@ -623,6 +623,7 @@ function drawWordbookHeader(pdf: jsPDF, pageIndex: number, totalPages: number, t
 }
 
 function drawWordbookLine(pdf: jsPDF, line: WordbookLine, x: number, baselineY: number): void {
+  if (line.runs.length === 0) return; // blank line
   let runX = x + line.indent;
   for (const run of line.runs) {
     setWordbookFont(pdf, run);
@@ -818,18 +819,42 @@ export async function generateWritingEntriesPdf(entries: WritingEntryPdf[]): Pro
 function layoutWritingEntry(pdf: jsPDF, entry: WritingEntryPdf, index: number, columnWidth: number): WordbookEntryLayout {
   const lines: WordbookLine[] = [];
   const bodyIndent = 8.7;
+  const contentLineHeight = WORDBOOK_VECTOR.wordLineHeight;
 
-  // 标题：序号 + 内容
-  const headRuns: WordbookTextRun[] = [
-    { text: `${index}. `, font: WORDBOOK_FONT.timesName, style: 'normal', size: WORDBOOK_VECTOR.indexSize },
-    ...textRuns(entry.content, WORDBOOK_VECTOR.wordSize, 'bold'),
-  ];
-  lines.push(...wrapWordbookRuns(pdf, headRuns, columnWidth, 0, WORDBOOK_VECTOR.wordLineHeight));
+  // 标题：序号 + 内容（支持换行分段）
+  const contentParagraphs = entry.content.split('\n');
+  for (let pi = 0; pi < contentParagraphs.length; pi++) {
+    const para = contentParagraphs[pi];
+    if (para.trim() === '') {
+      // 空段落 → 留一行空白
+      lines.push({ runs: [], indent: 0, lineHeight: contentLineHeight });
+      continue;
+    }
+    if (pi === 0) {
+      // 第一段带序号
+      const headRuns: WordbookTextRun[] = [
+        { text: `${index}. `, font: WORDBOOK_FONT.timesName, style: 'normal', size: WORDBOOK_VECTOR.indexSize },
+        ...textRuns(para, WORDBOOK_VECTOR.wordSize, 'bold'),
+      ];
+      lines.push(...wrapWordbookRuns(pdf, headRuns, columnWidth, 0, contentLineHeight));
+    } else {
+      // 后续段落（与第一段对齐，不带序号）
+      const contRuns = textRuns(para, WORDBOOK_VECTOR.wordSize, 'bold');
+      lines.push(...wrapWordbookRuns(pdf, contRuns, columnWidth, 0, contentLineHeight));
+    }
+  }
 
-  // 备注（如果有）
+  // 备注（如果有，也支持换行分段）
   if (entry.note && entry.note.trim()) {
-    const noteRuns = textRuns(entry.note, WORDBOOK_VECTOR.bodySize);
-    lines.push(...wrapWordbookRuns(pdf, noteRuns, columnWidth, bodyIndent, WORDBOOK_VECTOR.bodyLineHeight));
+    const noteParagraphs = entry.note.split('\n');
+    for (const para of noteParagraphs) {
+      if (para.trim() === '') {
+        lines.push({ runs: [], indent: bodyIndent, lineHeight: WORDBOOK_VECTOR.bodyLineHeight });
+      } else {
+        const noteRuns = textRuns(para, WORDBOOK_VECTOR.bodySize);
+        lines.push(...wrapWordbookRuns(pdf, noteRuns, columnWidth, bodyIndent, WORDBOOK_VECTOR.bodyLineHeight));
+      }
+    }
   }
 
   // 标签（如果有）

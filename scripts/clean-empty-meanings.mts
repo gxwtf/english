@@ -8,10 +8,11 @@
  *
  * 使用方法：
  *   # 清理本地
- *   DATABASE_URL="postgresql://postgres:**REMOVED**@localhost:5432/gxwtf_english" npx tsx scripts/clean-empty-meanings.mts
+ *   # 清理本地（通过 .env 或环境变量）
+ *   DATABASE_URL="postgresql://user:pass@localhost:5432/db" npx tsx scripts/clean-empty-meanings.mts
  *
  *   # 清理远程
- *   DATABASE_URL="postgresql://postgres:**REMOVED**@gxwtf.cn:5432/gxwtf_english" npx tsx scripts/clean-empty-meanings.mts
+ *   DATABASE_URL="postgresql://user:pass@host:5432/db" npx tsx scripts/clean-empty-meanings.mts
  */
 import { PrismaClient } from '../src/generated/prisma/client.ts';
 import { PrismaPg } from '@prisma/adapter-pg';
