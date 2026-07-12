@@ -71,3 +71,6 @@ scripts/sync-user-data.mjs
 # 临时测试文件（包含敏感信息）
 temp/
 .aider*
+
+# 测试 hook 脚本（用于验证 pre-commit 检查、不应提交）
+scripts/_test_hook.js
