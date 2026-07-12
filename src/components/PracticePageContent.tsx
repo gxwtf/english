@@ -24,7 +24,7 @@ import { useRouter } from 'next/navigation';
 import { FileDown, Loader2, RefreshCw } from 'lucide-react';
 
 export function PracticePageContent() {
-  const { isLoggedIn, isClient } = useAuth();
+  const { isLoggedIn, isClient, isLoading } = useAuth();
   const [queue, setQueue] = useState<QuestionQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -335,10 +335,13 @@ export function PracticePageContent() {
     });
   }, [queue]);
 
-  if (!isClient) {
+  if (!isClient || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">加载中...</p>
+        </div>
       </div>
     );
   }
@@ -350,7 +353,10 @@ export function PracticePageContent() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">加载中...</p>
+        </div>
       </div>
     );
   }
