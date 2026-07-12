@@ -72,5 +72,8 @@ scripts/sync-user-data.mjs
 temp/
 .aider*
 
+# Git hook 脚本（包含敏感模式，不应提交）
+.githooks/pre-commit
+
 # 测试 hook 脚本（用于验证 pre-commit 检查、不应提交）
 scripts/_test_hook.js
