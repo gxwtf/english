@@ -59,6 +59,7 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
   // Swipe gesture handling
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchEndX.current = e.touches[0].clientX; // 防止残留的上一次 touchEndX 导致误判为滑动
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
