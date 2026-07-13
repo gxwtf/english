@@ -168,18 +168,28 @@ export function PracticePageContent() {
     try {
       const result = await retryQuestion(questionId);
 
+      // Helper: use stored generation options if available, otherwise fall back
+      const getN = (fallback: number) => {
+        if (result.generationOptions && typeof result.generationOptions.n === 'number') return result.generationOptions.n;
+        return fallback;
+      };
+      const getM = (fallback: number) => {
+        if (result.generationOptions && typeof result.generationOptions.m === 'number') return result.generationOptions.m;
+        return fallback;
+      };
+
       let retryOptions: any;
       if (result.questionType === 'fill-blank') {
         const wordCount = result.wordIds?.length || 2;
-        const n = Math.min(1, wordCount);
-        const m = Math.max(0, wordCount - n);
+        const n = getN(Math.min(1, wordCount));
+        const m = getM(Math.max(0, wordCount - n));
         retryOptions = {
           type: 'fill-blank',
           fillBlank: { n, m },
         };
       } else if (result.questionType === 'translate') {
         const wordCount = result.wordIds?.length || 2;
-        const n = Math.min(1, wordCount);
+        const n = getN(Math.min(1, wordCount));
         retryOptions = {
           type: 'translate',
           translate: { n },
@@ -194,16 +204,16 @@ export function PracticePageContent() {
         };
       } else if (result.questionType === 'definition-fill-blank') {
         const wordCount = result.wordIds?.length || 2;
-        const n = Math.min(1, wordCount);
-        const m = Math.max(0, wordCount - n);
+        const n = getN(Math.min(1, wordCount));
+        const m = getM(Math.max(0, wordCount - n));
         retryOptions = {
           type: 'definition-fill-blank',
           definitionFillBlank: { n, m },
         };
       } else if (result.questionType === 'word-select-translate') {
         const wordCount = result.wordIds?.length || 2;
-        const n = Math.min(1, wordCount);
-        const m = Math.max(0, wordCount - n);
+        const n = getN(Math.min(1, wordCount));
+        const m = getM(Math.max(0, wordCount - n));
         retryOptions = {
           type: 'word-select-translate',
           wordSelectTranslate: { n, m },

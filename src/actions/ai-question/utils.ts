@@ -6,6 +6,7 @@ import { QuestionType } from '@/types/word';
 import { Meaning } from '@/types/dict';
 import { callOpenAI, parseThinkingContent } from '@/lib/openai';
 import { aiQueue } from '@/lib/ai-queue';
+import { extractJSONFromAIContent, embedGenerationOptions, extractGenerationOptions } from './shared-utils';
 
 /**
  * 鉴权+所有权检查辅助函数，消除重复的 getAuthUser + findUnique + 权限校验样板代码
@@ -19,68 +20,6 @@ async function getAuthenticatedQuestion(questionId: string) {
   return { user, question: q };
 }
 
-/**
- * 从 AI 返回的内容中提取 JSON 对象，处理各种格式问题。
- * 支持：thinking 标签、代码块包裹、类型修复（int/number/float）、字段提取回退。
- */
-function extractJSONFromAIContent(rawContent: string, requiredFields: string[] = []): any {
-  let content = rawContent.trim();
-
-  // 解析 <reason> 标签
-  const parsed = parseThinkingContent(content);
-  content = parsed.content.trim();
-
-  // 尝试从代码块中提取
-  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) {
-    content = fenceMatch[1].trim();
-  } else if (requiredFields.length > 0) {
-    // 查找包含所有必需字段的 JSON
-    const fieldPattern = requiredFields.map(f => `"${f}"`).join('[\\s\\S]*');
-    const strictMatch = content.match(new RegExp(`\\{[\\s\\S]*${fieldPattern}[\\s\\S]*\\}`));
-    if (strictMatch) {
-      content = strictMatch[0];
-    } else {
-      // 宽松匹配：包含任意一个必需字段
-      const looseField = requiredFields[0];
-      const looseMatch = content.match(new RegExp(`\\{[\\s\\S]*"${looseField}"[\\s\\S]*\\}`));
-      if (looseMatch) content = looseMatch[0];
-    }
-  }
-
-  // 修复类型名替换为实际值
-  content = content.replace(/: *int([ ,}])/g, ': 0$1');
-  content = content.replace(/: *number([ ,}])/g, ': 0$1');
-  content = content.replace(/: *float([ ,}])/g, ': 0$1');
-  // 修复 "..." 无效内容
-  content = content.replace(/"[^"]*\.\.\.[^"]*"/g, '""');
-
-  try {
-    return JSON.parse(content);
-  } catch (e) {
-    // 尝试从内容中逐字段提取
-    if (requiredFields.length > 0) {
-      const extracted: Record<string, unknown> = {};
-      let allFound = true;
-      for (const field of requiredFields) {
-        const strMatch = content.match(new RegExp(`"${field}" *: *"([^"]*)"`));
-        const numMatch = content.match(new RegExp(`"${field}" *: *(\\d+|int|number|float)`));
-        if (strMatch) extracted[field] = strMatch[1];
-        else if (numMatch) extracted[field] = parseInt(numMatch[1]) || 0;
-        else { allFound = false; break; }
-      }
-      if (allFound) return extracted;
-    }
-
-    // 最后尝试：匹配任何 JSON 对象
-    const anyJsonMatch = content.match(/\{[\s\S]*\}/);
-    if (anyJsonMatch) {
-      try { return JSON.parse(anyJsonMatch[0]); } catch {}
-    }
-
-    throw new Error(`AI 返回的内容不是合法 JSON: ${e instanceof Error ? e.message : String(e)}`);
-  }
-}
 
 /**
  * Fetch words and enrich with all user-specific information.
@@ -932,12 +871,16 @@ export async function retryQuestion(questionId: string) {
     data: { status: 'GENERATING', questionContent: null as any },
   });
 
+  const relatedEntries = (updated.relatedWordEntries as any[]) || [];
+  const generationOptions = extractGenerationOptions(relatedEntries);
+
   return {
     id: updated.id,
     questionType: updated.questionType as QuestionType,
     status: updated.status,
     wordIds: updated.wordIds,
-    relatedWordEntries: (updated.relatedWordEntries as any[]) || [],
+    relatedWordEntries: relatedEntries,
+    generationOptions,
   };
 }
 
@@ -947,6 +890,8 @@ export type QuestionWordMeaning = {
   isRelatedWord: boolean;
   sourceWords?: string[];
 };
+
+// embedGenerationOptions and extractGenerationOptions are imported from shared-utils.ts
 
 export async function getQuestionWordMeanings(questionId: string): Promise<QuestionWordMeaning[]> {
   const { user, question: q } = await getAuthenticatedQuestion(questionId);

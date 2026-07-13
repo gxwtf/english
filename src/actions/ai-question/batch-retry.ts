@@ -14,14 +14,23 @@ interface RetryResult {
   questionType: string;
   wordIds: number[];
   relatedWordEntries: any[];
+  generationOptions?: { n: number; m: number } | null;
 }
 
 function startGenerate(item: RetryResult) {
-  const { id, questionType, wordIds } = item;
+  const { id, questionType, wordIds, generationOptions } = item;
   const relatedWordEntries = item.relatedWordEntries || [];
-  const wordCount = wordIds?.length || 2;
-  const n = Math.min(1, wordCount);
-  const m = Math.max(0, wordCount - n);
+
+  // Use stored options if available, fall back to safe defaults
+  let n: number, m: number;
+  if (generationOptions && typeof generationOptions.n === 'number') {
+    n = generationOptions.n;
+    m = generationOptions.m ?? 0;
+  } else {
+    const wordCount = wordIds?.length || 2;
+    n = Math.min(1, wordCount);
+    m = Math.max(0, wordCount - n);
+  }
 
   // 不 await，让 AI Queue 在后台并行处理
   switch (questionType) {
@@ -72,6 +81,7 @@ export async function retryQuestionsAndGenerate(questionIds: string[]): Promise<
         questionType: result.questionType,
         wordIds: result.wordIds,
         relatedWordEntries: result.relatedWordEntries || [],
+        generationOptions: result.generationOptions,
       };
       results.push(item);
     } catch (error) {

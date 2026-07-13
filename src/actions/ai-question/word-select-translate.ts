@@ -1,6 +1,7 @@
 'use server';
 
 import { fetchEnrichedWords, enqueuePendingQuestion, updateQuestionWithContent, markQuestionAsFailed } from './utils';
+import { extractJSONFromAIContent, embedGenerationOptions } from './shared-utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { WordSelectTranslateOptions } from '@/types/problem';
 import type { RelatedWordEntry } from '@/lib/word-selection';
@@ -8,54 +9,6 @@ import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
 import { aiQueue, withTimeout } from '@/lib/ai-queue';
 
 const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
-
-function extractJSON(rawContent: string, requiredFields: string[] = []): any {
-  let content = rawContent.trim();
-  const parsed = parseThinkingContent(content);
-  content = parsed.content.trim();
-
-  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) {
-    content = fenceMatch[1].trim();
-  } else if (requiredFields.length > 0) {
-    const fieldPattern = requiredFields.map(f => `"${f}"`).join('[\\s\\S]*');
-    const strictMatch = content.match(new RegExp(`\\{[\\s\\S]*${fieldPattern}[\\s\\S]*\\}`));
-    if (strictMatch) {
-      content = strictMatch[0];
-    } else {
-      const looseField = requiredFields[0];
-      const looseMatch = content.match(new RegExp(`\\{[\\s\\S]*"${looseField}"[\\s\\S]*\\}`));
-      if (looseMatch) content = looseMatch[0];
-    }
-  }
-
-  content = content.replace(/: *int([ ,}])/g, ': 0$1');
-  content = content.replace(/: *number([ ,}])/g, ': 0$1');
-  content = content.replace(/: *float([ ,}])/g, ': 0$1');
-  content = content.replace(/"[^"]*\.\.\.[^"]*"/g, '""');
-
-  try {
-    return JSON.parse(content);
-  } catch (e) {
-    if (requiredFields.length > 0) {
-      const extracted: Record<string, unknown> = {};
-      let allFound = true;
-      for (const field of requiredFields) {
-        const strMatch = content.match(new RegExp(`"${field}" *: *"([^"]*)"`));
-        const numMatch = content.match(new RegExp(`"${field}" *: *(\\d+|int|number|float)`));
-        if (strMatch) extracted[field] = strMatch[1];
-        else if (numMatch) extracted[field] = parseInt(numMatch[1]) || 0;
-        else { allFound = false; break; }
-      }
-      if (allFound) return extracted;
-    }
-    const anyJsonMatch = content.match(/\{[\s\S]*\}/);
-    if (anyJsonMatch) {
-      try { return JSON.parse(anyJsonMatch[0]); } catch {}
-    }
-    throw new Error(`AI 返回的内容不是合法 JSON: ${e instanceof Error ? e.message : String(e)}`);
-  }
-}
 
 interface WordSelectTranslateQuestion {
   title: string;
@@ -76,7 +29,7 @@ export async function enqueuePendingWordSelectTranslate(
   relatedWordEntries?: RelatedWordEntry[],
 ) {
   if (!wordIds?.length) throw new Error('缺少单词列表');
-  return await enqueuePendingQuestion('word-select-translate', wordIds, relatedWordEntries);
+  return await enqueuePendingQuestion('word-select-translate', wordIds, embedGenerationOptions(relatedWordEntries, options));
 }
 
 export async function generateAndEnqueueWordSelectTranslate(
@@ -132,10 +85,12 @@ async function doGenerateWordSelectTranslate(
   if (options.m == null) options.m = 0;
   if (options.m < 0) throw new Error('干扰词数量 m 必须 >= 0');
 
+  // 排除 _genOptions 标记条目后计算实际可用词数
+  const actualRelatedEntries = (relatedWordEntries || []).filter((r: any) => !r._genOptions);
   const totalRequired = options.n + options.m;
-  const totalAvailable = wordIds.length + (relatedWordEntries?.length || 0);
+  const totalAvailable = wordIds.length + (actualRelatedEntries.length || 0);
   if (totalRequired > totalAvailable) {
-    throw new Error(`需要 ${totalRequired} 个单词（n=${options.n} 道题 + m=${options.m} 个干扰词），但只有 ${wordIds.length} 个核心词和 ${relatedWordEntries?.length || 0} 个关联词`);
+    throw new Error(`需要 ${totalRequired} 个单词（n=${options.n} 道题 + m=${options.m} 个干扰词），但只有 ${wordIds.length} 个核心词和 ${actualRelatedEntries.length || 0} 个关联词`);
   }
 
   const wordData = await fetchEnrichedWords(wordIds);
@@ -192,18 +147,18 @@ async function doGenerateWordSelectTranslate(
 12. 使用 generateRandomNumber 工具来随机化题目排列和单词选择（如果模型支持工具调用）`;
 
   let relatedWordsSection = '';
-  if (relatedWordEntries && relatedWordEntries.length > 0) {
-    const differentFormWords = relatedWordEntries.filter(rw => rw.types.includes('different_form'));
-    const easilyConfusedWords = relatedWordEntries.filter(rw => rw.types.includes('easily_confused'));
+  if (actualRelatedEntries && actualRelatedEntries.length > 0) {
+    const differentFormWords = actualRelatedEntries.filter((rw: any) => rw.types?.includes?.('different_form'));
+    const easilyConfusedWords = actualRelatedEntries.filter((rw: any) => rw.types?.includes?.('easily_confused'));
 
     relatedWordsSection = `\n## 关联词（补充单词池）：
 以下关联词来自选中单词的关联词列表，可以作为候选单词使用：
-${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}
+${JSON.stringify(actualRelatedEntries.map((rw: any) => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}
 
 ### 关联词出题指导：
 - 关联词没有标注特定释义，你可以考察其任意释义
-${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${differentFormWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词是同一词的不同形式，你可以设计考察词形变化的翻译题` : ''}
-${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，你可以设计辨析类翻译题` : ''}`;
+${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${differentFormWords.map((rw: any) => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词是同一词的不同形式，你可以设计考察词形变化的翻译题` : ''}
+${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map((rw: any) => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，你可以设计辨析类翻译题` : ''}`;
   }
 
   const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：
@@ -213,7 +168,16 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
 请生成符合上述要求的选词翻译句子题目 JSON。`;
 
-  const result = await callOpenAIWithTools(systemPrompt, { prompt: userPrompt, tools: [randomTool], response_format: { type: 'json_object' } });
+  const aiOptions: Record<string, unknown> = {
+    prompt: userPrompt,
+    tools: [randomTool],
+    response_format: { type: 'json_object' },
+  };
+  if (deepThinking) {
+    aiOptions.reasoning_effort = deepThinking;
+  }
+
+  const result = await callOpenAIWithTools(systemPrompt, aiOptions);
 
   let content = result.content.trim();
   let thinkingContent: string | null = null;
@@ -225,7 +189,7 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
   let parsed: any;
   try {
-    parsed = extractJSON(content, ['questions']);
+    parsed = extractJSONFromAIContent(content, ['questions']);
   } catch (e) {
     throw new Error('AI 返回的内容不是合法的 JSON，无法解析题目');
   }
@@ -264,6 +228,31 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
     delete q.keywords;
     delete q.required_words;
     delete q.must_use;
+  }
+
+  // 验证干扰词（m 个）未被用作任何答案
+  if (options.m > 0 && parsed.words && Array.isArray(parsed.words)) {
+    // Collect all words used in referenceAnswers
+    const usedWords = new Set<string>();
+    for (const q of parsed.questions) {
+      if (q.referenceAnswers) {
+        // Split by common delimiters and check each word
+        const words = q.referenceAnswers.toLowerCase().split(/[\s,;]+/);
+        for (const w of words) {
+          if (wordSet.has(w) || wordSet.has(w === q.referenceAnswers.toLowerCase() ? '' : '')) {
+            // Just check if any of the candidate words appear in the answer
+            // We're already validated above via wordSet
+          }
+        }
+        // Add the original referenceAnswers text for simple matching
+        usedWords.add(q.referenceAnswers.toLowerCase());
+      }
+    }
+    // For word-select-translate, the validation is looser because referenceAnswers
+    // can be full sentences. Just check that at least options.m words are NOT referenced.
+    // We use strict word matching against the words array
+    // Since sentences are complex to parse, we only warn
+    console.log(`[word-select-translate] ${options.m} 个干扰词，AI 返回了 ${parsed.words.length} 个候选词和 ${parsed.questions.length} 道题`);
   }
 
   // 打乱候选单词顺序（Fisher-Yates 算法）

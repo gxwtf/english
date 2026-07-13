@@ -317,6 +317,7 @@ export async function callOpenAIWithTools(
           tool_choice: 'none',
         };
         if (reasoning_effort) { followUpBody.reasoning_effort = reasoning_effort; } // Deepseek 深度思考模式
+        if (response_format) { followUpBody.response_format = response_format; } // 结构化输出（保持与初始请求一致）
 
         const followUpResponse = await fetch(`${config.apiBase}/chat/completions`, {
           method: 'POST',

@@ -1,6 +1,7 @@
 'use server';
 
 import { fetchEnrichedWords, enqueuePendingQuestion, updateQuestionWithContent, markQuestionAsFailed } from './utils';
+import { embedGenerationOptions, extractJSONFromAIContent } from './shared-utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { DefinitionFillBlankOptions } from '@/types/problem';
 import type { RelatedWordEntry } from '@/lib/word-selection';
@@ -17,54 +18,6 @@ function shuffleArray<T>(array: T[]): T[] {
   return array;
 }
 
-function extractJSON(rawContent: string, requiredFields: string[] = []): any {
-  let content = rawContent.trim();
-  const parsed = parseThinkingContent(content);
-  content = parsed.content.trim();
-
-  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) {
-    content = fenceMatch[1].trim();
-  } else if (requiredFields.length > 0) {
-    const fieldPattern = requiredFields.map(f => `"${f}"`).join('[\\s\\S]*');
-    const strictMatch = content.match(new RegExp(`\\{[\\s\\S]*${fieldPattern}[\\s\\S]*\\}`));
-    if (strictMatch) {
-      content = strictMatch[0];
-    } else {
-      const looseField = requiredFields[0];
-      const looseMatch = content.match(new RegExp(`\\{[\\s\\S]*"${looseField}"[\\s\\S]*\\}`));
-      if (looseMatch) content = looseMatch[0];
-    }
-  }
-
-  content = content.replace(/: *int([ ,}])/g, ': 0$1');
-  content = content.replace(/: *number([ ,}])/g, ': 0$1');
-  content = content.replace(/: *float([ ,}])/g, ': 0$1');
-  content = content.replace(/"[^"]*\.\.\.[^"]*"/g, '""');
-
-  try {
-    return JSON.parse(content);
-  } catch (e) {
-    if (requiredFields.length > 0) {
-      const extracted: Record<string, unknown> = {};
-      let allFound = true;
-      for (const field of requiredFields) {
-        const strMatch = content.match(new RegExp(`"${field}" *: *"([^"]*)"`));
-        const numMatch = content.match(new RegExp(`"${field}" *: *(\\d+|int|number|float)`));
-        if (strMatch) extracted[field] = strMatch[1];
-        else if (numMatch) extracted[field] = parseInt(numMatch[1]) || 0;
-        else { allFound = false; break; }
-      }
-      if (allFound) return extracted;
-    }
-    const anyJsonMatch = content.match(/\{[\s\S]*\}/);
-    if (anyJsonMatch) {
-      try { return JSON.parse(anyJsonMatch[0]); } catch {}
-    }
-    throw new Error(`AI 返回的内容不是合法 JSON: ${e instanceof Error ? e.message : String(e)}`);
-  }
-}
-
 interface DefinitionFillBlankQuestion {
   words: string[];
   questions: { definition: string; answer: string }[];
@@ -78,7 +31,7 @@ export async function enqueuePendingDefinitionFillBlank(
 ) {
   if (!wordIds?.length) throw new Error('缺少单词列表');
   if (options?.n == null || options?.m == null) throw new Error('缺少题目参数：n 和 m 为必填项');
-  return await enqueuePendingQuestion('definition-fill-blank', wordIds, relatedWordEntries);
+  return await enqueuePendingQuestion('definition-fill-blank', wordIds, embedGenerationOptions(relatedWordEntries, options));
 }
 
 export async function generateAndEnqueueDefinitionFillBlank(
@@ -133,9 +86,11 @@ async function doGenerateDefinitionFillBlank(
   if (options.m < 0) throw new Error('多余单词数量 m 必须 >= 0');
   if (options.n + options.m > 11) throw new Error('n + m 不能超过 11');
 
-  const totalAvailable = wordIds.length + (relatedWordEntries?.length || 0);
+  // 排除 _genOptions 标记条目后计算实际可用词数
+  const actualRelatedEntries = (relatedWordEntries || []).filter((r: any) => !r._genOptions);
+  const totalAvailable = wordIds.length + (actualRelatedEntries.length || 0);
   if (options.n + options.m > totalAvailable) {
-    throw new Error(`需要 ${options.n + options.m} 个单词，但前端只传递了 ${wordIds.length} 个核心词和 ${relatedWordEntries?.length || 0} 个关联词`);
+    throw new Error(`需要 ${options.n + options.m} 个单词，但前端只传递了 ${wordIds.length} 个核心词和 ${actualRelatedEntries.length || 0} 个关联词`);
   }
 
   const wordData = await fetchEnrichedWords(wordIds);
@@ -184,14 +139,15 @@ async function doGenerateDefinitionFillBlank(
 5. **重要：每个单词的 meanings 字段包含了用户不熟悉、需要重点练习的释义，请优先围绕这些释义出题**
 6. 释义要准确、简洁，适合英语学习者理解
 7. 释义不能过于明显以至于一看就知道答案，要有一定的考查性
-8. 只返回 JSON，不要返回任何其他文字
-9. 使用 generateRandomNumber 工具来打乱单词顺序和随机化题目排列（如果模型支持工具调用）`;
+8. **重要：words 数组中的 ${options.m} 个干扰词（即未被选为答案的单词）不应出现在任何题目的答案中，它们只是为了增加迷惑性。正确答案必须从 ${options.n} 个非干扰词中选取。**
+9. 只返回 JSON，不要返回任何其他文字
+10. 使用 generateRandomNumber 工具来打乱单词顺序和随机化题目排列（如果模型支持工具调用）`;
 
   let relatedWordsSection = '';
-  if (relatedWordEntries && relatedWordEntries.length > 0) {
+  if (actualRelatedEntries && actualRelatedEntries.length > 0) {
     relatedWordsSection = `\n## 关联词（补充单词池）：
 以下关联词来自选中单词的关联词列表，请将它们纳入可选单词池：
-${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}`;
+${JSON.stringify(actualRelatedEntries.map((rw: any) => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}`;
   }
 
   const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：
@@ -201,7 +157,16 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
 请生成符合上述要求的词义填空题目 JSON。`;
 
-  const result = await callOpenAIWithTools(systemPrompt, { prompt: userPrompt, tools: [randomTool], response_format: { type: 'json_object' } });
+  const aiOptions: Record<string, unknown> = {
+    prompt: userPrompt,
+    tools: [randomTool],
+    response_format: { type: 'json_object' },
+  };
+  if (deepThinking) {
+    aiOptions.reasoning_effort = deepThinking;
+  }
+
+  const result = await callOpenAIWithTools(systemPrompt, aiOptions);
 
   let content = result.content.trim();
   let thinkingContent: string | null = null;
@@ -213,7 +178,7 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
   let parsed: any;
   try {
-    parsed = extractJSON(content, ['words', 'questions']);
+    parsed = extractJSONFromAIContent(content, ['words', 'questions']);
   } catch {
     throw new Error('AI 返回的内容不是合法的 JSON，无法解析题目');
   }
@@ -253,6 +218,15 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
     }
     if (!uniqueWords.has(q.answer)) {
       throw new Error(`AI 返回的答案 "${q.answer}" 不在单词池中`);
+    }
+  }
+
+  // 验证干扰词（m 个）未被用作任何答案
+  if (options.m > 0) {
+    const answerWords = new Set(parsed.questions.map((q: any) => q.answer));
+    const nonAnswerWords = parsed.words.filter((w: string) => !answerWords.has(w));
+    if (nonAnswerWords.length < options.m) {
+      throw new Error(`AI 返回的干扰词数量不正确，期望至少 ${options.m} 个单词未出现在答案中，实际 ${nonAnswerWords.length} 个`);
     }
   }
 

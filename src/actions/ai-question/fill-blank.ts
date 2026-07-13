@@ -1,6 +1,7 @@
 'use server';
 
 import { fetchEnrichedWords, updateQuestionWithContent, enqueuePendingQuestion, markQuestionAsFailed } from './utils';
+import { extractJSONFromAIContent, embedGenerationOptions } from './shared-utils';
 import { callOpenAIWithTools, parseThinkingContent } from '@/lib/openai';
 import type { FillBlankOptions } from '@/types/problem';
 import type { RelatedWordEntry } from '@/lib/word-selection';
@@ -38,7 +39,8 @@ export async function enqueuePendingFillBlank(
     throw new Error('缺少题目参数：n 和 m 为必填项');
   }
 
-  return await enqueuePendingQuestion('fill-blank', wordIds, relatedWordEntries);
+  // 将生成参数嵌入 relatedWordEntries 以便重试时恢复
+  return await enqueuePendingQuestion('fill-blank', wordIds, embedGenerationOptions(relatedWordEntries, options));
 }
 
 /**
@@ -128,9 +130,11 @@ async function doGenerateFillBlank(
   if (options.n + options.m > 11) {
     throw new Error('n + m 不能超过 11');
   }
-  const totalAvailable = wordIds.length + (relatedWordEntries?.length || 0);
+  // 排除 _genOptions 标记条目后计算实际可用词数
+  const actualRelatedEntries = (relatedWordEntries || []).filter((r: any) => !r._genOptions);
+  const totalAvailable = wordIds.length + (actualRelatedEntries.length || 0);
   if (options.n + options.m > totalAvailable) {
-    throw new Error(`需要 ${options.n + options.m} 个单词，但前端只传递了 ${wordIds.length} 个核心词和 ${relatedWordEntries?.length || 0} 个关联词`);
+    throw new Error(`需要 ${options.n + options.m} 个单词，但前端只传递了 ${wordIds.length} 个核心词和 ${actualRelatedEntries.length || 0} 个关联词`);
   }
 
   const wordData = await fetchEnrichedWords(wordIds);
@@ -186,23 +190,23 @@ async function doGenerateFillBlank(
 6. 句子要自然流畅，难度适合英语学习者
 7. **重要：每个单词的 meanings 字段包含了用户不熟悉、需要重点练习的释义，请优先围绕这些释义出题，帮助用户针对性地练习薄弱环节**
 ${allowFormChange ? `8. **重要：允许改变形式模式已开启** — 约 2/3 的题目中，你必须将单词变为不同形式出现在句子的填空处（例如：不同时态、动词/名词形式转换等）。此时 answer 字段应填写实际需要的变体形式（如 "tendency"），同时必须填写 originalWord 字段为原始单词（如 "tend"），以便前端识别这是形式变化。` : `8. 每个填空处的答案必须是 words 数组中某个单词的原文，originalWord 字段不需要填写`}
-9. 只返回 JSON，不要返回任何其他文字
-10. 使用 generateRandomNumber 工具来打乱单词顺序和随机化题目排列（如果模型支持工具调用）`;
+9. **重要：words 数组中的 ${options.m} 个干扰词（即当前集合中未被选为答案的单词）不应出现在任何题目的答案中，它们只是为了增加迷惑性。正确答案必须从 ${options.n} 个非干扰词中选取。**
+10. 只返回 JSON，不要返回任何其他文字
+11. 使用 generateRandomNumber 工具来打乱单词顺序和随机化题目排列（如果模型支持工具调用）`;
 
-  // Build the user prompt with optional related words section
   let relatedWordsSection = '';
-  if (relatedWordEntries && relatedWordEntries.length > 0) {
-    const differentFormWords = relatedWordEntries.filter(rw => rw.types.includes('different_form'));
-    const easilyConfusedWords = relatedWordEntries.filter(rw => rw.types.includes('easily_confused'));
+  if (actualRelatedEntries && actualRelatedEntries.length > 0) {
+    const differentFormWords = actualRelatedEntries.filter((rw: any) => rw.types?.includes?.('different_form'));
+    const easilyConfusedWords = actualRelatedEntries.filter((rw: any) => rw.types?.includes?.('easily_confused'));
 
     relatedWordsSection = `\n## 关联词（补充单词池）：
 以下关联词来自选中单词的关联词列表，请将它们纳入可选单词池：
-${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}
+${JSON.stringify(actualRelatedEntries.map((rw: any) => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}
 
 ### 关联词出题指导：
 - 关联词没有标注特定释义，你可以考察其任意释义
-${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${differentFormWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词是同一词的不同形式（如名词/动词形式转换），你可以设计考察词形变化的题目` : ''}
-${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，你可以设计辨析类题目，让填空处需要仔细区分才能选对` : ''}`;
+${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${differentFormWords.map((rw: any) => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词是同一词的不同形式（如名词/动词形式转换），你可以设计考察词形变化的题目` : ''}
+${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map((rw: any) => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，你可以设计辨析类题目，让填空处需要仔细区分才能选对` : ''}`;
   }
 
   const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：
@@ -212,11 +216,16 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
 请生成符合上述要求的选词填空题目 JSON。`;
 
-  const result = await callOpenAIWithTools(systemPrompt, {
+  const aiOptions: Record<string, unknown> = {
     prompt: userPrompt,
     tools: [randomTool],
     response_format: { type: 'json_object' }, // 强制返回合法JSON
-  });
+  };
+  if (deepThinking) {
+    aiOptions.reasoning_effort = deepThinking;
+  }
+
+  const result = await callOpenAIWithTools(systemPrompt, aiOptions);
 
   let content = result.content.trim();
 
@@ -228,18 +237,19 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
     content = parsed.content.trim();
   }
 
-  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) {
-    content = fenceMatch[1].trim();
-  }
-
-  let parsed: FillBlankQuestion;
+  let parsed: any;
   try {
     console.log('AI response:', content);
-    parsed = JSON.parse(content);
+    parsed = extractJSONFromAIContent(content, ['words', 'questions']);
   } catch {
     throw new Error('AI 返回的内容不是合法的 JSON，无法解析题目');
   }
+
+  // Handle field aliases
+  if (!parsed.words && parsed.word_list) parsed.words = parsed.word_list;
+  if (!parsed.words && parsed.candidates) parsed.words = parsed.candidates;
+  if (!parsed.questions && parsed.items) parsed.questions = parsed.items;
+  if (!parsed.questions && parsed.sentences) parsed.questions = parsed.sentences;
 
   const required = ['words', 'questions'];
   for (const key of required) {
@@ -291,6 +301,15 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
   }
   if (missingWords.size > 0) {
     throw new Error(`AI 返回的答案中包含不在单词池中的单词: ${Array.from(missingWords).join(', ')}`);
+  }
+
+  // 验证干扰词（m 个）未被用作任何答案
+  if (options.m > 0) {
+    const answerWords = new Set(parsed.questions.map((q: any) => allowFormChange && q.originalWord ? q.originalWord : q.answer));
+    const nonAnswerWords = parsed.words.filter((w: string) => !answerWords.has(w));
+    if (nonAnswerWords.length < options.m) {
+      throw new Error(`AI 返回的干扰词数量不正确，期望至少 ${options.m} 个单词未出现在答案中，实际 ${nonAnswerWords.length} 个`);
+    }
   }
 
   // 打乱可选单词顺序和题目顺序，避免答案与原始单词表顺序一致
