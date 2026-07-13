@@ -49,6 +49,8 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
   const [showPhotoRecognition, setShowPhotoRecognition] = useState(false);
   const [showBatchAdd, setShowBatchAdd] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  // 用于防止异步查询时单词已切换导致数据错乱
+  const currentWordRef = useRef<string>('');
   // 自定义释义输入状态
   const [customMeaningContent, setCustomMeaningContent] = useState('');
   const [customMeaningType, setCustomMeaningType] = useState('');
@@ -62,6 +64,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
       setSelectedMeanings(initialWord.meanings || []);
       setSelectedTags(initialWord.tags);
       setSelectedRelatedWords(initialWord.relatedWords || []);
+      setOriginalDictData(null);
       
       if (initialWord.meanings && initialWord.meanings.length > 0) {
         setDictionaryData({
@@ -75,12 +78,15 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
     } else {
       setWord('');
       setDictionaryData(null);
+      setOriginalDictData(null);
       setSelectedMeanings([]);
       setSelectedTags([]);
       setSelectedRelatedWords([]);
+      setCustomMeaningContent('');
+      setCustomMeaningType('');
+      setEditingMeaningIndex(null);
       setError('');
-      // 添加单词模式，自动聚焦搜索框
-      setTimeout(() => searchInputRef.current?.focus(), 100);
+      currentWordRef.current = '';
     }
   }, [initialWord, isOpen]);
 
@@ -90,7 +96,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
       const fetchOriginalDictData = async () => {
         try {
           const result = await queryWord(searchedWord);
-          if (result) {
+          if (result && currentWordRef.current === searchedWord) {
             setOriginalDictData(result);
           }
         } catch (err) {
@@ -108,20 +114,26 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
         setLoading(true);
         try {
           const result = await queryWord(searchedWord);
-          if (result) {
+          if (result && currentWordRef.current === searchedWord) {
             setDictionaryData(result);
             setOriginalDictData(result);
+          } else if (currentWordRef.current !== searchedWord) {
+            // 异步返回时单词已切换，忽略旧结果
           } else {
-            setDictionaryData({
-              word: searchedWord,
-              pronunciation: '',
-              meaning: []
-            });
+            if (currentWordRef.current === searchedWord) {
+              setDictionaryData({
+                word: searchedWord,
+                pronunciation: '',
+                meaning: []
+              });
+            }
           }
         } catch (err) {
           console.error('查询词典失败:', err);
         } finally {
-          setLoading(false);
+          if (currentWordRef.current === searchedWord) {
+            setLoading(false);
+          }
         }
       };
       fetchDictionaryData();
