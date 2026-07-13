@@ -96,9 +96,10 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     return stored === 'true';
   });
   const [allowFormChange, setAllowFormChange] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
+    // 默认开启"允许改变形式"
+    if (typeof window === 'undefined') return true;
     const stored = localStorage.getItem(STORAGE_KEY_ALLOW_FORM_CHANGE);
-    return stored === 'true';
+    return stored !== null ? stored === 'true' : true;
   });
 
   // Persist checkbox values to localStorage
