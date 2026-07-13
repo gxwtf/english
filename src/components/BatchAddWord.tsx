@@ -19,6 +19,7 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { WordModal } from '@/components/WordModal';
+import { TagSelector } from '@/components/TagSelector';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag, TagConfig, RelatedWord } from '@/types/word';
 import { saveWord as saveWordAction } from '@/actions/words';
@@ -58,6 +59,7 @@ export const BatchAddWord = ({
   const [hasStarted, setHasStarted] = useState(false);
   const [items, setItems] = useState<BatchWordItem[]>([]);
   const [editingWordIndex, setEditingWordIndex] = useState<number | null>(null);
+  const [selectedTags, setSelectedTags] = useState<WordTag[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const cancelRef = useRef(false);
 
@@ -69,6 +71,7 @@ export const BatchAddWord = ({
       setHasStarted(false);
       setItems([]);
       setEditingWordIndex(null);
+      setSelectedTags([]);
       cancelRef.current = false;
       setTimeout(() => textareaRef.current?.focus(), 100);
     }
@@ -125,7 +128,7 @@ export const BatchAddWord = ({
       await saveWordAction({
         text: wordText,
         meanings,
-        tags: [],
+        tags: selectedTags,
         relatedWords: [],
       });
 
@@ -268,6 +271,7 @@ export const BatchAddWord = ({
     setInputText('');
     setHasStarted(false);
     setItems([]);
+    setSelectedTags([]);
     cancelRef.current = false;
     setTimeout(() => textareaRef.current?.focus(), 100);
   };
@@ -353,7 +357,7 @@ export const BatchAddWord = ({
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 gap-3">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       跳过 def. 词性的释义
@@ -368,6 +372,16 @@ export const BatchAddWord = ({
                     checked={skipDef}
                     onCheckedChange={setSkipDef}
                     disabled={isProcessing}
+                  />
+                </div>
+
+                {/* 标签选择 */}
+                <div className="p-3 rounded-xl bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-600">
+                  <TagSelector
+                    allTagConfigs={allTagConfigs}
+                    selectedTags={selectedTags}
+                    onTagsChange={setSelectedTags}
+                    onTagsUpdate={onTagsUpdate}
                   />
                 </div>
               </>

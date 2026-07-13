@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { WordModal } from '@/components/WordModal';
+import { TagSelector } from '@/components/TagSelector';
 import { recognizeWordsFromImage } from '@/actions/image-recognition';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { Word, WordTag, TagConfig, RelatedWord } from '@/types/word';
@@ -43,6 +44,7 @@ export const PhotoWordRecognition = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingWordIndex, setEditingWordIndex] = useState<number | null>(null);
+  const [selectedTags, setSelectedTags] = useState<WordTag[]>([]);
   const [aiThinking, setAiThinking] = useState<string>('');
   const [showDetails, setShowDetails] = useState(false);
 
@@ -155,6 +157,7 @@ export const PhotoWordRecognition = ({
       setError(null);
       setEditingWordIndex(null);
       setAiThinking('');
+      setSelectedTags([]);
       setShowDetails(false);
     }
   }, [isOpen]);
@@ -286,7 +289,7 @@ export const PhotoWordRecognition = ({
         await saveWordAction({
           text: word.text,
           meanings: meaningsToAdd,
-          tags: [],
+          tags: selectedTags,
           relatedWords: [],
         });
       } catch (err) {
@@ -385,6 +388,16 @@ export const PhotoWordRecognition = ({
                     </div>
                   )}
 
+                  {/* 标签选择 */}
+                  <div className="p-3 rounded-xl bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-600">
+                    <TagSelector
+                      allTagConfigs={allTagConfigs}
+                      selectedTags={selectedTags}
+                      onTagsChange={setSelectedTags}
+                      onTagsUpdate={onTagsUpdate}
+                    />
+                  </div>
+
                   <Button
                     onClick={handleRecognize}
                     disabled={loading}
@@ -439,6 +452,16 @@ export const PhotoWordRecognition = ({
                         全部添加 ({recognizedWords.length}个)
                       </Button>
                     )}
+                  </div>
+
+                  {/* 标签选择 */}
+                  <div className="p-3 rounded-xl bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-600">
+                    <TagSelector
+                      allTagConfigs={allTagConfigs}
+                      selectedTags={selectedTags}
+                      onTagsChange={setSelectedTags}
+                      onTagsUpdate={onTagsUpdate}
+                    />
                   </div>
 
                   {aiThinking && (
