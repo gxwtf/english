@@ -599,6 +599,7 @@ export const PhotoWordRecognition = ({
             meanings: editingWord.selectedMeanings.length > 0 ? editingWord.selectedMeanings : editingWord.meanings,
             tags: [],
             relatedWords: [],
+            updatedAt: new Date().toISOString(),
           }}
           allWords={allWords}
           queryWord={queryWord}

@@ -123,7 +123,13 @@ function selectCoreWords(
   const selectedCount = selectedWords.length;
 
   if (selectedCount <= neededCount) {
-    return selectedWords.map(w => w.id);
+    // 即使全部返回，也要随机打乱顺序，避免总是按 createdAt 顺序取词
+    const shuffled = [...selectedWords];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.map(w => w.id);
   }
 
   const dependencyMap = new Map<number, Set<number>>();

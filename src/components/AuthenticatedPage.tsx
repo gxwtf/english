@@ -524,6 +524,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
 
       {/* 添加/编辑单词弹窗 */}
       <WordModal
+        key={editingWord?.id ?? 'new'}
         isOpen={showModal}
         onClose={() => {
           setShowModal(false);

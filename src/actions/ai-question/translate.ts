@@ -9,6 +9,15 @@ import { aiQueue, withTimeout } from '@/lib/ai-queue';
 
 const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
 
+function shuffleArray<T>(array: T[]): T[] {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 interface TranslateQuestion {
   title: string;
   questions: TranslateQuestionItem[];
@@ -131,11 +140,15 @@ async function doGenerateTranslate(
     throw new Error('选中的单词均无释义数据，请先为单词添加释义后再出题');
   }
 
+  // 代码预分配每个题目对应的关键词，避免 AI 自行抽取
+  const shuffledWords = shuffleArray([...wordData]);
+  const allocatedKeyWords = shuffledWords.slice(0, options.n).map((w: any) => w.text);
+
   const randomTool = {
     type: 'function' as const,
     function: {
       name: 'generateRandomNumber',
-      description: 'Generate a random integer within a specified range. Use this to randomize question order and word selection.',
+      description: 'Generate a random integer within a specified range. Use this to randomize question order.',
       parameters: {
         type: 'object',
         properties: {
@@ -160,32 +173,34 @@ async function doGenerateTranslate(
       "type": "cn_to_en",
       "chinese": "中文句子",
       "hint": "提示信息（可以是语法提示或场景描述）",
-      "referenceAnswers": "标准英文翻译",
-      "keyWords": ["必须使用的单词"]
+      "referenceAnswers": "标准英文翻译"
     }
   ]
 }
 
-## 关键规则：
+## 关键规则（请严格遵循）：
 1. questions 必须是恰好 ${options.n} 个元素的数组，每个元素代表一道翻译题
 2. type 固定为 "cn_to_en"（中译英）
 3. chinese 是中文句子，要翻译成英文
-4. referenceAnswers 是标准的英文翻译，必须包含 keyWords 中的单词
-5. keyWords 是从提供的单词表中挑选的关键词，学生翻译时必须用到，**每道题必须恰好一个单词**
+4. referenceAnswers 是标准的英文翻译，必须使用系统分配给这道题的关键词
+5. **重要：不要返回 keyWords 字段** — 关键词将由系统自动分配给每道题
 6. **重要：每个单词的 meanings 字段包含了用户不熟悉、需要重点练习的释义，请优先围绕这些释义出题，帮助用户针对性地练习薄弱环节**
 7. 题目难度要适合英语学习者，中文句子要自然流畅
 8. 生成的英文翻译语法正确且自然
 9. 只返回 JSON，不要返回任何其他文字
-10. 使用 generateRandomNumber 工具来随机化题目排列和关键词选择（如果模型支持工具调用）
+10. 使用 generateRandomNumber 工具来随机化题目排列（如果模型支持工具调用）
 11. **重要：你可以任意改变这些单词的时态语态（例：run -> ran; run -> to run）**`;
 
-  const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：
+  const userPrompt = `## 分配给每道题的关键词（共 ${options.n} 个，每道题使用一个不同的词，请按 id 顺序对应）：
+${allocatedKeyWords.map((text: string, i: number) => `  第 ${i + 1} 题(keyWords): ["${text}"]`).join('\n')}
+
+## 单词详细信息（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：
 ${JSON.stringify(wordData, null, 2)}
 ${relatedWordEntries && relatedWordEntries.length > 0 ? (() => {
     const differentFormWords = relatedWordEntries.filter(rw => rw.types.includes('different_form'));
     const easilyConfusedWords = relatedWordEntries.filter(rw => rw.types.includes('easily_confused'));
     return `\n## 关联词（补充单词池）：
-以下关联词来自选中单词的关联词列表，可以作为 keyWords 使用：
+以下关联词来自选中单词的关联词列表，可以作为 context 使用但不作为关键词：
 ${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}
 
 ### 关联词出题指导：
@@ -194,6 +209,11 @@ ${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${di
 ${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，你可以设计辨析类翻译题` : ''}`;
   })() : ''}
 ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
+
+请严格按以下步骤出题：
+1. 按 id 1 到 ${options.n} 的顺序，每道题使用系统分配给它的关键词
+2. 第 1 题必须使用 "${allocatedKeyWords[0]}" 作为关键词（参考翻译中必须包含它）
+3. **不要返回 keyWords 字段**
 
 请生成符合上述要求的翻译题目 JSON。`;
 
@@ -238,11 +258,14 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
       throw new Error('翻译题目中某一题缺少必填字段');
     }
     q.type = q.type || 'cn_to_en';
-    q.keyWords = q.keyWords || [];
     q.hint = q.hint || '';
-    if (q.keyWords.length !== 1) {
-      throw new Error(`翻译题目中每一题的 keyWords 必须恰好一个，实际 ${q.keyWords.length} 个`);
-    }
+    // 由代码分配关键词，不依赖 AI 返回
+    q.keyWords = [];
+  }
+
+  // 代码分配关键词给每道题，确保抽取由代码完成
+  for (let i = 0; i < parsed.questions.length; i++) {
+    parsed.questions[i].keyWords = [allocatedKeyWords[i % allocatedKeyWords.length]];
   }
 
   const resultContent: Record<string, unknown> = { ...parsed };

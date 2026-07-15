@@ -571,6 +571,7 @@ export const BatchAddWord = ({
                 : editingWord.selectedMeanings ?? [],
             tags: [],
             relatedWords: [],
+            updatedAt: new Date().toISOString(),
           }}
           allWords={allWords}
           queryWord={queryWord}

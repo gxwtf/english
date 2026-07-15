@@ -10,6 +10,15 @@ import { aiQueue, withTimeout } from '@/lib/ai-queue';
 
 const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
 
+function shuffleArray<T>(array: T[]): T[] {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 interface WordSelectTranslateQuestion {
   title: string;
   words: string[];
@@ -99,11 +108,18 @@ async function doGenerateWordSelectTranslate(
   const wordsWithMeanings = wordData.filter((w: any) => w.meanings && Array.isArray(w.meanings) && w.meanings.length > 0);
   if (wordsWithMeanings.length === 0) throw new Error('选中的单词均无释义数据，请先为单词添加释义后再出题');
 
+  // 代码随机分配答案目标词和干扰词，避免 AI 自行抽取
+  const shuffledWords = shuffleArray([...wordData]);
+  const answerTargets = shuffledWords.slice(0, options.n);
+  const distractorWords = shuffledWords.slice(options.n, options.n + options.m);
+  const allWordTexts = [...answerTargets.map((w: any) => w.text), ...distractorWords.map((w: any) => w.text)];
+  const shuffledAllWords = shuffleArray([...allWordTexts]);
+
   const randomTool = {
     type: 'function' as const,
     function: {
       name: 'generateRandomNumber',
-      description: 'Generate a random integer within a specified range. Use this to randomize question order and word selection.',
+      description: 'Generate a random integer within a specified range. Use this to randomize question order.',
       parameters: {
         type: 'object',
         properties: {
@@ -122,7 +138,6 @@ async function doGenerateWordSelectTranslate(
 ## 题目格式要求（必须返回合法的 JSON）：
 {
   "title": "题目标题",
-  "words": ["候选单词1","候选单词2",...],
   "questions": [
     {
       "id": 1,
@@ -132,19 +147,19 @@ async function doGenerateWordSelectTranslate(
   ]
 }
 
-## 关键规则：
-1. words 数组包含所有候选单词（从提供的单词列表中选取），共需要 ${totalRequired} 个单词（${options.n} 道题的必用单词 + ${options.m} 个干扰词）
-2. questions 数组包含 ${options.n} 道小题，每道题的标准答案必须使用 words 数组中的至少一个单词
-3. chinese 是中文句子，学生需要翻译成英文
-4. referenceAnswers 是标准的英文翻译，必须使用 words 数组中的至少一个单词
-5. **重要：不要告诉学生每道题应该使用哪个单词，学生需要自己从候选单词中选择**
-6. **重要：${options.m} 个干扰词不应出现在任何题目的标准答案中，仅作为候选词干扰选择**
-7. **重要：每个单词的 meanings 字段包含了用户不熟悉、需要重点练习的释义，请优先围绕这些释义出题**
-8. 题目难度要适合英语学习者，中文句子要自然流畅
-9. 生成的英文翻译语法正确且自然
-10. **重要：你可以任意改变这些单词的时态语态（例：run -> ran; run -> to run）**
+## 关键规则（请严格遵循）：
+1. questions 数组包含 ${options.n} 道小题，每道题的标准答案必须使用一个**不同的**答案目标词（或它的变体形式）
+2. chinese 是中文句子，学生需要翻译成英文
+3. referenceAnswers 是标准的英文翻译，必须使用该题目对应的答案目标词或其变体
+4. **重要：不要告诉学生每道题应该使用哪个单词，学生需要自己从候选单词中选择**
+5. **重要：${options.m} 个干扰词不应出现在任何题目的标准答案中，仅作为候选词干扰选择**
+6. **重要：每个单词的 meanings 字段包含了用户不熟悉、需要重点练习的释义，请优先围绕这些释义出题**
+7. 题目难度要适合英语学习者，中文句子要自然流畅
+8. 生成的英文翻译语法正确且自然
+9. **重要：你可以任意改变这些单词的时态语态（例：run -> ran; run -> to run）**
+10. **重要：不要返回 words 字段**，words 字段将由系统自动填充
 11. 只返回 JSON，不要返回任何其他文字
-12. 使用 generateRandomNumber 工具来随机化题目排列和单词选择（如果模型支持工具调用）`;
+12. 使用 generateRandomNumber 工具来随机化题目排列（如果模型支持工具调用）`;
 
   let relatedWordsSection = '';
   if (actualRelatedEntries && actualRelatedEntries.length > 0) {
@@ -152,19 +167,28 @@ async function doGenerateWordSelectTranslate(
     const easilyConfusedWords = actualRelatedEntries.filter((rw: any) => rw.types?.includes?.('easily_confused'));
 
     relatedWordsSection = `\n## 关联词（补充单词池）：
-以下关联词来自选中单词的关联词列表，可以作为候选单词使用：
+以下关联词来自选中单词的关联词列表，仅可作为干扰词使用：
 ${JSON.stringify(actualRelatedEntries.map((rw: any) => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}
 
 ### 关联词出题指导：
 - 关联词没有标注特定释义，你可以考察其任意释义
+- 关联词不能作为答案目标词使用
 ${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${differentFormWords.map((rw: any) => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词是同一词的不同形式，你可以设计考察词形变化的翻译题` : ''}
 ${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map((rw: any) => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，你可以设计辨析类翻译题` : ''}`;
   }
 
-  const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：
-${JSON.stringify(wordData, null, 2)}
+  const userPrompt = `## 答案目标词（共 ${options.n} 个，每道题使用一个不同的目标词，不可遗漏）：
+${JSON.stringify(answerTargets.map((w: any) => ({ text: w.text, meanings: w.meanings })), null, 2)}
+
+## 干扰词（共 ${options.m} 个，不出现在答案中）：
+${JSON.stringify(distractorWords.map((w: any) => w.text), null, 2)}
 ${relatedWordsSection}
 ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
+
+请严格按以下步骤出题：
+1. 每个答案目标词对应一道翻译题，共 ${options.n} 道
+2. 每道题的参考英文翻译必须使用对应的答案目标词
+3. **不要返回 words 字段**
 
 请生成符合上述要求的选词翻译句子题目 JSON。`;
 
@@ -195,8 +219,6 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
   }
 
   // Handle field aliases
-  if (!parsed.words && parsed.word_list) parsed.words = parsed.word_list;
-  if (!parsed.words && parsed.candidates) parsed.words = parsed.candidates;
   if (!parsed.questions && parsed.items) parsed.questions = parsed.items;
   if (!parsed.questions && parsed.sentences) parsed.questions = parsed.sentences;
   if (!parsed.questions && parsed.translations) parsed.questions = parsed.translations;
@@ -210,7 +232,9 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
     console.warn(`[word-select-translate] AI 返回题目数量 ${parsed.questions.length} 少于期望 ${options.n}，使用实际数量`);
   }
 
-  const wordSet = new Set(parsed.words || []);
+  // 用代码预分配的单词列表接管，确保抽取由代码完成
+  parsed.words = [...shuffledAllWords];
+
   for (const q of parsed.questions) {
     // Handle field aliases within questions
     if (!q.chinese && q.chinese_sentence) q.chinese = q.chinese_sentence;
@@ -224,35 +248,35 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
       throw new Error('翻译题目中某一题缺少必填字段');
     }
     // Remove keyWords if AI still returns them - students should choose words themselves
-    delete q.keyWords;
-    delete q.keywords;
-    delete q.required_words;
-    delete q.must_use;
+    (q as any).keyWords = undefined;
+    (q as any).keywords = undefined;
+    (q as any).required_words = undefined;
+    (q as any).must_use = undefined;
   }
 
-  // 验证干扰词（m 个）未被用作任何答案
-  if (options.m > 0 && parsed.words && Array.isArray(parsed.words)) {
-    // Collect all words used in referenceAnswers
-    const usedWords = new Set<string>();
+  // 验证每个题目的 referenceAnswers 中包含对应的答案目标词（或其变体）
+  for (let i = 0; i < parsed.questions.length; i++) {
+    const q = parsed.questions[i];
+    const refLower = q.referenceAnswers.toLowerCase();
+    const hasTarget = answerTargets.some((t: any) => refLower.includes(t.text.toLowerCase()));
+    if (!hasTarget && answerTargets.length > 0 && i < answerTargets.length) {
+      console.warn(`[word-select-translate] 第 ${i + 1} 道题的参考答案似乎未使用目标词 "${answerTargets[i].text}"，但仍保留`);
+    }
+  }
+
+  // 验证干扰词未被用作任何答案（仅警告）
+  if (options.m > 0) {
+    const distractorSet = new Set(distractorWords.map((w: any) => w.text.toLowerCase()));
     for (const q of parsed.questions) {
       if (q.referenceAnswers) {
-        // Split by common delimiters and check each word
-        const words = q.referenceAnswers.toLowerCase().split(/[\s,;]+/);
-        for (const w of words) {
-          if (wordSet.has(w) || wordSet.has(w === q.referenceAnswers.toLowerCase() ? '' : '')) {
-            // Just check if any of the candidate words appear in the answer
-            // We're already validated above via wordSet
+        const answerParts = q.referenceAnswers.toLowerCase().split(/[\s,;.!?]+/);
+        for (const word of answerParts) {
+          if (distractorSet.has(word)) {
+            console.warn(`[word-select-translate] 干扰词 "${word}" 出现在答案中，但仍保留`);
           }
         }
-        // Add the original referenceAnswers text for simple matching
-        usedWords.add(q.referenceAnswers.toLowerCase());
       }
     }
-    // For word-select-translate, the validation is looser because referenceAnswers
-    // can be full sentences. Just check that at least options.m words are NOT referenced.
-    // We use strict word matching against the words array
-    // Since sentences are complex to parse, we only warn
-    console.log(`[word-select-translate] ${options.m} 个干扰词，AI 返回了 ${parsed.words.length} 个候选词和 ${parsed.questions.length} 道题`);
   }
 
   // 打乱候选单词顺序（Fisher-Yates 算法）

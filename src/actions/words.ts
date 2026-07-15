@@ -13,7 +13,7 @@ export async function getWordInfoById(wordId: number): Promise<WordInfo | null> 
 }
 
 function buildWordResult(
-  word: { id: number; text: string; wordTags: { tag: { name: string } }[]; meanings: any[] },
+  word: { id: number; text: string; wordTags: { tag: { name: string } }[]; meanings: any[]; updatedAt: Date },
   relatedWordsList: { text: string; type: string }[],
 ): Word {
   return {
@@ -25,6 +25,7 @@ function buildWordResult(
       text: rw.text,
       type: rw.type as RelatedWordType,
     })),
+    updatedAt: word.updatedAt.toISOString(),
   };
 }
 
@@ -38,7 +39,7 @@ export async function loadWords(): Promise<Word[]> {
     include: {
       wordTags: { include: { tag: true } },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { updatedAt: 'desc' },
   });
 
   const relatedWordsDb = await prisma.relatedWord.findMany({

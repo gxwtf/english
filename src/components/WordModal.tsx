@@ -58,25 +58,19 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
   const [editingMeaningIndex, setEditingMeaningIndex] = useState<number | null>(null);
 
   useEffect(() => {
+    setLoading(false);
     if (initialWord) {
+      currentWordRef.current = initialWord.text;
       setWord(initialWord.text);
       setSearchedWord(initialWord.text);
       setSelectedMeanings(initialWord.meanings || []);
       setSelectedTags(initialWord.tags);
       setSelectedRelatedWords(initialWord.relatedWords || []);
       setOriginalDictData(null);
-      
-      if (initialWord.meanings && initialWord.meanings.length > 0) {
-        setDictionaryData({
-          word: initialWord.text,
-          pronunciation: '',
-          meaning: initialWord.meanings
-        });
-      } else {
-        setDictionaryData(null);
-      }
+      setDictionaryData(null);
     } else {
       setWord('');
+      setSearchedWord('');
       setDictionaryData(null);
       setOriginalDictData(null);
       setSelectedMeanings([]);
@@ -86,6 +80,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
       setCustomMeaningType('');
       setEditingMeaningIndex(null);
       setError('');
+      setLoading(false);
       currentWordRef.current = '';
     }
   }, [initialWord, isOpen]);

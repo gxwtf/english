@@ -23,6 +23,7 @@ export interface Word {
   tags: WordTag[];
   meanings: Meaning[];  // 用户不熟悉的释义列表
   relatedWords: RelatedWord[];  // 关联单词
+  updatedAt: string;    // 修改时间，用于排序
 }
 
 // 颜色配置接口
