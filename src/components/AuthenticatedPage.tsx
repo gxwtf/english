@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
@@ -52,6 +52,9 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   const [showAISelector, setShowAISelector] = useState(false);
   const [loading, setLoading] = useState(true);
   const [exportingWords, setExportingWords] = useState(false);
+  const [rangeSelectMode, setRangeSelectMode] = useState(false);
+  const rangeFirstEndpoint = useRef<number | null>(null);
+  const rangeSelectModeRef = useRef(false);
   const router = useRouter();
 
   const relatedWordsCount = useMemo(() => {
@@ -209,19 +212,72 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     return filtered;
   }, [words, searchTerm, filterTags, filterLogic, sortBy, allTagConfigs]);
 
-  const handleToggleSelect = (id: number) => {
-    setSelectedWordIds(prev =>
-      prev.includes(id) ? prev.filter(wordId => wordId !== id) : [...prev, id]
-    );
-  };
+  // 处理选择 — 使用 rangeSelectModeRef 以避免闭包陈旧
+  const handleToggleSelect = useCallback((id: number) => {
+    if (rangeSelectModeRef.current) {
+      // 区间选择模式：记录端点
+      const currentIndex = filteredAndSortedWords.findIndex(w => w.id === id);
+      if (currentIndex === -1) return;
 
-  const handleToggleSelectAll = () => {
+      if (rangeFirstEndpoint.current === null) {
+        // 第一个端点
+        rangeFirstEndpoint.current = currentIndex;
+        // 高亮当前卡片
+        setSelectedWordIds(prev =>
+          prev.includes(id) ? prev : [...prev, id]
+        );
+      } else {
+        // 第二个端点
+        const start = Math.min(rangeFirstEndpoint.current, currentIndex);
+        const end = Math.max(rangeFirstEndpoint.current, currentIndex);
+        const rangeIds = filteredAndSortedWords.slice(start, end + 1).map(w => w.id);
+
+        setSelectedWordIds(prev => {
+          const allSelected = rangeIds.every(rid => prev.includes(rid));
+          if (allSelected) {
+            return prev.filter(rid => !rangeIds.includes(rid));
+          } else {
+            const newSet = new Set(prev);
+            rangeIds.forEach(rid => newSet.add(rid));
+            return Array.from(newSet);
+          }
+        });
+
+        setRangeSelectMode(false);
+        rangeSelectModeRef.current = false;
+        rangeFirstEndpoint.current = null;
+      }
+    } else {
+      // 普通点击：单选切换
+      setSelectedWordIds(prev =>
+        prev.includes(id) ? prev.filter(wordId => wordId !== id) : [...prev, id]
+      );
+    }
+  }, [filteredAndSortedWords]);
+
+  const handleRangeSelectToggle = useCallback(() => {
+    if (rangeSelectModeRef.current) {
+      rangeSelectModeRef.current = false;
+      setRangeSelectMode(false);
+      rangeFirstEndpoint.current = null;
+    } else {
+      rangeSelectModeRef.current = true;
+      setRangeSelectMode(true);
+      rangeFirstEndpoint.current = null;
+    }
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
     if (selectedWordIds.length === filteredAndSortedWords.length) {
       setSelectedWordIds([]);
     } else {
       setSelectedWordIds(filteredAndSortedWords.map(w => w.id));
     }
-  };
+    // 退出区间选择模式
+    setRangeSelectMode(false);
+    rangeSelectModeRef.current = false;
+    rangeFirstEndpoint.current = null;
+  }, [filteredAndSortedWords, selectedWordIds.length]);
 
   const handleAIGenerate = () => {
     if (selectedWordIds.length === 0) return;
@@ -439,7 +495,9 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
           filterLogic={filterLogic}
           searchTerm={searchTerm}
           allTagConfigs={allTagConfigs}
+          rangeSelectMode={rangeSelectMode}
           onToggleSelectAll={handleToggleSelectAll}
+          onRangeSelectToggle={handleRangeSelectToggle}
           onSort={setSortBy}
           onFilterChange={(tags, logic) => {
             setFilterTags(tags);
@@ -503,7 +561,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredAndSortedWords.map(word => (
+            {filteredAndSortedWords.map((word, index) => (
               <WordCard
                 key={word.id}
                 word={word}

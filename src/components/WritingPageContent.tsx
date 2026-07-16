@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
@@ -28,6 +28,9 @@ export function WritingPageContent() {
   const [showBatchTagModal, setShowBatchTagModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [allTagConfigs, setAllTagConfigs] = useState<Record<WordTag, TagConfig>>({});
+  const [rangeSelectMode, setRangeSelectMode] = useState(false);
+  const rangeFirstEndpoint = useRef<number | null>(null);
+  const rangeSelectModeRef = useRef(false);
 
   // 加载数据
   const loadData = async () => {
@@ -134,12 +137,55 @@ export function WritingPageContent() {
     }
   };
 
-  // 处理选择
-  const handleToggleSelect = (id: number) => {
-    setSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(entryId => entryId !== id) : [...prev, id]
-    );
-  };
+  // 处理选择 — 使用 rangeSelectModeRef 避免闭包陈旧
+  const handleToggleSelect = useCallback((id: number) => {
+    if (rangeSelectModeRef.current) {
+      const currentIndex = filteredEntries.findIndex(e => e.id === id);
+      if (currentIndex === -1) return;
+
+      if (rangeFirstEndpoint.current === null) {
+        rangeFirstEndpoint.current = currentIndex;
+        setSelectedIds(prev =>
+          prev.includes(id) ? prev : [...prev, id]
+        );
+      } else {
+        const start = Math.min(rangeFirstEndpoint.current, currentIndex);
+        const end = Math.max(rangeFirstEndpoint.current, currentIndex);
+        const rangeIds = filteredEntries.slice(start, end + 1).map(e => e.id);
+
+        setSelectedIds(prev => {
+          const allSelected = rangeIds.every(rid => prev.includes(rid));
+          if (allSelected) {
+            return prev.filter(rid => !rangeIds.includes(rid));
+          } else {
+            const newSet = new Set(prev);
+            rangeIds.forEach(rid => newSet.add(rid));
+            return Array.from(newSet);
+          }
+        });
+
+        setRangeSelectMode(false);
+        rangeSelectModeRef.current = false;
+        rangeFirstEndpoint.current = null;
+      }
+    } else {
+      setSelectedIds(prev =>
+        prev.includes(id) ? prev.filter(entryId => entryId !== id) : [...prev, id]
+      );
+    }
+  }, [filteredEntries]);
+
+  const handleRangeSelectToggle = useCallback(() => {
+    if (rangeSelectModeRef.current) {
+      rangeSelectModeRef.current = false;
+      setRangeSelectMode(false);
+      rangeFirstEndpoint.current = null;
+    } else {
+      rangeSelectModeRef.current = true;
+      setRangeSelectMode(true);
+      rangeFirstEndpoint.current = null;
+    }
+  }, []);
 
   const handleToggleSelectAll = useCallback(() => {
     if (selectedIds.length === filteredEntries.length) {
@@ -147,6 +193,9 @@ export function WritingPageContent() {
     } else {
       setSelectedIds(filteredEntries.map(e => e.id));
     }
+    setRangeSelectMode(false);
+    rangeSelectModeRef.current = false;
+    rangeFirstEndpoint.current = null;
   }, [filteredEntries, selectedIds.length]);
 
   // 处理标签点击（快速筛选）
@@ -255,7 +304,9 @@ export function WritingPageContent() {
           filterLogic={filterLogic}
           searchTerm={searchTerm}
           allTagConfigs={allTagConfigs}
+          rangeSelectMode={rangeSelectMode}
           onToggleSelectAll={handleToggleSelectAll}
+          onRangeSelectToggle={handleRangeSelectToggle}
           onSort={setSortBy}
           onFilterChange={(tags, logic) => {
             setFilterTags(tags);

@@ -10,13 +10,20 @@ import {
   Search,
   Layers,
   Tag,
-  FileDown
+  FileDown,
+  ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { COLOR_PRESETS } from '@/constants/word-tags';
 import type { TagConfig, WordTag } from '@/types/word';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem
+} from '@/components/ui/dropdown-menu';
 
 interface WritingToolbarProps {
   selectedEntryIds: number[];
@@ -26,7 +33,9 @@ interface WritingToolbarProps {
   filterLogic: 'and' | 'or';
   searchTerm: string;
   allTagConfigs: Record<WordTag, TagConfig>;
+  rangeSelectMode: boolean;
   onToggleSelectAll: () => void;
+  onRangeSelectToggle: () => void;
   onSort: (sort: 'default' | 'alphabet') => void;
   onFilterChange: (tags: string[], logic: 'and' | 'or') => void;
   onDeleteSelected: () => void;
@@ -43,7 +52,9 @@ export const WritingToolbar = ({
   filterLogic,
   searchTerm,
   allTagConfigs,
+  rangeSelectMode,
   onToggleSelectAll,
+  onRangeSelectToggle,
   onSort,
   onFilterChange,
   onDeleteSelected,
@@ -103,24 +114,34 @@ export const WritingToolbar = ({
       <div className="hidden md:flex items-center justify-between gap-3">
         {/* 左侧：选择和排序 */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleSelectAll}
-            className="h-9 text-sm"
-          >
-            {isAllSelected ? (
-              <>
-                <CheckSquare className="h-4 w-4 mr-2" />
-                <span>取消全选</span>
-              </>
-            ) : (
-              <>
-                <CheckSquare className="h-4 w-4 mr-2" />
-                <span>全选</span>
-              </>
-            )}
-          </Button>
+          {/* 全选按钮 + ▼ 下拉菜单 */}
+          <div className="flex items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleSelectAll}
+              className="h-9 text-sm rounded-r-none border-r-0"
+            >
+              <CheckSquare className="h-4 w-4 mr-2" />
+              {isAllSelected ? <span>取消全选</span> : <span>全选</span>}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={rangeSelectMode ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-9 text-sm px-2 rounded-l-none"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-40">
+                <DropdownMenuItem onClick={onRangeSelectToggle}>
+                  {rangeSelectMode ? <span>退出区间选择</span> : <span>区间选择</span>}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
           <div className="flex gap-1">
             <Button
@@ -329,15 +350,33 @@ export const WritingToolbar = ({
       {/* 移动端：简化布局 */}
       <div className="md:hidden">
         <div className="flex flex-wrap items-center gap-2 mb-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleSelectAll}
-            className="h-9 text-xs"
-          >
-            <CheckSquare className="h-4 w-4" />
-            <span className="sr-only">{isAllSelected ? '取消全选' : '全选'}</span>
-          </Button>
+          {/* 全选按钮 + ▼ 下拉菜单 — 移动端 */}
+          <div className="flex items-center">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onToggleSelectAll}
+              className="h-9 text-xs rounded-r-none border-r-0"
+            >
+              <CheckSquare className="h-4 w-4" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={rangeSelectMode ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-9 text-xs px-1.5 rounded-l-none"
+                >
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-40">
+                <DropdownMenuItem onClick={onRangeSelectToggle}>
+                  {rangeSelectMode ? <span>退出区间选择</span> : <span>区间选择</span>}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
           <div className="flex gap-1">
             <Button

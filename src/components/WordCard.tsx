@@ -73,17 +73,26 @@ export const WordCard = ({
   };
 
   return (
-    <div className={`p-3 sm:p-4 rounded-lg border transition-all ${
-      isSelected
-        ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700'
-        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-md'
-    }`}>
+    <div
+      className={`p-3 sm:p-4 rounded-lg border transition-all cursor-pointer ${
+        isSelected
+          ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700'
+          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-md'
+      }`}
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('[data-action-bar]') || target.closest('[data-tag-btn]')) return;
+        onToggleSelect(word.id);
+      }}
+    >
       <div className="flex items-start gap-2 sm:gap-3">
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={() => onToggleSelect(word.id)}
-          className="mt-1 flex-shrink-0"
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onToggleSelect(word.id)}
+            className="mt-1 flex-shrink-0"
+          />
+        </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between mb-2 gap-2">
@@ -93,7 +102,7 @@ export const WordCard = ({
               </h3>
             </div>
 
-            <div className="flex gap-1 sm:gap-2 flex-shrink-0">
+            <div data-action-bar className="flex gap-1 sm:gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
               <Button
                 variant="ghost"
                 size="sm"
@@ -174,6 +183,7 @@ export const WordCard = ({
               return (
                 <button
                   key={tag}
+                  data-tag-btn
                   onClick={(e) => {
                     e.stopPropagation();
                     onTagClick?.(tag, false);
