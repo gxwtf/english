@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { COLOR_PRESETS } from '@/constants/word-tags';
@@ -15,6 +15,12 @@ interface ColorSelectorProps {
 
 export const ColorSelector = ({ isOpen, onClose, onColorSelect, currentColorId }: ColorSelectorProps) => {
   const [selectedColorId, setSelectedColorId] = useState(currentColorId || 'blue');
+
+  useEffect(() => {
+    if (currentColorId) {
+      setSelectedColorId(currentColorId);
+    }
+  }, [currentColorId]);
 
   const handleColorSelect = (color: ColorConfig) => {
     setSelectedColorId(color.id);
