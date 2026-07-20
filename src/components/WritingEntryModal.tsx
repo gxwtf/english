@@ -54,7 +54,7 @@ export const WritingEntryModal = ({
   const handleSave = () => {
     if (!content.trim()) return;
     onSave({
-      content: content.trim(),
+      content: content.replace(/\s+$/, ''),
       note: note.trim() || undefined,
       tags: selectedTags
     });

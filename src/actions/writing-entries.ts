@@ -49,9 +49,9 @@ export async function saveWritingEntry(data: {
 
   const userId = user.userId;
   const { id, content, note, tags = [] } = data;
-  const contentTrim = content.trim();
+  const contentTrimmed = content.replace(/\s+$/, '');
 
-  if (!contentTrim) throw new Error('内容不能为空');
+  if (!contentTrimmed.trim()) throw new Error('内容不能为空');
 
   if (id) {
     // 更新现有记录
@@ -64,7 +64,7 @@ export async function saveWritingEntry(data: {
     await prisma.writingEntry.update({
       where: { id },
       data: {
-        content: contentTrim,
+        content: contentTrimmed,
         note: note?.trim() || null,
         tags: {
           deleteMany: {},
@@ -84,7 +84,7 @@ export async function saveWritingEntry(data: {
     await prisma.writingEntry.create({
       data: {
         userId,
-        content: contentTrim,
+        content: contentTrimmed,
         note: note?.trim() || null,
         tags: {
           create: tags.map(tag => ({
@@ -102,7 +102,7 @@ export async function saveWritingEntry(data: {
 
   // 重新查询返回结果
   const result = await prisma.writingEntry.findFirstOrThrow({
-    where: { userId, content: contentTrim },
+    where: { userId, content: contentTrimmed },
     include: {
       tags: {
         include: { tag: true }
