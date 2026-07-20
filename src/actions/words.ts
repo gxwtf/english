@@ -228,6 +228,42 @@ export async function saveTagConfigs(tagConfigs: Record<string, { name: string; 
   return result;
 }
 
+export async function countTagUsage(tagName: string): Promise<{ wordCount: number; writingCount: number }> {
+  const user = await getAuthUser();
+  if (!user) return { wordCount: 0, writingCount: 0 };
+
+  const wordCount = await prisma.wordTag.count({
+    where: {
+      tag: { name: tagName },
+      word: { userId: user.userId }
+    }
+  });
+
+  const writingCount = await prisma.writingEntryTag.count({
+    where: {
+      tag: { name: tagName },
+      writingEntry: { userId: user.userId }
+    }
+  });
+
+  return { wordCount, writingCount };
+}
+
+export async function deleteTag(tagName: string): Promise<{ success: boolean }> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  await prisma.tag.deleteMany({
+    where: { name: tagName }
+  });
+
+  await prisma.tagConfig.deleteMany({
+    where: { userId: user.userId, name: tagName }
+  });
+
+  return { success: true };
+}
+
 // 批量更新单词标签
 export async function updateWordTags(wordIds: number[], tags: string[]): Promise<Word[]> {
   const user = await getAuthUser();
