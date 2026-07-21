@@ -9,10 +9,13 @@ import { WritingToolbar } from '@/components/WritingToolbar';
 import { WritingEntryCard } from '@/components/WritingEntryCard';
 import { WritingEntryModal } from '@/components/WritingEntryModal';
 import { BatchTagModal } from '@/components/BatchTagModal';
-import { WritingEntry, loadWritingEntries, saveWritingEntry, deleteWritingEntries, updateWritingEntryTags } from '@/actions/writing-entries';
+import { WritingEntry, loadWritingEntries, saveWritingEntry, deleteWritingEntries, updateWritingEntryTags, extractWordsFromEntries, WordDifficulty, AIExtractedWord } from '@/actions/writing-entries';
 import { loadTagConfigs, saveTagConfigs } from '@/actions/words';
+import queryWord from '@/actions/query';
 import { generateWritingEntriesPdf } from '@/lib/pdf-generator';
 import type { WordTag, TagConfig } from '@/types/word';
+import { AIFindWordsSelector } from '@/components/AIFindWordsSelector';
+import { AIFindWordsModal } from '@/components/AIFindWordsModal';
 
 export function WritingPageContent() {
   const { isLoggedIn, isClient, isLoading } = useAuth();
@@ -31,6 +34,10 @@ export function WritingPageContent() {
   const [rangeSelectMode, setRangeSelectMode] = useState(false);
   const rangeFirstEndpoint = useRef<number | null>(null);
   const rangeSelectModeRef = useRef(false);
+  const [showAIFindWordsSelector, setShowAIFindWordsSelector] = useState(false);
+  const [showAIFindWordsModal, setShowAIFindWordsModal] = useState(false);
+  const [aiExtractedWords, setAiExtractedWords] = useState<AIExtractedWord[]>([]);
+  const [aiFindingWords, setAiFindingWords] = useState(false);
 
   // 加载数据
   const loadData = async () => {
@@ -249,6 +256,32 @@ export function WritingPageContent() {
     }
   };
 
+  // 处理AI找词
+  const handleAIFindWords = () => {
+    if (selectedIds.length === 0) {
+      alert('请先选择要分析的作文');
+      return;
+    }
+    setShowAIFindWordsSelector(true);
+  };
+
+  // 处理选择难度后开始AI找词
+  const handleStartAIFindWords = async (difficulty: WordDifficulty) => {
+    setShowAIFindWordsSelector(false);
+    setAiFindingWords(true);
+    
+    try {
+      const words = await extractWordsFromEntries(selectedIds, difficulty);
+      setAiExtractedWords(words);
+      setShowAIFindWordsModal(true);
+    } catch (error) {
+      console.error('AI找词失败:', error);
+      alert('AI找词失败，请重试');
+    } finally {
+      setAiFindingWords(false);
+    }
+  };
+
   // 加载中状态
   if (!isClient || isLoading || loading) {
     return (
@@ -316,6 +349,7 @@ export function WritingPageContent() {
           onSearchChange={setSearchTerm}
           onSetTags={() => setShowBatchTagModal(true)}
           onExportPdf={handleExportPdf}
+          onAIFindWords={handleAIFindWords}
         />
 
         {/* 确认删除弹窗 */}
@@ -407,6 +441,22 @@ export function WritingPageContent() {
         selectedCount={selectedIds.length}
         allTagConfigs={allTagConfigs}
         onTagsUpdate={handleTagConfigUpdate}
+      />
+
+      {/* AI找词难度选择器 */}
+      <AIFindWordsSelector
+        isOpen={showAIFindWordsSelector}
+        onClose={() => setShowAIFindWordsSelector(false)}
+        onSelect={handleStartAIFindWords}
+      />
+
+      {/* AI找词结果弹窗 */}
+      <AIFindWordsModal
+        isOpen={showAIFindWordsModal}
+        onClose={() => setShowAIFindWordsModal(false)}
+        words={aiExtractedWords}
+        isLoading={aiFindingWords}
+        queryWord={queryWord}
       />
     </div>
   );

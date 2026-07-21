@@ -11,7 +11,8 @@ import {
   Layers,
   Tag,
   FileDown,
-  ChevronDown
+  ChevronDown,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +43,7 @@ interface WritingToolbarProps {
   onSearchChange: (term: string) => void;
   onSetTags: () => void;
   onExportPdf: () => void;
+  onAIFindWords: () => void;
 }
 
 export const WritingToolbar = ({
@@ -61,6 +63,7 @@ export const WritingToolbar = ({
   onSearchChange,
   onSetTags,
   onExportPdf,
+  onAIFindWords,
 }: WritingToolbarProps) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [showBatchDropdown, setShowBatchDropdown] = useState(false);
@@ -296,6 +299,21 @@ export const WritingToolbar = ({
             {showBatchDropdown && (
               <div className="absolute top-full right-0 mt-2 w-64 sm:w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                 <div className="p-3 sm:p-4" data-batch-dropdown-inner onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                  {/* AI找词选项 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBatchDropdown(false);
+                      onAIFindWords();
+                    }}
+                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Sparkles className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm">AI找词</span>
+                  </button>
+
                   {/* 导出PDF选项 */}
                   <button
                     onClick={(e) => {
@@ -530,6 +548,21 @@ export const WritingToolbar = ({
             {showBatchDropdown && (
               <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 max-h-80 overflow-y-auto">
                 <div className="p-3" data-batch-dropdown-inner onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                  {/* AI找词选项 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBatchDropdown(false);
+                      onAIFindWords();
+                    }}
+                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Sparkles className="h-4 w-4 text-purple-600" />
+                    <span className="text-sm">AI找词</span>
+                  </button>
+
                   {/* 导出PDF选项 */}
                   <button
                     onClick={(e) => {
