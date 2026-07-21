@@ -7,6 +7,7 @@ import { COLOR_PRESETS } from '@/constants/word-tags';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { WordTag, TagConfig } from '@/types/word';
 
 interface WritingEntryCardProps {
   entry: WritingEntry;
@@ -14,6 +15,7 @@ interface WritingEntryCardProps {
   onToggleSelect: (id: number) => void;
   onEdit: (entry: WritingEntry) => void;
   onDelete: (id: number) => void;
+  allTagConfigs: Record<WordTag, TagConfig>;
   onTagClick?: (tag: string) => void;
 }
 
@@ -23,6 +25,7 @@ export const WritingEntryCard = ({
   onToggleSelect,
   onEdit,
   onDelete,
+  allTagConfigs,
   onTagClick
 }: WritingEntryCardProps) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -100,7 +103,11 @@ export const WritingEntryCard = ({
           {/* 标签列表 */}
           <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-3">
             {entry.tags.map(tag => {
-              const colorPreset = COLOR_PRESETS[0];
+              const tagConfig = allTagConfigs[tag as WordTag];
+              const displayName = tagConfig?.name || tag;
+              const colorPreset = tagConfig?.colorId
+                ? COLOR_PRESETS.find(c => c.id === tagConfig.colorId)
+                : COLOR_PRESETS[0];
               return (
                 <button
                   key={tag}
@@ -115,7 +122,7 @@ export const WritingEntryCard = ({
                     variant="secondary"
                     className={`${colorPreset?.className || 'bg-gray-200'} text-xs cursor-pointer hover:opacity-80 transition-opacity border border-current`}
                   >
-                    <span>{tag}</span>
+                    <span>{displayName}</span>
                   </Badge>
                 </button>
               );

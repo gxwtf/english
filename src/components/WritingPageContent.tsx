@@ -369,17 +369,18 @@ export function WritingPageContent() {
           <div className="space-y-3">
             {filteredEntries.map(entry => (
               <WritingEntryCard
-                key={entry.id}
-                entry={entry}
-                isSelected={selectedIds.includes(entry.id)}
-                onToggleSelect={handleToggleSelect}
-                onEdit={(entry) => {
-                  setEditingEntry(entry);
-                  setShowModal(true);
-                }}
-                onDelete={handleDelete}
-                onTagClick={handleTagClick}
-              />
+              key={entry.id}
+              entry={entry}
+              isSelected={selectedIds.includes(entry.id)}
+              onToggleSelect={handleToggleSelect}
+              onEdit={(entry) => {
+                setEditingEntry(entry);
+                setShowModal(true);
+              }}
+              onDelete={handleDelete}
+              allTagConfigs={allTagConfigs}
+              onTagClick={handleTagClick}
+            />
             ))}
           </div>
         )}
