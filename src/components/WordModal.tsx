@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface WordModalProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
   const [showPhotoRecognition, setShowPhotoRecognition] = useState(false);
   const [showBatchAdd, setShowBatchAdd] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const currentWordRef = useRef('');
   // 自定义释义输入状态
   const [customMeaningContent, setCustomMeaningContent] = useState('');
   const [customMeaningType, setCustomMeaningType] = useState('');
