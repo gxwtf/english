@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface WordModalProps {
   isOpen: boolean;
@@ -49,8 +48,6 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
   const [showPhotoRecognition, setShowPhotoRecognition] = useState(false);
   const [showBatchAdd, setShowBatchAdd] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  // 用于防止异步查询时单词已切换导致数据错乱
-  const currentWordRef = useRef<string>('');
   // 自定义释义输入状态
   const [customMeaningContent, setCustomMeaningContent] = useState('');
   const [customMeaningType, setCustomMeaningType] = useState('');
@@ -91,7 +88,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
       const fetchOriginalDictData = async () => {
         try {
           const result = await queryWord(searchedWord);
-          if (result && currentWordRef.current === searchedWord) {
+          if (result) {
             setOriginalDictData(result);
           }
         } catch (err) {
@@ -112,16 +109,12 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
           if (result && currentWordRef.current === searchedWord) {
             setDictionaryData(result);
             setOriginalDictData(result);
-          } else if (currentWordRef.current !== searchedWord) {
-            // 异步返回时单词已切换，忽略旧结果
           } else {
-            if (currentWordRef.current === searchedWord) {
-              setDictionaryData({
-                word: searchedWord,
-                pronunciation: '',
-                meaning: []
-              });
-            }
+            setDictionaryData({
+              word: searchedWord,
+              pronunciation: '',
+              meaning: []
+            });
           }
         } catch (err) {
           console.error('查询词典失败:', err);
@@ -557,15 +550,13 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                                     >
                                       <Pencil className="h-3.5 w-3.5" />
                                     </button>
-                                    {meaning.type === '自定义' && (
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); deleteMeaning(index); }}
-                                        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                                        title="删除"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </button>
-                                    )}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); deleteMeaning(index); }}
+                                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                      title="删除"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
                                   </>
                                 )}
                                 {isSelected && !isEditing && (

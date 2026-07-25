@@ -10,6 +10,8 @@ import { aiQueue, withTimeout } from '@/lib/ai-queue';
 
 const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
 
+const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
+
 function shuffleArray<T>(array: T[]): T[] {
   const result = [...array];
   for (let i = result.length - 1; i > 0; i--) {
