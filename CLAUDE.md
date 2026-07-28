@@ -29,7 +29,7 @@
 3. 访问本地测试地址（如 http://localhost:3003）。
 4. 在浏览器中实际操作并验证刚刚修改的功能。
 5. 在控制台输出测试结果。如果发现报错或 UI 异常，立即进行修复。
-6. **如果启动项目时发现 localhost:3003 已经被别的进程占用，说明你已经手动在该项目下运行了 `npm run dev`，你不要重新开一个新的服务，直接用你的服务进行测试就可以了。除非必要，否则不要杀死现有的 npm run dev 进程。**
+6. **如果启动项目时发现 localhost:3003 已经被别的进程占用，说明你已经手动在该项目下运行了 `pnpm run dev`（或 `pnpm dev`），你不要重新开一个新的服务，直接用你的服务进行测试就可以了。除非必要，否则不要杀死现有的 pnpm dev 进程。**
 7. **CRITICAL：如果你发现浏览器已经有一个页面是 localhost:3003，你不要再次打开一个新的页面，必须直接对着这个页面进行测试。**
 
 **注意：这是不可妥协的硬性规定。未完成 Chrome MCP 测试前，你不准告诉你任务已完成。**
@@ -85,3 +85,13 @@ At the end, give me:
 - 使用 Next.js 的 App Router，**不是 Pages Router**。
 - 尽量不要使用传统 API（`GET/POST`），**尽量使用 Server Actions**。
 - **只允许操作 localhost 的数据库**。
+
+## 包管理与部署
+
+- 包管理工具为 **pnpm**（已从 npm 迁移），不要使用 npm。
+- 常用命令：
+  - `pnpm install` 或 `pnpm i` — 安装依赖
+  - `pnpm dev` — 启动本地开发服务器
+  - `pnpm build` — 构建生产版本
+  - `pnpm start` — 启动生产服务
+- 服务器上的 systemd 服务名称为 **gxenglish.service**。

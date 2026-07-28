@@ -23,7 +23,7 @@ cd paddleocr-service && ./setup.sh
 - 构建并启动服务：
 
 ```bash
-npm run build && start
+pnpm build && pnpm start
 ```
 
 # API 接口
