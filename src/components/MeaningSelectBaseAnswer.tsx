@@ -111,12 +111,17 @@ export function MeaningSelectBaseAnswer({
                 const isSelected = answers[i] === option;
                 const isCorrect = option === q.correctAnswer;
                 const showResult = isShowingResults;
+                const isUnanswered = !answers[i]?.trim();
 
                 let buttonClass = "p-3 text-sm rounded-lg border-2 transition-all duration-200 text-left ";
 
                 if (showResult) {
                   if (isCorrect) {
-                    buttonClass += "border-green-500 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300";
+                    if (isUnanswered) {
+                      buttonClass += "border-orange-500 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300";
+                    } else {
+                      buttonClass += "border-green-500 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300";
+                    }
                   } else if (isSelected && !isCorrect) {
                     buttonClass += "border-red-500 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300";
                   } else {
@@ -145,7 +150,7 @@ export function MeaningSelectBaseAnswer({
             {isShowingResults && (
               <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">正确答案：</p>
-                <p className="text-sm text-green-600 dark:text-green-400">
+                <p className={`text-sm ${answers[i]?.trim() ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
                   {q.correctAnswer}
                 </p>
                 {answers[i] ? (
