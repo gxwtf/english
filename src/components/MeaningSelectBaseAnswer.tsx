@@ -43,7 +43,11 @@ export function MeaningSelectBaseAnswer({
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    if (answers.some(a => !a.trim())) { alert('请选择所有题目的答案后再提交'); return; }
+    if (answers.some(a => !a.trim())) {
+      if (!confirm('还有未作答的题目，确定要提交吗？')) {
+        return;
+      }
+    }
     setSubmitting(true);
     try {
       const answerMap: Record<number, string> = {};
@@ -144,7 +148,7 @@ export function MeaningSelectBaseAnswer({
                 <p className="text-sm text-green-600 dark:text-green-400">
                   {q.correctAnswer}
                 </p>
-                {answers[i] && (
+                {answers[i] ? (
                   <p className="text-xs mt-1">
                     {answers[i] === q.correctAnswer ? (
                       <span className="text-green-600 dark:text-green-400">回答正确</span>
@@ -152,6 +156,8 @@ export function MeaningSelectBaseAnswer({
                       <span className="text-red-500 dark:text-red-400">回答错误</span>
                     )}
                   </p>
+                ) : (
+                  <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">未作答</p>
                 )}
               </div>
             )}
@@ -162,14 +168,14 @@ export function MeaningSelectBaseAnswer({
       {!isShowingResults ? (
         <button
           onClick={handleSubmit}
-          disabled={submitting || answers.some(a => !a.trim())}
+          disabled={submitting}
           className={`w-full py-3 font-semibold rounded-xl transition-all shadow-md ${
-            submitting || answers.some(a => !a.trim())
+            submitting
               ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
               : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white hover:shadow-lg'
           }`}
         >
-          {submitting ? '提交中...' : '提交答案'}
+          {submitting ? '提交中...' : `提交答案 (${answers.filter(a => a.trim()).length}/${answers.length})`}
         </button>
       ) : (
         <div>

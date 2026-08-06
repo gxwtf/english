@@ -110,7 +110,7 @@ export const AIFindWordsSelector = ({ isOpen, onClose, onSelect }: AIFindWordsSe
                   variant={isSelected ? 'default' : 'outline'}
                   className={`group flex flex-col items-start gap-2 p-4 rounded-xl h-auto w-full text-left ${
                     isSelected
-                      ? `${colors.selectedBorder} ${colors.selectedBg} shadow-lg`
+                      ? `${colors.selectedBorder} ${colors.selectedBg} text-white shadow-lg`
                       : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:shadow-lg'
                   }`}
                 >

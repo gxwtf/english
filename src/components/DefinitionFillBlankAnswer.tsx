@@ -112,8 +112,9 @@ export function DefinitionFillBlankAnswer({ questionId, words, questions, thinki
 
   const handleSubmit = useCallback(async () => {
     if (answers.some(a => !a.trim())) {
-      alert('请填写所有空白后再提交');
-      return;
+      if (!confirm('还有未作答的题目，确定要提交吗？')) {
+        return;
+      }
     }
     setSubmitting(true);
     try {
@@ -294,7 +295,7 @@ export function DefinitionFillBlankAnswer({ questionId, words, questions, thinki
                   <p className="text-sm text-gray-800 dark:text-gray-200 mb-2 italic">{q.definition}</p>
                   <div className="mb-2">
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">你的答案：</p>
-                    <p className={`text-sm ${isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400 line-through'}`}>
+                    <p className={`text-sm ${isCorrect ? 'text-green-600 dark:text-green-400' : userAnswer ? 'text-red-500 dark:text-red-400 line-through' : 'text-gray-400 dark:text-gray-500'}`}>
                       {userAnswer || '(未回答)'}
                     </p>
                   </div>
@@ -379,14 +380,14 @@ export function DefinitionFillBlankAnswer({ questionId, words, questions, thinki
           </div>
           <button
             onClick={handleSubmit}
-            disabled={submitting || answers.some(a => !a.trim())}
+            disabled={submitting}
             className={`w-full py-3 font-semibold rounded-xl transition-all shadow-md ${
-              submitting || answers.some(a => !a.trim())
+              submitting
                 ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
                 : 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-lg'
             }`}
           >
-            {submitting ? '提交中...' : '提交答案'}
+            {submitting ? '提交中...' : `提交答案 (${answers.filter(a => a.trim()).length}/${answers.length})`}
           </button>
         </>
       )}

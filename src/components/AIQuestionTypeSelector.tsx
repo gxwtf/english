@@ -299,7 +299,9 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   key={type.id}
                   onClick={() => setSelectedType(type.id)}
                   variant={isSelected ? 'default' : 'outline'}
-                  className={`group flex items-center gap-3 p-3 rounded-xl h-auto w-full justify-start text-left ${isSelected ? 'border-green-500 dark:border-green-400 bg-green-50 dark:bg-green-900/20 shadow-lg' : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-green-500 dark:hover:border-green-400 hover:shadow-lg'}`}
+                  className={`group flex items-center gap-3 p-3 rounded-xl h-auto w-full justify-start text-left ${isSelected
+                    ? 'border-green-500 dark:border-green-400 bg-green-500 dark:bg-green-600 text-white shadow-lg'
+                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-green-500 dark:hover:border-green-400 hover:shadow-lg'}`}
                 >
                   <div className={`w-9 h-9 shrink-0 flex items-center justify-center rounded-lg transition-all duration-200 ${
                     isSelected

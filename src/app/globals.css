@@ -123,3 +123,13 @@
     cursor: pointer;
   }
 }
+
+::selection {
+  background-color: rgba(59, 130, 246, 0.3);
+  color: inherit;
+}
+
+.dark ::selection {
+  background-color: rgba(96, 165, 250, 0.4);
+  color: inherit;
+}

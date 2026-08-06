@@ -304,11 +304,11 @@ export const AIFindWordsModal = ({
                               </Badge>
                             )}
                           </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 break-words">
                             {word.meaning}
                           </p>
                           {word.sentence && (
-                            <p className="text-sm text-gray-500 dark:text-gray-500 mt-2 italic">
+                            <p className="text-sm text-gray-500 dark:text-gray-500 mt-2 italic break-words">
                               例句: {word.sentence}
                             </p>
                           )}

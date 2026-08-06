@@ -154,6 +154,11 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
   }, []);
 
   const handleSubmitAll = useCallback(async () => {
+    if (hasEmptyAnswers) {
+      if (!confirm('还有未作答的题目，确定要提交吗？')) {
+        return;
+      }
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -199,7 +204,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
     } finally {
       setSubmitting(false);
     }
-  }, [answers, questionId, onSubmitted, router]);
+  }, [answers, questionId, onSubmitted, router, hasEmptyAnswers]);
 
   const completedCount = Object.keys(answers).filter(k => answers[Number(k)]?.trim()).length;
   const totalCount = questions.length;
@@ -571,10 +576,10 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
             </button>
             <button
               onClick={handleSubmitAll}
-              disabled={submitting || hasEmptyAnswers}
+              disabled={submitting}
               className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? '提交中...' : completedCount === 0 ? '开始答题' : `提交全部 (${completedCount}/${totalCount})`}
+              {submitting ? '提交中...' : completedCount === 0 ? '提交全部 (0/${totalCount})' : `提交全部 (${completedCount}/${totalCount})`}
             </button>
           </div>
         </>
