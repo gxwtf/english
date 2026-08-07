@@ -7,6 +7,7 @@ import { Meaning } from '@/types/dict';
 import { callOpenAI, parseThinkingContent } from '@/lib/openai';
 import { aiQueue } from '@/lib/ai-queue';
 import { extractJSONFromAIContent, embedGenerationOptions, extractGenerationOptions } from './shared-utils';
+import { recordReviewFromQuestion } from '@/actions/review';
 
 /**
  * 鉴权+所有权检查辅助函数，消除重复的 getAuthUser + findUnique + 权限校验样板代码
@@ -304,13 +305,24 @@ export async function loadGradingResult(questionId: string): Promise<GradeResult
 
 /**
  * Mark a GRADING question as ANSWERED after grading is complete.
+ * 同时触发单词复习状态更新（遗忘曲线 + 错误权重）。
+ * 复习状态更新失败不影响主流程。
  */
 export async function markQuestionAsAnswered(questionId: string) {
   await getAuthenticatedQuestion(questionId);
-  return prisma.questionQueue.update({
+  const updated = await prisma.questionQueue.update({
     where: { id: questionId },
     data: { status: 'ANSWERED' },
   });
+
+  // 触发复习状态更新（异步，失败不阻塞主流程）
+  try {
+    await recordReviewFromQuestion(questionId);
+  } catch (e) {
+    console.error('更新单词复习状态失败:', e);
+  }
+
+  return updated;
 }
 
 /**

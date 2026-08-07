@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Check, Edit2, Trash2, X, BookOpen, Link2 } from 'lucide-react';
+import { Check, Edit2, Trash2, X, BookOpen, Link2, TrendingDown, AlertCircle, Scale } from 'lucide-react';
 import { Word, WordTag, TagConfig, RelatedWordType } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ interface WordCardProps {
   onDelete: (id: number) => void;
   allTagConfigs: Record<WordTag, TagConfig>;
   onTagClick?: (tag: WordTag, isAdditive: boolean) => void;
+  weights?: { total: number; forgetting: number; error: number };
 }
 
 export const WordCard = ({
@@ -25,7 +26,8 @@ export const WordCard = ({
   onEdit,
   onDelete,
   allTagConfigs,
-  onTagClick
+  onTagClick,
+  weights,
 }: WordCardProps) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -207,6 +209,27 @@ export const WordCard = ({
               </Badge>
             )}
           </div>
+
+          {/* 权重信息 */}
+          {weights && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+              <span className="flex items-center gap-1" title="总权重 = 遗忘权重 × 错误权重">
+                <Scale className="h-3 w-3" />
+                <span>总</span>
+                <span className="font-mono font-semibold text-gray-700 dark:text-gray-200">{weights.total.toFixed(2)}</span>
+              </span>
+              <span className="flex items-center gap-1" title="遗忘曲线权重 f(t) = 1 - e^(-elapsed/interval)">
+                <TrendingDown className="h-3 w-3" />
+                <span>遗忘</span>
+                <span className="font-mono font-semibold text-gray-700 dark:text-gray-200">{weights.forgetting.toFixed(2)}</span>
+              </span>
+              <span className="flex items-center gap-1" title="错误权重 g(e) = errorCount²">
+                <AlertCircle className="h-3 w-3" />
+                <span>错误</span>
+                <span className="font-mono font-semibold text-gray-700 dark:text-gray-200">{weights.error.toFixed(2)}</span>
+              </span>
+            </div>
+          )}
           </div>
         </div>
       </div>

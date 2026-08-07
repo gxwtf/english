@@ -32,6 +32,8 @@ import { selectWordsForQuestion, type RelatedWordEntry } from '@/lib/word-select
 import { generateWordbookPdf } from '@/lib/pdf-generator';
 import { fuzzySearchWords } from '@/lib/word-search';
 import { useRouter } from 'next/navigation';
+import { getBatchReviewStates } from '@/actions/review';
+import { forgettingWeight, errorWeight, totalWeight } from '@/lib/spaced-repetition/weights';
 
 interface AuthenticatedPageProps {
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
@@ -55,6 +57,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   const [rangeSelectMode, setRangeSelectMode] = useState(false);
   const rangeFirstEndpoint = useRef<number | null>(null);
   const rangeSelectModeRef = useRef(false);
+  const [wordReviewStates, setWordReviewStates] = useState<Map<number, { lastReviewedAt: Date | null; interval: number; errorCount: number }>>(new Map());
   const router = useRouter();
 
   const relatedWordsCount = useMemo(() => {
@@ -80,6 +83,24 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
       ]);
       setWords(loadedWords);
       setAllTagConfigs(loadedTagConfigs);
+      // 加载所有单词的复习状态（用于计算并展示权重）
+      try {
+        const wordIds = loadedWords.map(w => w.id);
+        if (wordIds.length > 0) {
+          const states = await getBatchReviewStates(wordIds);
+          const map = new Map<number, { lastReviewedAt: Date | null; interval: number; errorCount: number }>();
+          for (const s of states) {
+            map.set(s.wordId, {
+              lastReviewedAt: s.lastReviewedAt ? new Date(s.lastReviewedAt) : null,
+              interval: s.interval,
+              errorCount: s.errorCount,
+            });
+          }
+          setWordReviewStates(map);
+        }
+      } catch (e) {
+        console.error('加载复习状态失败:', e);
+      }
     } catch (error) {
       console.error('加载数据失败:', error);
     } finally {
@@ -306,10 +327,10 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     }
   };
   // 单词卡片直接生成（不需要 AI）
-  const handleCreateWordCard = async (selectedWords: Word[], includeRelatedWords?: boolean) => {
+  const handleCreateWordCard = async (selectedWords: Word[], includeRelatedWords?: boolean, useSpacedRepetition?: boolean) => {
     try {
-      const { wordIds, relatedWordEntries } = selectWordsForQuestion(
-        selectedWords, selectedWords.length, includeRelatedWords
+      const { wordIds, relatedWordEntries } = await selectWordsForQuestion(
+        selectedWords, selectedWords.length, includeRelatedWords, useSpacedRepetition
       );
       await createWordCardQuestion(wordIds, relatedWordEntries);
       router.push('/practice');
@@ -318,7 +339,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     }
   };
 
-  const handleSelectQuestionType = (options: QuestionGenerationOptions) => {
+  const handleSelectQuestionType = async (options: QuestionGenerationOptions) => {
     setShowAISelector(false);
 
     // 获取选中单词的完整信息
@@ -326,7 +347,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
 
     // 单词卡片直接生成，不需要 AI
     if (options.type === 'word-card') {
-      handleCreateWordCard(selectedWords, options.includeRelatedWords);
+      handleCreateWordCard(selectedWords, options.includeRelatedWords, options.useSpacedRepetition);
       return;
     }
 
@@ -354,9 +375,9 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
       neededCount = 5;
     }
 
-    // 使用抽词逻辑获取需要的单词 ID 列表和关联词信息
-    const { wordIds, relatedWordEntries } = selectWordsForQuestion(
-      selectedWords, neededCount, options.includeRelatedWords
+    // 使用抽词逻辑获取需要的单词 ID 列表和关联词信息（加权抽样：遗忘曲线 × 错误权重）
+    const { wordIds, relatedWordEntries } = await selectWordsForQuestion(
+      selectedWords, neededCount, options.includeRelatedWords, options.useSpacedRepetition
     );
 
     createQuestionAndProcess(options, wordIds, relatedWordEntries);
@@ -561,21 +582,29 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredAndSortedWords.map((word, index) => (
-              <WordCard
-                key={word.id}
-                word={word}
-                isSelected={selectedWordIds.includes(word.id)}
-                onToggleSelect={handleToggleSelect}
-                onEdit={(word) => {
-                  setEditingWord(word);
-                  setShowModal(true);
-                }}
-                onDelete={handleDeleteWord}
-                allTagConfigs={allTagConfigs}
-                onTagClick={handleTagClick}
-              />
-            ))}
+            {filteredAndSortedWords.map((word, index) => {
+              const state = wordReviewStates.get(word.id) ?? null;
+              const now = new Date();
+              const f = state ? forgettingWeight(state, now) : 1.0;
+              const g = state ? errorWeight(state.errorCount) : 1.0;
+              const w = totalWeight(state, now);
+              return (
+                <WordCard
+                  key={word.id}
+                  word={word}
+                  isSelected={selectedWordIds.includes(word.id)}
+                  onToggleSelect={handleToggleSelect}
+                  onEdit={(word) => {
+                    setEditingWord(word);
+                    setShowModal(true);
+                  }}
+                  onDelete={handleDeleteWord}
+                  allTagConfigs={allTagConfigs}
+                  onTagClick={handleTagClick}
+                  weights={{ total: w, forgetting: f, error: g }}
+                />
+              );
+            })}
           </div>
         )}
       </div>

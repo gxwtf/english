@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { QuestionQueueItem, QUESTION_TYPE_LABELS } from '@/types/word';
 import { loadQuestionById } from '@/actions/ai-question';
+import { getBatchReviewStates } from '@/actions/review';
 import { FillBlankAnswer } from '@/components/FillBlankAnswer';
 import { TranslateAnswer } from '@/components/TranslateAnswer';
 import { MeaningSelectAnswer } from '@/components/MeaningSelectAnswer';
@@ -17,25 +18,54 @@ import { Navbar } from '@/components/Navbar';
 import { ConsolidatePracticeButton } from '@/components/ConsolidatePracticeButton';
 import Link from 'next/link';
 
+type ReviewStateLite = {
+  wordId: number;
+  lastReviewedAt: Date | null;
+  interval: number;
+  errorCount: number;
+  ef: number;
+  repetitions: number;
+};
+
 export function PracticeQuestionPageContent({ params }: { params: Promise<{ questionId: string }> }) {
   const { questionId } = use(params);
   const { isLoggedIn, isClient } = useAuth();
   const [question, setQuestion] = useState<QuestionQueueItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reviewStates, setReviewStates] = useState<ReviewStateLite[]>([]);
+
+  const reloadQuestionAndReviewStates = useCallback(async () => {
+    try {
+      const data = await loadQuestionById(questionId);
+      setQuestion(data);
+      if (data.status === 'ANSWERED' && data.wordIds.length > 0) {
+        try {
+          const states = await getBatchReviewStates(data.wordIds);
+          setReviewStates(states as ReviewStateLite[]);
+        } catch (e) {
+          console.error('加载复习状态失败:', e);
+        }
+      }
+    } catch (err) {
+      console.error('重新加载题目失败:', err);
+    }
+  }, [questionId]);
 
   useEffect(() => {
     if (!isClient || !isLoggedIn) return;
     setLoading(true);
-    loadQuestionById(questionId)
-      .then(data => {
-        setQuestion(data);
-      })
-      .catch(err => {
+    reloadQuestionAndReviewStates()
+      .catch((err: Error) => {
         setError(err.message || '加载题目失败');
       })
       .finally(() => setLoading(false));
-  }, [questionId, isClient, isLoggedIn]);
+  }, [questionId, isClient, isLoggedIn, reloadQuestionAndReviewStates]);
+
+  // 答题提交后重新加载题目和复习状态
+  const handleSubmitted = useCallback(() => {
+    reloadQuestionAndReviewStates();
+  }, [reloadQuestionAndReviewStates]);
 
   if (!isClient || !isLoggedIn || loading) {
     return (
@@ -108,7 +138,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
                 thinking={question.questionContent.thinking as string | null ?? undefined}
                 lastAnswer={question.lastAnswer}
                 status={question.status}
-                onSubmitted={() => { }}
+                onSubmitted={handleSubmitted}
               />
             ) : question.questionType === 'meaning-select' && question.questionContent.questions ? (
               <MeaningSelectAnswer
@@ -118,7 +148,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
                 thinking={question.questionContent.thinking as string | null ?? undefined}
                 lastAnswer={question.lastAnswer}
                 status={question.status}
-                onSubmitted={() => { }}
+                onSubmitted={handleSubmitted}
               />
             ) : question.questionType === 'meaning-select-en' && question.questionContent.questions ? (
               <MeaningSelectEnAnswer
@@ -128,7 +158,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
                 thinking={question.questionContent.thinking as string | null ?? undefined}
                 lastAnswer={question.lastAnswer}
                 status={question.status}
-                onSubmitted={() => { }}
+                onSubmitted={handleSubmitted}
               />
             ) : question.questionType === 'translate' ? (
               <TranslateAnswer
@@ -138,7 +168,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
                 thinking={question.questionContent.thinking as string | null ?? undefined}
                 lastAnswer={question.lastAnswer}
                 status={question.status}
-                onSubmitted={() => { }}
+                onSubmitted={handleSubmitted}
               />
             ) : question.questionType === 'definition-fill-blank' && question.questionContent.words ? (
               <DefinitionFillBlankAnswer
@@ -149,7 +179,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
                 thinking={question.questionContent.thinking as string | null ?? undefined}
                 lastAnswer={question.lastAnswer}
                 status={question.status}
-                onSubmitted={() => { }}
+                onSubmitted={handleSubmitted}
               />
             ) : question.questionType === 'word-select-translate' && question.questionContent.questions ? (
               <WordSelectTranslateAnswer
@@ -160,7 +190,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
                 thinking={question.questionContent.thinking as string | null ?? undefined}
                 lastAnswer={question.lastAnswer}
                 status={question.status}
-                onSubmitted={() => { }}
+                onSubmitted={handleSubmitted}
               />
             ) : question.questionType === 'word-card' && question.questionContent.cards ? (
               <WordCardAnswer
@@ -168,13 +198,33 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
                 questionId={question.id}
                 cards={question.questionContent.cards as any[]}
                 status={question.status}
-                onSubmitted={() => { }}
+                onSubmitted={handleSubmitted}
               />
             ) : (
               <QuestionDisplay
                 content={question.questionContent}
                 questionId={question.id}
               />
+            )}
+
+            {/* 复习状态摘要 - 仅在题目已作答且有复习状态时显示 */}
+            {question.status === 'ANSWERED' && reviewStates.length > 0 && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-200">
+                已更新 {reviewStates.length} 个词的复习状态
+                {(() => {
+                  const nextDays = reviewStates
+                    .map(s => {
+                      if (!s.lastReviewedAt) return null;
+                      const next = new Date(s.lastReviewedAt.getTime() + s.interval * 24 * 60 * 60 * 1000);
+                      return Math.ceil((next.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                    })
+                    .filter((d): d is number => d != null);
+                  if (nextDays.length === 0) return null;
+                  const avg = Math.round(nextDays.reduce((a, b) => a + b, 0) / nextDays.length);
+                  const dueSoon = nextDays.filter(d => d <= 1).length;
+                  return ` · 平均 ${avg} 天后到期` + (dueSoon > 0 ? ` · ${dueSoon} 个词即将到期` : '');
+                })()}
+              </div>
             )}
 
             {/* 巩固练习按钮 - 仅在题目已作答时显示 */}

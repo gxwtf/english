@@ -8,31 +8,33 @@ datasource db {
 }
 
 model User {
-  id             Int               @id @default(autoincrement())
-  userId         Int               @unique
-  userName       String
-  admin          Int               @default(0)
-  email          String?
-  realName       String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  questions      QuestionQueue[]
-  relatedWords   RelatedWord[]
-  tagConfigs     TagConfig[]
-  words          Word[]
-  writingEntries WritingEntry[]
+  id                Int                @id @default(autoincrement())
+  userId            Int                @unique
+  userName          String
+  admin             Int                @default(0)
+  email             String?
+  realName          String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  questions         QuestionQueue[]
+  relatedWords      RelatedWord[]
+  tagConfigs        TagConfig[]
+  words             Word[]
+  writingEntries    WritingEntry[]
+  wordReviewStates  WordReviewState[]
 }
 
 model Word {
-  id           Int       @id @default(autoincrement())
-  userId       Int
-  text         String
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  relatedWords Json?
-  meanings     Json[]
-  user         User      @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  wordTags     WordTag[]
+  id               Int                @id @default(autoincrement())
+  userId           Int
+  text             String
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  relatedWords     Json?
+  meanings         Json[]
+  user             User               @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  wordTags         WordTag[]
+  wordReviewStates WordReviewState[]
 
   @@unique([userId, text])
 }
@@ -149,4 +151,31 @@ model WritingEntryTag {
   writingEntry   WritingEntry  @relation(fields: [writingEntryId], references: [id], onDelete: Cascade)
 
   @@unique([writingEntryId, tagId])
+}
+
+/// 单词复习状态（每个用户 × 每个单词一行）
+/// 用于 SM-2 间隔重复算法 + 错误次数加权抽样
+model WordReviewState {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  wordId          Int
+  // SM-2 状态
+  repetitions     Int       @default(0)    /// 连续正确次数
+  ef              Float     @default(2.5)  /// 难度因子
+  interval        Int       @default(1)    /// 当前间隔（天），f(t) 的 stability
+  // 错误统计
+  errorCount      Int       @default(1)    /// g(e) 的输入，初值 1
+  totalReviews    Int       @default(0)
+  correctReviews  Int       @default(0)
+  // 时间戳
+  lastReviewedAt  DateTime?                  /// 批改完成时更新（f(t) 的基准）
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, wordId])
+  @@index([userId, wordId])
 }

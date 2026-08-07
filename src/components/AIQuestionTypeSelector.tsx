@@ -11,6 +11,7 @@ import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions, Definiti
 
 const STORAGE_KEY_INCLUDE_RELATED = 'ai-question-include-related';
 const STORAGE_KEY_ALLOW_FORM_CHANGE = 'ai-question-allow-form-change';
+const STORAGE_KEY_USE_SPACED_REPETITION = 'ai-question-use-spaced-repetition';
 
 export type QuestionGenerationOptions = {
   type: QuestionType;
@@ -24,6 +25,7 @@ export type QuestionGenerationOptions = {
   deepThinking?: boolean;
   includeRelatedWords?: boolean;
   allowFormChange?: boolean;
+  useSpacedRepetition?: boolean;
 };
 
 interface AIQuestionTypeSelectorProps {
@@ -101,6 +103,12 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     const stored = localStorage.getItem(STORAGE_KEY_ALLOW_FORM_CHANGE);
     return stored !== null ? stored === 'true' : true;
   });
+  const [useSpacedRepetition, setUseSpacedRepetition] = useState<boolean>(() => {
+    // 默认开启"遗忘曲线"
+    if (typeof window === 'undefined') return true;
+    const stored = localStorage.getItem(STORAGE_KEY_USE_SPACED_REPETITION);
+    return stored !== null ? stored === 'true' : true;
+  });
 
   // Persist checkbox values to localStorage
   useEffect(() => {
@@ -111,6 +119,10 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     if (typeof window === 'undefined') return;
     localStorage.setItem(STORAGE_KEY_ALLOW_FORM_CHANGE, String(allowFormChange));
   }, [allowFormChange]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEY_USE_SPACED_REPETITION, String(useSpacedRepetition));
+  }, [useSpacedRepetition]);
 
   // 当可用单词池变化时，自动将各题型的题目数量调整到合法范围
   useEffect(() => {
@@ -215,6 +227,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
       type: selectedType,
       includeRelatedWords,
       allowFormChange: selectedType === 'fill-blank' ? allowFormChange : false,
+      useSpacedRepetition,
     };
     if (selectedType === 'fill-blank') {
       options.fillBlank = { n: typeof questionN === 'number' ? questionN : 1, m: typeof questionM === 'number' ? questionM : 0 };
@@ -265,6 +278,22 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
               选项设置
             </h4>
             <label className="flex items-center gap-3 cursor-pointer select-none">
+              <Checkbox
+                id="use-spaced-repetition"
+                checked={useSpacedRepetition}
+                onCheckedChange={(checked) => setUseSpacedRepetition(!!checked)}
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                开启遗忘曲线
+              </span>
+              <span className="px-2 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-pink-500 to-orange-500 rounded-full shadow-sm animate-pulse">
+                NEW
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                — 按遗忘曲线和错误次数加权抽词，关闭则等概率随机抽取
+              </span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer select-none mt-3">
               <Checkbox
                 id="include-related-words"
                 checked={includeRelatedWords}
