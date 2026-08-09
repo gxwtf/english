@@ -9,7 +9,7 @@
  *   - 1: 错误
  *   - 0: 完全没印象
  *
- * null 表示放弃/无法判分，跳过该 wordId 的状态更新
+ * null 表示无法判分，跳过该 wordId 的状态更新
  */
 
 import type { QuestionType } from '@/types/word';
@@ -25,14 +25,20 @@ export interface SubQuestionGrade {
 /**
  * 将单道小题的批改结果转换为 SM-2 quality
  *
+ * 放弃（空答案）视为错误：quality = 1
+ * word-card 是查看型，不更新复习状态
+ *
  * @returns 0-5 的 quality，或 null 表示跳过
  */
 export function gradeResultToQuality(
   questionType: QuestionType,
   sub: SubQuestionGrade
 ): number | null {
-  // 放弃（空答案）：跳过
-  if (sub.abandoned) return null;
+  // word-card：查看型，不更新复习状态
+  if (questionType === 'word-card') return null;
+
+  // 放弃（空答案）：视为错误
+  if (sub.abandoned) return 1;
 
   switch (questionType) {
     case 'fill-blank':
@@ -54,10 +60,6 @@ export function gradeResultToQuality(
       if (ratio >= 0.4) return 3;
       return 2;
     }
-
-    case 'word-card':
-      // 查看型，不更新
-      return null;
 
     default:
       return null;

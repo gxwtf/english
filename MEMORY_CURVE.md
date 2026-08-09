@@ -73,7 +73,8 @@ function errorWeight(errorCount: number): number {
 | fill-blank / definition-fill-blank | isCorrect | correct→5，wrong→2 |
 | meaning-select / meaning-select-en | isCorrect | correct→5，wrong→2 |
 | translate / word-select-translate | score 0-10 | ≥8→5, ≥6→4, ≥4→3, <4→2 |
-| 空答案（放弃） | - | null（跳过，不更新）|
+| 空答案（放弃） | - | 1（视为错误，更新遗忘曲线）|
+| word-card | - | null（查看型，不更新）|
 
 ### SM-2 核心公式
 
@@ -231,7 +232,7 @@ function weightedSample<T>(items: T[], weights: number[], k: number): T[] {
 
 ### 5.7 空答案（放弃小题）
 
-**处理**：quality 返回 null，跳过该 wordId 的状态更新。
+**处理**：放弃（空答案）视为错误，quality = 1。更新遗忘曲线：errorCount+1、interval 重置为 1、repetitions 归零。word-card 类型不适用（查看型，不更新）。
 
 ### 5.8 form-change 模式（answer 是变形）
 
@@ -365,10 +366,17 @@ export function totalWeight(
 ): number;
 
 // quality.ts
+export interface SubQuestionGrade {
+  isCorrect?: boolean;
+  score?: number;
+  maxScore?: number;
+  /** 用户是否放弃（空答案） */
+  abandoned?: boolean;
+}
 export function gradeResultToQuality(
   questionType: QuestionType,
-  sub: { isCorrect?: boolean; score?: number; maxScore?: number }
-): number | null;  // null = 放弃，跳过
+  sub: SubQuestionGrade
+): number | null;  // null = word-card 或无法判分，跳过；放弃 = quality 1
 
 // selector.ts
 export function weightedSample<T>(items: T[], weights: number[], k: number): T[];

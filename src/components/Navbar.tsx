@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, FileQuestion, LogOut, User, Edit, Settings } from 'lucide-react';
+import { BookOpen, FileQuestion, HelpCircle, LogOut, User, Edit, Settings } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavbarProps {
@@ -60,6 +60,17 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
               <FileQuestion className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="hidden sm:inline">题目</span>
             </Link>
+
+            <a
+              href="https://docs.gxwtf.cn/#/english/"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="使用文档"
+              className="flex items-center px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <HelpCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">使用文档</span>
+            </a>
 
             {/* 用户信息和登出 - 由于 SSR 限制，登出后需要刷新页面 */}
             {userInfo && (

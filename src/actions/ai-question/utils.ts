@@ -511,6 +511,7 @@ async function doGradeFillBlankAnswerBatch(
 /**
  * AI 批量批改翻译句子答案（统一提交模式）.
  * 如果用户放弃了某道题（空答案），只返回标准答案不评分.
+ * 放弃的题目在 recordReviewFromQuestion 中视为 quality=1（错误），会更新遗忘曲线.
  */
 export async function gradeTranslateAnswerBatch(
   questionId: string,

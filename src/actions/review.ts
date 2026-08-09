@@ -76,7 +76,7 @@ export async function recordReviewFromQuestion(questionId: string): Promise<void
     // 2. 反推 quality
     const grade = inferSubGrade(questionType, i, subQuestion, lastAnswer, gradingResult);
     const quality = gradeResultToQuality(questionType, grade);
-    if (quality == null) continue;  // 放弃或无法判分，跳过
+    if (quality == null) continue;  // 无法判分，跳过（放弃视为 quality=1，不会为 null）
 
     updates.push({ wordId, quality });
   }
