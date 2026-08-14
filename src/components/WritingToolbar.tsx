@@ -575,7 +575,7 @@ export const WritingToolbar = ({
                     onPointerDown={(e) => e.stopPropagation()}
                   >
                     <FileDown className="h-4 w-4 text-green-600" />
-                    <span className="text-sm">导出PDF</span>
+                    <span className="text-sm">导出 PDF</span>
                   </button>
 
                   {/* 设置标签选项 */}
