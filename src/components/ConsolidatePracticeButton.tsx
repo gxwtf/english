@@ -132,7 +132,7 @@ export function ConsolidatePracticeButton({ wordIds, relatedWordEntries, disable
         <Button
           onClick={() => setShowSelector(true)}
           disabled={disabled}
-          className="w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-xl shadow-md hover:shadow-lg bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white disabled:opacity-50 disabled:cursor-not-allowed h-auto"
+          className="w-full flex items-center justify-center gap-2 py-3 font-semibold rounded-xl shadow-md hover:shadow-lg bg-gradient-to-r from-brand-crimson to-brand-orange hover:from-brand-red hover:to-brand-orange text-white disabled:opacity-50 disabled:cursor-not-allowed h-auto"
         >
           <GraduationCap className="h-5 w-5" />
           巩固练习

@@ -384,7 +384,7 @@ export function DefinitionFillBlankAnswer({ questionId, words, questions, thinki
             className={`w-full py-3 font-semibold rounded-xl transition-all shadow-md ${
               submitting
                 ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white hover:shadow-lg'
+                : 'bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white hover:shadow-lg'
             }`}
           >
             {submitting ? '提交中...' : `提交答案 (${answers.filter(a => a.trim()).length}/${answers.length})`}

@@ -95,89 +95,100 @@
   --color-blue-900: #5b1517;
   --color-blue-950: #3c0d0e;
 
-  --color-indigo-50: #fdf6f5;
-  --color-indigo-100: #f5e8e7;
-  --color-indigo-200: #ebd1d2;
-  --color-indigo-300: #e3bbbb;
-  --color-indigo-400: #b54c50; /* 实验红 80% 色阶 */
-  --color-indigo-500: #a93539; /* 实验红 90% 色阶 */
-  --color-indigo-600: #8a1010; /* 深赤红 */
-  --color-indigo-700: #730d0d;
-  --color-indigo-800: #5c0f0f;
-  --color-indigo-900: #4c1112;
-  --color-indigo-950: #300b0c;
+  /* ===== 暖色邻近色（与实验红同属暖色系，用于点缀以提升层次感） =====
+   * 取自 VI 补充辅助色：青春橙 #E59D48、辅助橙 #F08300、辅助黄 #FDD000、人文棕 #5E3424。
+   * 用于 AI 功能、渐变收尾、浅色底等，避免整站只有单一红色。 */
 
-  --color-sky-50: #fdf7f6;
-  --color-sky-100: #f7ebe9;
-  --color-sky-200: #efd8d6;
-  --color-sky-300: #e7c1bf;
-  --color-sky-400: #d9a5a6; /* 实验红 40% 色阶 */
-  --color-sky-500: #c7797c; /* 实验红 60% 色阶 */
-  --color-sky-600: #c22525; /* 赤诚红 */
-  --color-sky-700: #a31f24; /* 实验红 */
-  --color-sky-800: #851515;
-  --color-sky-900: #6a1616;
-  --color-sky-950: #450d0e;
+  /* indigo -> 青春橙 / 辅助橙（渐变收尾） */
+  --color-indigo-50: #fef9f1;
+  --color-indigo-100: #fdf0da;
+  --color-indigo-200: #fae0b3;
+  --color-indigo-300: #f6c87f;
+  --color-indigo-400: #f0ad52;
+  --color-indigo-500: #e59d48; /* 青春橙 */
+  --color-indigo-600: #f08300; /* 辅助橙 */
+  --color-indigo-700: #c96d00;
+  --color-indigo-800: #a05700;
+  --color-indigo-900: #7e4600;
+  --color-indigo-950: #4a2900;
 
-  --color-cyan-50: #fdf7f6;
-  --color-cyan-100: #f7ebe9;
-  --color-cyan-200: #efd8d6;
-  --color-cyan-300: #e7c1bf;
-  --color-cyan-400: #d9a5a6;
-  --color-cyan-500: #c7797c;
-  --color-cyan-600: #c22525;
-  --color-cyan-700: #a31f24;
-  --color-cyan-800: #851515;
-  --color-cyan-900: #6a1616;
-  --color-cyan-950: #450d0e;
+  /* purple -> VI 辅助紫 #484098（AI 功能强调色） */
+  --color-purple-50: #f3f2f9;
+  --color-purple-100: #e8e6f2;
+  --color-purple-200: #d1cde6;
+  --color-purple-300: #b3aed6;
+  --color-purple-400: #8d86c4;
+  --color-purple-500: #484098; /* VI 辅助紫 */
+  --color-purple-600: #3a337d;
+  --color-purple-700: #302a68;
+  --color-purple-800: #282354;
+  --color-purple-900: #211d45;
+  --color-purple-950: #12102a;
 
-  --color-teal-50: #fcf4f4;
-  --color-teal-100: #f6e3e4;
-  --color-teal-200: #eeccce;
-  --color-teal-300: #e5b3b6;
-  --color-teal-400: #d98b90;
-  --color-teal-500: #c22525; /* 赤诚红 */
-  --color-teal-600: #a31f24; /* 实验红 */
-  --color-teal-700: #8a1010; /* 深赤红 */
-  --color-teal-800: #701414;
-  --color-teal-900: #5b1517;
-  --color-teal-950: #3c0d0e;
+  /* violet -> VI 亮紫 #7848B8（AI 渐变收尾） */
+  --color-violet-50: #f8f5fc;
+  --color-violet-100: #f0e9f8;
+  --color-violet-200: #e2d4f0;
+  --color-violet-300: #ccb2e4;
+  --color-violet-400: #a67fd0;
+  --color-violet-500: #7848b8; /* VI 亮紫 */
+  --color-violet-600: #6539a0;
+  --color-violet-700: #553084;
+  --color-violet-800: #46296d;
+  --color-violet-900: #3b245a;
+  --color-violet-950: #241238;
 
-  --color-purple-50: #fcf4f4;
-  --color-purple-100: #f6e3e4;
-  --color-purple-200: #eeccce;
-  --color-purple-300: #e5b3b6;
-  --color-purple-400: #d98b90;
-  --color-purple-500: #c22525; /* 赤诚红 */
-  --color-purple-600: #a31f24; /* 实验红 */
-  --color-purple-700: #8a1010; /* 深赤红 */
-  --color-purple-800: #701414;
-  --color-purple-900: #5b1517;
-  --color-purple-950: #3c0d0e;
+  /* sky -> 珊瑚红（暖粉调） */
+  --color-sky-50: #fdf5f3;
+  --color-sky-100: #fbe9e4;
+  --color-sky-200: #f7d3ca;
+  --color-sky-300: #f0b3a4;
+  --color-sky-400: #e78a74;
+  --color-sky-500: #dc6b52;
+  --color-sky-600: #c74f35;
+  --color-sky-700: #a63e29;
+  --color-sky-800: #883527;
+  --color-sky-900: #712f24;
+  --color-sky-950: #3d160f;
 
-  --color-violet-50: #fcf4f4;
-  --color-violet-100: #f6e3e4;
-  --color-violet-200: #eeccce;
-  --color-violet-300: #e5b3b6;
-  --color-violet-400: #d98b90;
-  --color-violet-500: #c22525; /* 赤诚红 */
-  --color-violet-600: #a31f24; /* 实验红 */
-  --color-violet-700: #8a1010; /* 深赤红 */
-  --color-violet-800: #701414;
-  --color-violet-900: #5b1517;
-  --color-violet-950: #3c0d0e;
+  /* cyan -> 珊瑚红（暖粉调） */
+  --color-cyan-50: #fdf5f3;
+  --color-cyan-100: #fbe9e4;
+  --color-cyan-200: #f7d3ca;
+  --color-cyan-300: #f0b3a4;
+  --color-cyan-400: #e78a74;
+  --color-cyan-500: #dc6b52;
+  --color-cyan-600: #c74f35;
+  --color-cyan-700: #a63e29;
+  --color-cyan-800: #883527;
+  --color-cyan-900: #712f24;
+  --color-cyan-950: #3d160f;
 
-  --color-fuchsia-50: #fcf4f4;
-  --color-fuchsia-100: #f6e3e4;
-  --color-fuchsia-200: #eeccce;
-  --color-fuchsia-300: #e5b3b6;
-  --color-fuchsia-400: #d98b90;
-  --color-fuchsia-500: #c22525; /* 赤诚红 */
-  --color-fuchsia-600: #a31f24; /* 实验红 */
-  --color-fuchsia-700: #8a1010; /* 深赤红 */
-  --color-fuchsia-800: #701414;
-  --color-fuchsia-900: #5b1517;
-  --color-fuchsia-950: #3c0d0e;
+  /* teal -> 人文棕（暖深色） */
+  --color-teal-50: #f8f5f2;
+  --color-teal-100: #efe8e1;
+  --color-teal-200: #ded0c3;
+  --color-teal-300: #c5ae9b;
+  --color-teal-400: #a98a71;
+  --color-teal-500: #8f6e55;
+  --color-teal-600: #745441;
+  --color-teal-700: #5e3424; /* 人文棕 */
+  --color-teal-800: #4b2a1e;
+  --color-teal-900: #3f251c;
+  --color-teal-950: #221109;
+
+  /* fuchsia -> 珊瑚红（暖粉调） */
+  --color-fuchsia-50: #fdf5f3;
+  --color-fuchsia-100: #fbe9e4;
+  --color-fuchsia-200: #f7d3ca;
+  --color-fuchsia-300: #f0b3a4;
+  --color-fuchsia-400: #e78a74;
+  --color-fuchsia-500: #dc6b52;
+  --color-fuchsia-600: #c74f35;
+  --color-fuchsia-700: #a63e29;
+  --color-fuchsia-800: #883527;
+  --color-fuchsia-900: #712f24;
+  --color-fuchsia-950: #3d160f;
 
   /* gray / slate / zinc / neutral / stone -> 坚实黑 + 行政灰 暖中性色阶 */
   --color-gray-50: #faf9f9;

@@ -251,9 +251,9 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
         {/* 头部 */}
-        <div className="flex items-center justify-between p-6 bg-gradient-to-r from-red-50 to-rose-50 dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-6 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-brand-crimson to-brand-deep-red rounded-xl flex items-center justify-center text-white">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center text-white">
               <Type className="h-5 w-5" />
             </div>
             <div>
@@ -286,7 +286,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
               <span className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                 开启遗忘曲线
               </span>
-              <span className="px-2 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-brand-crimson to-brand-red rounded-full shadow-sm animate-pulse">
+              <span className="px-2 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-violet-600 rounded-full shadow-sm animate-pulse">
                 NEW
               </span>
               <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -329,13 +329,13 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   onClick={() => setSelectedType(type.id)}
                   variant={isSelected ? 'default' : 'outline'}
                   className={`group flex items-center gap-3 p-3 rounded-xl h-auto w-full justify-start text-left ${isSelected
-                    ? 'border-brand-red dark:border-brand-crimson bg-brand-crimson dark:bg-brand-red text-white shadow-lg'
-                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-brand-crimson dark:hover:border-brand-crimson hover:shadow-lg'}`}
+                    ? 'border-purple-500 dark:border-purple-400 bg-purple-500 dark:bg-purple-600 text-white shadow-lg'
+                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-lg'}`}
                 >
                   <div className={`w-9 h-9 shrink-0 flex items-center justify-center rounded-lg transition-all duration-200 ${
                     isSelected
-                      ? 'bg-brand-crimson dark:bg-brand-red text-white shadow-sm'
-                      : 'bg-brand-crimson/10 dark:bg-brand-crimson/30 text-brand-crimson dark:text-brand-crimson group-hover:bg-brand-crimson/20 dark:group-hover:bg-brand-crimson/40'
+                      ? 'bg-violet-500 dark:bg-violet-600 text-white shadow-sm'
+                      : 'bg-purple-500/10 dark:bg-purple-500/30 text-purple-600 dark:text-purple-400 group-hover:bg-purple-500/20 dark:group-hover:bg-purple-500/40'
                   }`}>
                     <Icon className="h-5 w-5" />
                   </div>
