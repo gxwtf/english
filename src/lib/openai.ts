@@ -230,7 +230,7 @@ export async function callTextAI(
     parseResponse: (data) => {
       const message = data.choices?.[0]?.message;
       const content = message?.content ?? message?.reasoning ?? '';
-      const thinkingContent = message?.reasoning_content || null;
+      const thinkingContent = message?.reasoning_content || message?.reasoning || null;
       return {
         content,
         thinking: thinkingContent,
@@ -288,7 +288,7 @@ export async function callOpenAIWithTools(
     parseResponse: async (data, config) => {
       const message = data.choices?.[0]?.message;
       let content = message?.content || '';
-      const reasoningContent = message?.reasoning_content || null; // Deepseek 原生深度思考内容
+      const reasoningContent = message?.reasoning_content || message?.reasoning || null; // Deepseek 原生深度思考内容
       const toolCalls = message?.tool_calls;
 
       if (toolCalls && toolCalls.length > 0) {
@@ -333,7 +333,7 @@ export async function callOpenAIWithTools(
         const followUpData = await followUpResponse.json();
         if (followUpData.error) throw new Error(`API 错误：${JSON.stringify(followUpData.error)}`);
         content = followUpData.choices?.[0]?.message?.content || content;
-        const followUpReasoningContent = followUpData.choices?.[0]?.message?.reasoning_content || null;
+        const followUpReasoningContent = followUpData.choices?.[0]?.message?.reasoning_content || followUpData.choices?.[0]?.message?.reasoning || null;
 
         return {
           content,

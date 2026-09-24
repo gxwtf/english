@@ -144,22 +144,6 @@ async function doGenerateTranslate(
   const shuffledWords = shuffleArray([...wordData]);
   const allocatedKeyWords = shuffledWords.slice(0, options.n).map((w: any) => w.text);
 
-  const randomTool = {
-    type: 'function' as const,
-    function: {
-      name: 'generateRandomNumber',
-      description: 'Generate a random integer within a specified range. Use this to randomize question order.',
-      parameters: {
-        type: 'object',
-        properties: {
-          min: { type: 'number', description: 'Minimum value (inclusive)' },
-          max: { type: 'number', description: 'Maximum value (inclusive)' },
-        },
-        required: ['min', 'max'],
-      },
-    },
-  };
-
   const systemPrompt = `${SYSTEM_MESSAGE}
 
 你是一位专业的英语考试题目生成专家。请根据提供的单词列表，生成 ${options.n} 道"中译英"翻译练习题。
@@ -188,8 +172,7 @@ async function doGenerateTranslate(
 7. 题目难度要适合英语学习者，中文句子要自然流畅
 8. 生成的英文翻译语法正确且自然
 9. 只返回 JSON，不要返回任何其他文字
-10. 使用 generateRandomNumber 工具来随机化题目排列（如果模型支持工具调用）
-11. **重要：你可以任意改变这些单词的时态语态（例：run -> ran; run -> to run）**`;
+10. **重要：你可以任意改变这些单词的时态语态（例：run -> ran; run -> to run）**`;
 
   const userPrompt = `## 分配给每道题的关键词（共 ${options.n} 个，每道题使用一个不同的词，请按 id 顺序对应）：
 ${allocatedKeyWords.map((text: string, i: number) => `  第 ${i + 1} 题(keyWords): ["${text}"]`).join('\n')}
@@ -219,8 +202,8 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
   const result = await callOpenAIWithTools(systemPrompt, {
     prompt: userPrompt,
-    tools: [randomTool],
     response_format: { type: 'json_object' }, // 强制返回合法JSON
+    reasoning_effort: 'high', // 深度思考等级：high
   });
 
   let content = result.content.trim();
@@ -240,13 +223,18 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
   let parsed: TranslateQuestion;
   try {
+    console.log('[翻译句子] AI response:', content);
     parsed = JSON.parse(content);
   } catch {
-    throw new Error('AI 返回的内容不是合法的 JSON，无法解析题目');
+    throw new Error(`AI 返回的内容不是合法的 JSON，无法解析题目（实际返回：${content.slice(0, 300)}）`);
   }
 
-  if (!parsed.title || !parsed.questions || !Array.isArray(parsed.questions)) {
-    throw new Error('AI 返回的题目缺少必填字段：title 或 questions');
+  // 字段别名容错
+  if (!parsed.questions && (parsed as any).items) (parsed as any).questions = (parsed as any).items;
+  if (!parsed.title) parsed.title = (parsed as any).heading || (parsed as any).name || '翻译句子练习';
+
+  if (!parsed.questions || !Array.isArray(parsed.questions)) {
+    throw new Error(`AI 返回的题目缺少必填字段：questions（实际返回：${content.slice(0, 300)}）`);
   }
 
   if (parsed.questions.length !== options.n) {

@@ -154,22 +154,6 @@ async function doGenerateFillBlank(
   const answerTargetTexts = answerTargets.map((w: any) => w.text);
   const allWordTexts = [...answerTargets.map((w: any) => w.text), ...distractorWords.map((w: any) => w.text)];
 
-  const randomTool = {
-    type: 'function' as const,
-    function: {
-      name: 'generateRandomNumber',
-      description: 'Generate a random integer within a specified range. Use this to randomize word order, question numbering, and other random selections.',
-      parameters: {
-        type: 'object',
-        properties: {
-          min: { type: 'number', description: 'Minimum value (inclusive)' },
-          max: { type: 'number', description: 'Maximum value (inclusive)' },
-        },
-        required: ['min', 'max'],
-      },
-    },
-  };
-
   const allWordsForPrompt = [...allWordTexts];
   const shuffledAllWords = shuffleArray([...allWordsForPrompt]);
 
@@ -199,8 +183,7 @@ async function doGenerateFillBlank(
 6. **重要：每个单词的 meanings 字段包含了用户不熟悉、需要重点练习的释义，请优先围绕这些释义出题，帮助用户针对性地练习薄弱环节**
 ${allowFormChange ? `7. **重要：允许改变形式模式已开启** — 约 2/3 的题目中，你必须将单词变为不同形式出现在句子的填空处（例如：不同时态、动词/名词形式转换等）。此时 answer 字段应填写实际需要的变体形式（如 "tendency"），同时必须填写 originalWord 字段为原始单词（如 "tend"），以便前端识别这是形式变化。` : `7. 每个填空处的答案必须是 words 数组中某个单词的原文，originalWord 字段不需要填写`}
 8. **重要：不要返回 words 字段**，words 字段将由系统自动填充
-9. 只返回 JSON，不要返回任何其他文字
-10. 使用 generateRandomNumber 工具来随机化题目排列（如果模型支持工具调用）`;
+9. 只返回 JSON，不要返回任何其他文字`;
 
   let relatedWordsSection = '';
   if (actualRelatedEntries && actualRelatedEntries.length > 0) {
@@ -235,12 +218,9 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
   const aiOptions: Record<string, unknown> = {
     prompt: userPrompt,
-    tools: [randomTool],
     response_format: { type: 'json_object' }, // 强制返回合法JSON
+    reasoning_effort: 'high', // 深度思考等级：high
   };
-  if (deepThinking) {
-    aiOptions.reasoning_effort = deepThinking;
-  }
 
   const result = await callOpenAIWithTools(systemPrompt, aiOptions);
 

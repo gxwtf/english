@@ -165,22 +165,6 @@ async function generateQuestionsWithAI(
   wordData: any[],
   relatedWordEntries?: RelatedWordEntry[],
 ): Promise<MeaningSelectQuestion> {
-  const randomTool = {
-    type: 'function' as const,
-    function: {
-      name: 'generateRandomNumber',
-      description: 'Generate a random integer within a specified range. Use this to randomize question order and option positions.',
-      parameters: {
-        type: 'object',
-        properties: {
-          min: { type: 'number', description: 'Minimum value (inclusive)' },
-          max: { type: 'number', description: 'Maximum value (inclusive)' },
-        },
-        required: ['min', 'max'],
-      },
-    },
-  };
-
   const systemPrompt = `${SYSTEM_MESSAGE}
 
 你是一位专业的英语词汇测试专家。请根据提供的单词列表，生成一道"英译中"选择题练习题。
@@ -244,8 +228,7 @@ async function generateQuestionsWithAI(
      * 原因："蝙蝠" 与 "猫" 的释义完全无关，只是拼写相似（cat/bat）
    * ✅ 正确：目标词 "accept"（释义：接受），干扰选项 "除外"（相似词 except 的释义）
      * 原因："除外" 与 "接受" 的释义完全无关，只是拼写相似（accept/except）
-9. 只返回 JSON，不要返回任何其他文字
-10. 使用 generateRandomNumber 工具来随机化选项顺序（如果模型支持工具调用）`;
+9. 只返回 JSON，不要返回任何其他文字`;
 
   let relatedWordsSection = '';
   if (relatedWordEntries && relatedWordEntries.length > 0) {
@@ -271,8 +254,8 @@ ${relatedWordsSection}
 
   const result = await callOpenAIWithTools(systemPrompt, {
     prompt: userPrompt,
-    tools: [randomTool],
     response_format: { type: 'json_object' }, // 强制返回合法JSON
+    reasoning_effort: 'high', // 深度思考等级：high
   });
 
   let content = result.content.trim();
@@ -293,13 +276,18 @@ ${relatedWordsSection}
 
   let parsed: MeaningSelectQuestion;
   try {
+    console.log('[英译中] AI response:', content);
     parsed = JSON.parse(content);
   } catch {
-    throw new Error('AI 返回的内容不是合法的 JSON，无法解析题目');
+    throw new Error(`AI 返回的内容不是合法的 JSON，无法解析题目（实际返回：${content.slice(0, 300)}）`);
   }
 
-  if (!parsed.title || !parsed.questions || !Array.isArray(parsed.questions)) {
-    throw new Error('AI 返回的题目缺少必填字段：title 或 questions');
+  // 字段别名容错
+  if (!parsed.questions && (parsed as any).items) (parsed as any).questions = (parsed as any).items;
+  if (!parsed.title) parsed.title = (parsed as any).heading || (parsed as any).name || '英译中选择题练习';
+
+  if (!parsed.questions || !Array.isArray(parsed.questions)) {
+    throw new Error(`AI 返回的题目缺少必填字段：questions（实际返回：${content.slice(0, 300)}）`);
   }
 
   const expectedQuestions = wordData.length;

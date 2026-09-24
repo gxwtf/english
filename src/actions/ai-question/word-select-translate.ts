@@ -115,22 +115,6 @@ async function doGenerateWordSelectTranslate(
   const allWordTexts = [...answerTargets.map((w: any) => w.text), ...distractorWords.map((w: any) => w.text)];
   const shuffledAllWords = shuffleArray([...allWordTexts]);
 
-  const randomTool = {
-    type: 'function' as const,
-    function: {
-      name: 'generateRandomNumber',
-      description: 'Generate a random integer within a specified range. Use this to randomize question order.',
-      parameters: {
-        type: 'object',
-        properties: {
-          min: { type: 'number', description: 'Minimum value (inclusive)' },
-          max: { type: 'number', description: 'Maximum value (inclusive)' },
-        },
-        required: ['min', 'max'],
-      },
-    },
-  };
-
   const systemPrompt = `${SYSTEM_MESSAGE}
 
 你是一位专业的英语考试题目生成专家。请根据提供的单词列表，生成一道"选词翻译句子"练习题。
@@ -158,8 +142,7 @@ async function doGenerateWordSelectTranslate(
 8. 生成的英文翻译语法正确且自然
 9. **重要：你可以任意改变这些单词的时态语态（例：run -> ran; run -> to run）**
 10. **重要：不要返回 words 字段**，words 字段将由系统自动填充
-11. 只返回 JSON，不要返回任何其他文字
-12. 使用 generateRandomNumber 工具来随机化题目排列（如果模型支持工具调用）`;
+11. 只返回 JSON，不要返回任何其他文字`;
 
   let relatedWordsSection = '';
   if (actualRelatedEntries && actualRelatedEntries.length > 0) {
@@ -194,12 +177,9 @@ ${customPrompt ? `\n自定义要求：${customPrompt}` : ''}
 
   const aiOptions: Record<string, unknown> = {
     prompt: userPrompt,
-    tools: [randomTool],
     response_format: { type: 'json_object' },
+    reasoning_effort: 'high', // 深度思考等级：high
   };
-  if (deepThinking) {
-    aiOptions.reasoning_effort = deepThinking;
-  }
 
   const result = await callOpenAIWithTools(systemPrompt, aiOptions);
 
