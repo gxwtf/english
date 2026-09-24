@@ -258,7 +258,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                AI 出题
+                AI 复习
               </h2>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 选择题目类型并生成练习题

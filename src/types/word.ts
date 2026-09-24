@@ -26,6 +26,16 @@ export interface Word {
   updatedAt: string;    // 修改时间，用于排序
 }
 
+// 单词本（一个用户可有多个，单词可在多个单词本间共享）
+export interface Wordbook {
+  id: number;
+  name: string;
+  wordCount: number;
+  previewWords: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 // 颜色配置接口
 export interface ColorConfig {
   id: string;

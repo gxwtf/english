@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronDown, ArrowLeft, BookOpen, FolderMinus } from 'lucide-react';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
@@ -15,10 +16,12 @@ import {
   WordTag,
   TagConfig,
   RelatedWord,
+  Wordbook,
 } from '@/types/word';
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { storage } from '@/lib/storage';
 import { saveWord as saveWordAction, deleteWords as deleteWordsAction, updateWordTags as updateWordTagsAction } from '@/actions/words';
+import { loadWordbooks, removeWordsFromWordbook } from '@/actions/wordbooks';
 import {
   enqueuePendingFillBlank,
   enqueuePendingTranslate,
@@ -34,13 +37,22 @@ import { fuzzySearchWords } from '@/lib/word-search';
 import { useRouter } from 'next/navigation';
 import { getBatchReviewStates } from '@/actions/review';
 import { forgettingWeight, errorWeight, totalWeight } from '@/lib/spaced-repetition/weights';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 
 interface AuthenticatedPageProps {
   queryWord: (word: string) => Promise<DictionaryEntry | null>;
+  wordbookId?: number;
+  wordbookName?: string;
+  readOnly?: boolean;
 }
 
-export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
-  const { isLoggedIn, isClient } = useAuth();
+export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnly = false }: AuthenticatedPageProps) => {
+  const { isLoggedIn, isClient, isLoading } = useAuth();
   const [words, setWords] = useState<Word[]>([]);
   const [selectedWordIds, setSelectedWordIds] = useState<number[]>([]);
   const [sortBy, setSortBy] = useState<'default' | 'alphabet'>('default');
@@ -58,6 +70,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   const rangeFirstEndpoint = useRef<number | null>(null);
   const rangeSelectModeRef = useRef(false);
   const [wordReviewStates, setWordReviewStates] = useState<Map<number, { lastReviewedAt: Date | null; interval: number; errorCount: number }>>(new Map());
+  const [allWordbooks, setAllWordbooks] = useState<Wordbook[]>([]);
   const router = useRouter();
 
   const relatedWordsCount = useMemo(() => {
@@ -77,12 +90,14 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
   // 从服务器加载单词和标签配置
   const loadData = async () => {
     try {
-      const [loadedWords, loadedTagConfigs] = await Promise.all([
-        storage.loadWords(),
+      const [loadedWords, loadedTagConfigs, loadedWordbooks] = await Promise.all([
+        storage.loadWords(wordbookId),
         storage.loadTagConfigs(),
+        loadWordbooks(),
       ]);
       setWords(loadedWords);
       setAllTagConfigs(loadedTagConfigs);
+      setAllWordbooks(loadedWordbooks);
       // 加载所有单词的复习状态（用于计算并展示权重）
       try {
         const wordIds = loadedWords.map(w => w.id);
@@ -120,7 +135,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     relatedWords?: RelatedWord[];
   }) => {
     try {
-      const savedWord = await saveWordAction(wordData);
+      const savedWord = await saveWordAction({ ...wordData, wordbookId, replaceMeanings: !!editingWord });
 
       setWords(prev => {
         const existingIndex = editingWord
@@ -198,6 +213,21 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
       setSelectedWordIds([]);
     } catch (error) {
       console.error('批量设置标签失败:', error);
+    }
+  };
+
+  // 将选中单词移出当前单词本（不删除单词本身）
+  const handleRemoveFromWordbook = async () => {
+    if (!wordbookId || selectedWordIds.length === 0) return;
+    const ids = [...selectedWordIds];
+    try {
+      await removeWordsFromWordbook(wordbookId, ids);
+      setWords(prev => prev.filter(w => !ids.includes(w.id)));
+      setSelectedWordIds([]);
+      const books = await loadWordbooks();
+      setAllWordbooks(books);
+    } catch (error) {
+      console.error('移出单词本失败:', error);
     }
   };
 
@@ -463,6 +493,20 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     }
   };
 
+  // 等待登录态校验完成，避免闪现未登录页面
+  if (!isClient || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
+      </div>
+    );
+  }
+
+  // 未登录
+  if (!isLoggedIn) {
+    return <UnauthenticatedPage />;
+  }
+
   // 加载中状态
   if (loading) {
     return (
@@ -472,11 +516,6 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
     );
   }
 
-  // 如果未登录或尚未完成客户端初始化，显示未登录页面
-  if (!isLoggedIn || !isClient) {
-    return <UnauthenticatedPage />;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* 导航栏 */}
@@ -484,27 +523,68 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         {/* 标题栏 */}
-        <div className="flex items-center justify-between mb-4 sm:mb-6 gap-3">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-              我的单词本
-            </h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1 truncate">
-              共 {words.length} 个单词，{filteredAndSortedWords.length} 个符合条件
-            </p>
-          </div>
-
-          <button
-            onClick={() => {
-              setEditingWord(undefined);
-              setShowModal(true);
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-colors text-sm sm:text-base"
+        <div className="mb-4 sm:mb-6">
+          <Link
+            href="/wordbooks"
+            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-2 transition-colors"
           >
-            <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="hidden sm:inline">添加单词</span>
-            <span className="sm:hidden">添加</span>
-          </button>
+            <ArrowLeft className="h-4 w-4" />
+            我的单词本
+          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
+                  {wordbookName || '我的单词本'}
+                </h1>
+                {wordbookId !== undefined && allWordbooks.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        aria-label="切换单词本"
+                        className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      {allWordbooks.map((book) => (
+                        <DropdownMenuItem
+                          key={book.id}
+                          onClick={() => {
+                            if (book.id !== wordbookId) {
+                              router.push(`/wordbooks/${book.id}`);
+                            }
+                          }}
+                        >
+                          <BookOpen className="h-4 w-4" />
+                          <span className="truncate flex-1">{book.name}</span>
+                          <span className="text-xs text-gray-400">{book.wordCount}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1 truncate">
+                共 {words.length} 个单词，{filteredAndSortedWords.length} 个符合条件
+              </p>
+            </div>
+
+            {!readOnly && (
+              <button
+                onClick={() => {
+                  setEditingWord(undefined);
+                  setShowModal(true);
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-colors text-sm sm:text-base shrink-0"
+              >
+                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="hidden sm:inline">添加单词</span>
+                <span className="sm:hidden">添加</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 工具栏 */}
@@ -531,6 +611,8 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
           isExportingSelected={exportingWords}
           onSearchChange={setSearchTerm}
           onSetTags={handleSetTags}
+          onRemoveFromWordbook={wordbookId !== undefined && !readOnly ? handleRemoveFromWordbook : undefined}
+          readOnly={readOnly}
         />
 
         {/* 确认删除弹窗 */}
@@ -541,7 +623,11 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
                 确认删除
               </h3>
               <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-6">
-                确定要删除选中的 {selectedWordIds.length} 个单词吗？此操作不可恢复。
+                确定要删除选中的 {selectedWordIds.length} 个单词吗？这些单词会
+                <span className="font-semibold text-red-600 dark:text-red-400">
+                  从所有单词本中一并删除
+                </span>
+                ，此操作不可恢复。
               </p>
               <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                 <button
@@ -571,7 +657,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
                 <p>没有符合条件的单词</p>
               )}
             </div>
-            {words.length === 0 && (
+            {words.length === 0 && !readOnly && (
               <button
                 onClick={() => setShowModal(true)}
                 className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
@@ -602,6 +688,7 @@ export const AuthenticatedPage = ({ queryWord }: AuthenticatedPageProps) => {
                   allTagConfigs={allTagConfigs}
                   onTagClick={handleTagClick}
                   weights={{ total: w, forgetting: f, error: g }}
+                  readOnly={readOnly}
                 />
               );
             })}

@@ -24,7 +24,7 @@ export const QuestionPanel = ({
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-500" />
-              AI 出题队列
+              AI 复习队列
             </DialogTitle>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />

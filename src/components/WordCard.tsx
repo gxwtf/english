@@ -1,22 +1,30 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Check, Edit2, Trash2, X, BookOpen, Link2, TrendingDown, AlertCircle, Scale } from 'lucide-react';
+import { Edit2, Trash2, BookOpen, Link2, TrendingDown, AlertCircle, Scale } from 'lucide-react';
 import { Word, WordTag, TagConfig, RelatedWordType } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 interface WordCardProps {
   word: Word;
   isSelected: boolean;
   onToggleSelect: (id: number) => void;
-  onEdit: (word: Word) => void;
-  onDelete: (id: number) => void;
+  onEdit?: (word: Word) => void;
+  onDelete?: (id: number) => void;
   allTagConfigs: Record<WordTag, TagConfig>;
   onTagClick?: (tag: WordTag, isAdditive: boolean) => void;
   weights?: { total: number; forgetting: number; error: number };
+  readOnly?: boolean;
 }
 
 export const WordCard = ({
@@ -28,6 +36,7 @@ export const WordCard = ({
   allTagConfigs,
   onTagClick,
   weights,
+  readOnly = false,
 }: WordCardProps) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -65,16 +74,17 @@ export const WordCard = ({
   }, [word.meanings]);
 
   const handleDelete = () => {
-    if (showDeleteConfirm) {
-      onDelete(word.id);
-      setShowDeleteConfirm(false);
-    } else {
-      setShowDeleteConfirm(true);
-      setTimeout(() => setShowDeleteConfirm(false), 3000);
-    }
+    if (!onDelete) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    onDelete?.(word.id);
+    setShowDeleteConfirm(false);
   };
 
   return (
+    <>
     <div
       className={`p-3 sm:p-4 rounded-lg border transition-all cursor-pointer ${
         isSelected
@@ -104,29 +114,27 @@ export const WordCard = ({
               </h3>
             </div>
 
-            <div data-action-bar className="flex gap-1 sm:gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onEdit(word)}
-                className="p-2 h-8 w-8 sm:h-9 sm:w-9 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <Edit2 className="h-4 w-4" />
-              </Button>
+            {!readOnly && (
+              <div data-action-bar className="flex gap-1 sm:gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit?.(word)}
+                  className="p-2 h-8 w-8 sm:h-9 sm:w-9 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </Button>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDelete}
-                className={`p-2 h-8 w-8 sm:h-9 sm:w-9 transition-colors ${
-                  showDeleteConfirm
-                    ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20'
-                    : 'text-gray-400 hover:text-red-600 hover:bg-red-50 dark:text-gray-500 dark:hover:text-red-400 dark:hover:bg-red-900/20'
-                }`}
-              >
-                {showDeleteConfirm ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
-              </Button>
-            </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDelete}
+                  className="p-2 h-8 w-8 sm:h-9 sm:w-9 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:text-gray-500 dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* 含义和标签区域 */}
@@ -233,14 +241,29 @@ export const WordCard = ({
           </div>
         </div>
       </div>
-
-      {showDeleteConfirm && (
-        <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-          <p className="text-sm text-red-700 dark:text-red-300">
-            再次点击确认删除单词
-          </p>
-        </div>
-      )}
     </div>
+
+    <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>确认删除单词</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-gray-600 dark:text-gray-400 py-2">
+          确定要删除单词「
+          <span className="font-semibold text-gray-900 dark:text-white">{word.text}</span>
+          」吗？该单词会<span className="font-semibold text-red-600 dark:text-red-400">从所有单词本中一并删除</span>
+          ，此操作不可恢复。
+        </p>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+            取消
+          </Button>
+          <Button variant="destructive" onClick={handleConfirmDelete}>
+            确认删除
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };

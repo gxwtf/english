@@ -30,12 +30,18 @@ function buildWordResult(
 }
 
 // GET /api/words -> loadWords
-export async function loadWords(): Promise<Word[]> {
+// 传入 wordbookId 时只加载该单词本内的单词，否则加载用户全部单词
+export async function loadWords(wordbookId?: number): Promise<Word[]> {
   const user = await getAuthUser();
   if (!user) return [];
 
   const words = await prisma.word.findMany({
-    where: { userId: user.userId },
+    where: {
+      userId: user.userId,
+      ...(wordbookId
+        ? { wordbooks: { some: { wordbookId } } }
+        : {}),
+    },
     include: {
       wordTags: { include: { tag: true } },
     },
@@ -63,12 +69,15 @@ export async function saveWord(data: {
   tags?: string[];
   meanings?: Meaning[];
   relatedWords?: { text: string; type: string }[];
+  wordbookId?: number;
+  // 编辑已有单词时传 true，用所选释义覆盖；新增/加入其他单词本时默认并集合并
+  replaceMeanings?: boolean;
 }): Promise<Word> {
   const user = await getAuthUser();
   if (!user) throw new Error('未登录');
 
   const userId = user.userId;
-  const { text, tags = [], meanings = [], relatedWords } = data;
+  const { text, tags = [], meanings = [], relatedWords, wordbookId, replaceMeanings = false } = data;
   const textTrim = text.trim();
 
   if (!textTrim) throw new Error('单词不能为空');
@@ -97,10 +106,27 @@ export async function saveWord(data: {
   });
 
   if (existing) {
+    // 新增/加入其他单词本时，把所选释义与已有释义取并集，避免覆盖其他单词本已选的释义；
+    // 显式编辑该单词时（replaceMeanings=true）则按所选覆盖。
+    const previousMeanings = ((existing.meanings as unknown as Meaning[]) ?? []);
+    let nextMeanings = meanings;
+    if (!replaceMeanings) {
+      const keyOf = (m: Meaning) => `${m?.type ?? ''}\u0000${m?.content ?? ''}`;
+      const seen = new Set(previousMeanings.map(keyOf));
+      nextMeanings = [...previousMeanings];
+      for (const m of meanings) {
+        const key = keyOf(m);
+        if (!seen.has(key)) {
+          seen.add(key);
+          nextMeanings.push(m);
+        }
+      }
+    }
+
     await prisma.word.update({
       where: { id: existing.id },
       data: {
-        meanings: meanings as any,
+        meanings: nextMeanings as any,
         wordTags: {
           deleteMany: {},
           create: tags.map((tag: string) => ({
@@ -139,6 +165,24 @@ export async function saveWord(data: {
     where: { userId, text: textTrim },
     include: { wordTags: { include: { tag: true } } },
   });
+
+  // 将单词关联到指定单词本（单词可在多个单词本间共享）
+  if (wordbookId) {
+    const wordbook = await prisma.wordbook.findFirst({
+      where: { id: wordbookId, userId },
+    });
+    if (wordbook) {
+      await prisma.wordbookWord.upsert({
+        where: { wordbookId_wordId: { wordbookId, wordId: resultWord.id } },
+        create: { wordbookId, wordId: resultWord.id },
+        update: {},
+      });
+      await prisma.wordbook.update({
+        where: { id: wordbookId },
+        data: { updatedAt: new Date() },
+      });
+    }
+  }
 
   return buildWordResult(resultWord, rwData);
 }

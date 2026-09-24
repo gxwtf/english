@@ -39,7 +39,7 @@ export const UnauthenticatedPage = () => {
                 <Brain className="w-6 h-6 text-purple-600 dark:text-purple-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                AI 出题
+                AI 复习
               </h3>
             </div>
             <p className="text-gray-600 dark:text-gray-300">

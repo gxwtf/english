@@ -29,7 +29,7 @@ type ReviewStateLite = {
 
 export function PracticeQuestionPageContent({ params }: { params: Promise<{ questionId: string }> }) {
   const { questionId } = use(params);
-  const { isLoggedIn, isClient } = useAuth();
+  const { isLoggedIn, isClient, isLoading } = useAuth();
   const [question, setQuestion] = useState<QuestionQueueItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +67,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
     reloadQuestionAndReviewStates();
   }, [reloadQuestionAndReviewStates]);
 
-  if (!isClient || !isLoggedIn || loading) {
+  if (!isClient || isLoading || (isLoggedIn && loading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-gray-500 dark:text-gray-400">加载中...</div>

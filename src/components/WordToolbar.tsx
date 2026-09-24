@@ -13,7 +13,8 @@ import {
   Tag,
   FileDown,
   Loader2,
-  ChevronDown
+  ChevronDown,
+  FolderMinus
 } from 'lucide-react';
 import { WordTag, TagConfig } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
@@ -48,6 +49,8 @@ interface WordToolbarProps {
   isExportingSelected?: boolean;
   onSearchChange: (term: string) => void;
   onSetTags: (tags: WordTag[]) => void;
+  onRemoveFromWordbook?: () => void;
+  readOnly?: boolean;
 }
 
 export const WordToolbar = ({
@@ -69,6 +72,8 @@ export const WordToolbar = ({
   onDeleteSelected,
   onSearchChange,
   onSetTags,
+  onRemoveFromWordbook,
+  readOnly = false,
   isExportingSelected = false
 }: WordToolbarProps) => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -349,7 +354,7 @@ export const WordToolbar = ({
             {showBatchDropdown && (
               <div className="absolute top-full right-0 mt-2 w-64 sm:w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                 <div className="p-3 sm:p-4" data-batch-dropdown-inner onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                  {/* AI 出题选项 */}
+                  {/* AI 复习选项 */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -361,7 +366,7 @@ export const WordToolbar = ({
                     onPointerDown={(e) => e.stopPropagation()}
                   >
                     <Sparkles className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm">AI 出题</span>
+                    <span className="text-sm">AI 复习</span>
                   </button>
 
                   {/* 导出选中选项 */}
@@ -383,6 +388,8 @@ export const WordToolbar = ({
                     )}
                     <span className="text-sm">{isExportingSelected ? '导出中...' : '导出 PDF'}</span>
                   </button>
+                  {!readOnly && (
+                    <>
                   {/* 设置标签选项 */}
                   <button
                     onClick={(e) => {
@@ -396,6 +403,23 @@ export const WordToolbar = ({
                     <Tag className="h-4 w-4 text-blue-600" />
                     <span className="text-sm">设置标签</span>
                   </button>
+
+                  {/* 移出本单词本选项 */}
+                  {onRemoveFromWordbook && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowBatchDropdown(false);
+                        onRemoveFromWordbook();
+                      }}
+                      className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <FolderMinus className="h-4 w-4 text-amber-600" />
+                      <span className="text-sm">移出本单词本</span>
+                    </button>
+                  )}
 
                   {/* 删除选中选项 */}
                   <button
@@ -411,6 +435,8 @@ export const WordToolbar = ({
                     <Trash2 className="h-4 w-4 text-red-600" />
                     <span className="text-sm">删除选中</span>
                   </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -619,7 +645,7 @@ export const WordToolbar = ({
             {showBatchDropdown && (
               <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 max-h-80 overflow-y-auto">
                 <div className="p-3" data-batch-dropdown-inner onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                  {/* AI 出题选项 */}
+                  {/* AI 复习选项 */}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -631,7 +657,7 @@ export const WordToolbar = ({
                     onPointerDown={(e) => e.stopPropagation()}
                   >
                     <Sparkles className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm">AI 出题</span>
+                    <span className="text-sm">AI 复习</span>
                   </button>
 
                   {/* 导出选中选项 */}
@@ -653,6 +679,8 @@ export const WordToolbar = ({
                     )}
                     <span className="text-sm">{isExportingSelected ? '导出中...' : '导出 PDF'}</span>
                   </button>
+                  {!readOnly && (
+                    <>
                   {/* 设置标签选项 */}
                   <button
                     onClick={(e) => {
@@ -666,6 +694,23 @@ export const WordToolbar = ({
                     <Tag className="h-4 w-4 text-blue-600" />
                     <span className="text-sm">设置标签</span>
                   </button>
+
+                  {/* 移出本单词本选项 */}
+                  {onRemoveFromWordbook && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowBatchDropdown(false);
+                        onRemoveFromWordbook();
+                      }}
+                      className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <FolderMinus className="h-4 w-4 text-amber-600" />
+                      <span className="text-sm">移出本单词本</span>
+                    </button>
+                  )}
 
                   {/* 删除选中选项 */}
                   <button
@@ -681,6 +726,8 @@ export const WordToolbar = ({
                     <Trash2 className="h-4 w-4 text-red-600" />
                     <span className="text-sm">删除选中</span>
                   </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}

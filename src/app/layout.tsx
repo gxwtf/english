@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Footer } from "@/components/Footer";
+import { AuthProvider } from "@/components/AuthProvider";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -60,10 +61,12 @@ export default function RootLayout({
         <link rel="mask-icon" href="/icon-512.png" color="#a31f24" />
       </head>
       <body className="antialiased flex flex-col min-h-screen">
-        <main className="flex-1">
-          {children}
-        </main>
-        <Footer />
+        <AuthProvider>
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

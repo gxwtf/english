@@ -6,9 +6,9 @@ let cachedWords: Word[] | null = null;
 let cachedTagConfigs: Record<WordTag, TagConfig> | null = null;
 
 export const storage = {
-  // 加载所有单词
-  loadWords: async (): Promise<Word[]> => {
-    const words = await loadWordsAction();
+  // 加载单词（可指定单词本）
+  loadWords: async (wordbookId?: number): Promise<Word[]> => {
+    const words = await loadWordsAction(wordbookId);
     cachedWords = words;
     return words;
   },

@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, FileQuestion, HelpCircle, LogOut, User, Edit, Settings } from 'lucide-react';
+import { BookOpen, FileQuestion, HelpCircle, LogOut, User, Edit, Settings, Home } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavbarProps {
-  currentPage: 'wordbook' | 'practice' | 'writing' | 'settings';
+  currentPage: 'home' | 'wordbook' | 'practice' | 'writing' | 'settings';
 }
 
 export const Navbar = ({ currentPage }: NavbarProps) => {
@@ -27,6 +27,18 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
           <div className="flex items-center space-x-2 sm:space-x-4 md:space-x-6">
             <Link
               href="/"
+              className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                currentPage === 'home'
+                  ? 'bg-red-100 text-brand-crimson dark:bg-red-900 dark:text-red-300'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+              }`}
+            >
+              <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">首页</span>
+            </Link>
+
+            <Link
+              href="/wordbooks"
               className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 currentPage === 'wordbook'
                   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
