@@ -11,17 +11,19 @@ import {
   Loader2,
   ArrowRight,
   Layers,
+  Download,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
-import { Wordbook } from '@/types/word';
+import { Wordbook, SystemWordbook } from '@/types/word';
 import {
   loadWordbooks,
   createWordbook,
   renameWordbook,
   deleteWordbook,
 } from '@/actions/wordbooks';
+import { loadSystemWordbooks } from '@/actions/system-wordbooks';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -31,6 +33,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -49,20 +58,26 @@ export const WordbookListPage = () => {
   const router = useRouter();
   const [wordbooks, setWordbooks] = useState<Wordbook[]>([]);
   const [loading, setLoading] = useState(true);
+  const [systemWordbooks, setSystemWordbooks] = useState<SystemWordbook[]>([]);
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Wordbook | null>(null);
   const [formName, setFormName] = useState('');
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [selectedSystemId, setSelectedSystemId] = useState<number | null>(null);
 
   const [deleting, setDeleting] = useState<Wordbook | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const data = await loadWordbooks();
+      const [data, systemData] = await Promise.all([
+        loadWordbooks(),
+        loadSystemWordbooks(),
+      ]);
       setWordbooks(data);
+      setSystemWordbooks(systemData);
     } catch (error) {
       console.error('加载单词本失败:', error);
     } finally {
@@ -79,6 +94,7 @@ export const WordbookListPage = () => {
     setEditing(null);
     setFormName('');
     setFormError('');
+    setSelectedSystemId(null);
     setShowForm(true);
   };
 
@@ -86,6 +102,7 @@ export const WordbookListPage = () => {
     setEditing(book);
     setFormName(book.name);
     setFormError('');
+    setSelectedSystemId(null);
     setShowForm(true);
   };
 
@@ -101,7 +118,7 @@ export const WordbookListPage = () => {
       if (editing) {
         await renameWordbook(editing.id, name);
       } else {
-        await createWordbook(name);
+        await createWordbook(name, selectedSystemId ?? undefined);
       }
       setShowForm(false);
       await loadData();
@@ -285,7 +302,7 @@ export const WordbookListPage = () => {
           <DialogHeader>
             <DialogTitle>{editing ? '重命名单词本' : '新建单词本'}</DialogTitle>
           </DialogHeader>
-          <div className="py-2">
+          <div className="py-2 space-y-3">
             <Input
               autoFocus
               value={formName}
@@ -299,8 +316,39 @@ export const WordbookListPage = () => {
               placeholder="请输入单词本名称"
               maxLength={50}
             />
+
+            {!editing && systemWordbooks.length > 0 && (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <Download className="h-4 w-4" />
+                  导入系统单词本（可选）
+                </label>
+                <Select
+                  value={selectedSystemId ? String(selectedSystemId) : 'none'}
+                  onValueChange={(v) => setSelectedSystemId(v === 'none' ? null : Number(v))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="不导入，创建空单词本" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">不导入，创建空单词本</SelectItem>
+                    {systemWordbooks.map((sys) => (
+                      <SelectItem key={sys.id} value={String(sys.id)}>
+                        {sys.name}（{sys.wordCount} 个单词）
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedSystemId && (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    创建后将复制该系统单词本的全部单词，你可以自由编辑，不会影响系统单词本。
+                  </p>
+                )}
+              </div>
+            )}
+
             {formError && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-2">{formError}</p>
+              <p className="text-sm text-red-600 dark:text-red-400">{formError}</p>
             )}
           </div>
           <DialogFooter>

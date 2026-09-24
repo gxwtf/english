@@ -1,18 +1,27 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Tag as TagIcon } from 'lucide-react';
+import { Settings, Tag as TagIcon, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
 import { TagEditModal } from '@/components/TagEditModal';
+import { AdminWordbooksPage } from '@/components/AdminWordbooksPage';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { loadTagConfigs, saveTagConfigs } from '@/actions/words';
 import type { WordTag, TagConfig } from '@/types/word';
 
 export function SettingsPageContent() {
-  const { isLoggedIn, isClient, isLoading } = useAuth();
+  const { isLoggedIn, isClient, isLoading, userInfo } = useAuth();
+  const isAdmin = !!userInfo && Number(userInfo.admin) > 0;
   const [allTagConfigs, setAllTagConfigs] = useState<Record<WordTag, TagConfig>>({});
   const [showTagEditModal, setShowTagEditModal] = useState(false);
+  const [showSystemWordbooks, setShowSystemWordbooks] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // 加载标签配置
@@ -66,6 +75,17 @@ export function SettingsPageContent() {
       description: '创建、编辑和组织标签，单词本和作文积累本共用',
       onClick: () => setShowTagEditModal(true),
     },
+    ...(isAdmin
+      ? [
+          {
+            id: 'system-wordbooks',
+            icon: Shield,
+            title: '系统单词本管理',
+            description: '上传和管理系统单词本，供所有用户新建单词本时导入',
+            onClick: () => setShowSystemWordbooks(true),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -134,6 +154,16 @@ export function SettingsPageContent() {
         onTagsUpdate={handleTagsUpdate}
         currentTags={allTagConfigs}
       />
+
+      {/* 系统单词本管理弹窗（仅管理员） */}
+      <Dialog open={showSystemWordbooks} onOpenChange={setShowSystemWordbooks}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>系统单词本管理</DialogTitle>
+          </DialogHeader>
+          {showSystemWordbooks && <AdminWordbooksPage embedded />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

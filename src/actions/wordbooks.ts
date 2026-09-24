@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db';
 import { getAuthUser } from './auth';
 import { Wordbook } from '@/types/word';
+import { importSystemWordsToWordbook } from '@/lib/system-wordbook-import';
 
 async function buildWordbookSummary(wordbook: {
   id: number;
@@ -60,7 +61,11 @@ export async function getWordbook(id: number): Promise<Wordbook | null> {
 }
 
 // 新建单词本
-export async function createWordbook(name: string): Promise<Wordbook> {
+// 传入 systemWordbookId 时，会把该系统单词本的全部单词复制一份到新单词本
+export async function createWordbook(
+  name: string,
+  systemWordbookId?: number,
+): Promise<Wordbook> {
   const user = await getAuthUser();
   if (!user) throw new Error('未登录');
 
@@ -76,6 +81,24 @@ export async function createWordbook(name: string): Promise<Wordbook> {
     data: { userId: user.userId, name: nameTrim },
     include: { words: { include: { word: { select: { text: true } } } } },
   });
+
+  if (systemWordbookId) {
+    const systemWordbook = await prisma.systemWordbook.findUnique({
+      where: { id: systemWordbookId },
+    });
+    if (!systemWordbook) {
+      await prisma.wordbook.delete({ where: { id: created.id } });
+      throw new Error('系统单词本不存在');
+    }
+
+    await importSystemWordsToWordbook(user.userId, created.id, systemWordbookId);
+
+    const refreshed = await prisma.wordbook.findUniqueOrThrow({
+      where: { id: created.id },
+      include: { words: { include: { word: { select: { text: true } } } } },
+    });
+    return buildWordbookSummary(refreshed);
+  }
 
   return buildWordbookSummary(created);
 }

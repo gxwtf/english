@@ -5,7 +5,7 @@ import { BookOpen, FileQuestion, HelpCircle, LogOut, User, Edit, Settings, Home 
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavbarProps {
-  currentPage: 'home' | 'wordbook' | 'practice' | 'writing' | 'settings';
+  currentPage: 'home' | 'wordbook' | 'practice' | 'writing' | 'settings' | 'admin';
 }
 
 export const Navbar = ({ currentPage }: NavbarProps) => {

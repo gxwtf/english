@@ -36,6 +36,17 @@ export interface Wordbook {
   updatedAt: string;
 }
 
+// 系统单词本（管理员上传，供用户导入）
+export interface SystemWordbook {
+  id: number;
+  name: string;
+  description: string | null;
+  wordCount: number;
+  previewWords: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 // 颜色配置接口
 export interface ColorConfig {
   id: string;

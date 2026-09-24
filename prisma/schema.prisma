@@ -39,6 +39,30 @@ model Wordbook {
   @@index([userId])
 }
 
+/// 系统单词本（由管理员上传，供所有用户导入；导入时会复制一份到用户自己的单词本）
+model SystemWordbook {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  description String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  words       SystemWord[]
+}
+
+/// 系统单词本中的单词（只读，用户导入时复制为普通 Word）
+model SystemWord {
+  id               Int            @id @default(autoincrement())
+  systemWordbookId Int
+  text             String
+  phonetic         String?
+  meanings         Json[]
+  createdAt        DateTime       @default(now())
+  wordbook         SystemWordbook @relation(fields: [systemWordbookId], references: [id], onDelete: Cascade)
+
+  @@unique([systemWordbookId, text])
+  @@index([systemWordbookId])
+}
+
 /// 单词本与单词的多对多关联
 model WordbookWord {
   id         Int      @id @default(autoincrement())
