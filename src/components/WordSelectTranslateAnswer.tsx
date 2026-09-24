@@ -263,7 +263,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
             <Link href="/practice" className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
               返回题目列表
             </Link>
-            <button onClick={handleRetryGrading} disabled={isRetryingGrading} className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white disabled:opacity-50 disabled:cursor-not-allowed">
+            <button onClick={handleRetryGrading} disabled={isRetryingGrading} className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white disabled:opacity-50 disabled:cursor-not-allowed">
               {isRetryingGrading ? '重试中...' : '重新批改'}
             </button>
           </div>
@@ -355,7 +355,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
             <button onClick={handleReset} disabled={isResetting} className={`flex-1 py-3 font-semibold rounded-xl transition-all shadow-md text-white disabled:opacity-50 disabled:cursor-not-allowed ${
               currentStatus === 'ANSWERED'
                 ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
-                : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red'
             }`}>
               {isResetting ? '重置中...' : '重新作答'}
             </button>
@@ -439,7 +439,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
             <button
               onClick={handleSubmitAll}
               disabled={submitting}
-              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? '提交中...' : completedCount === 0 ? '提交全部 (0/${totalCount})' : `提交全部 (${completedCount}/${totalCount})`}
             </button>

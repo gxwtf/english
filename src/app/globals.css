@@ -76,228 +76,108 @@
   --color-brand-blue: #004098; /* 辅助蓝 */
   --color-brand-aux-purple: #4d4398; /* 辅助紫 */
 
-  /* ===== 覆盖默认调色板：全站统一为 VI 色系 ===== */
+  /* ===== 品牌强调色重映射：blue / indigo / sky / cyan / teal / purple / violet / fuchsia -> 实验红系 =====
+   * 依据 VI 色彩规范 A4 / A-2-1：
+   *   实验红 #A31F24（标准色，RGB/163 31 36，PANTONE 1795C）
+   *   赤诚红 #C22525、深赤红 #8A1010（规范中与实验红相近的两种红，小面积搭配使用）
+   *   标准色附 10%~90% 色阶（A4-01-1），下方浅色取自规范色阶样本。
+   * 仅重映射界面装饰 / 品牌色相；green(正确) / amber(警告) / red(错误) 等语义色保持不变。
+   * 用户自定义标签颜色使用显式色值（见 constants/word-tags.tsx），不受此重映射影响。 */
+  --color-blue-50: #fdf6f5;
+  --color-blue-100: #f5e8e7; /* 实验红 10% 色阶 */
+  --color-blue-200: #ebd1d2; /* 实验红 20% 色阶 */
+  --color-blue-300: #e3bbbb; /* 实验红 30% 色阶 */
+  --color-blue-400: #d9a5a6; /* 实验红 40% 色阶 */
+  --color-blue-500: #c22525; /* 赤诚红 */
+  --color-blue-600: #a31f24; /* 实验红 */
+  --color-blue-700: #8a1010; /* 深赤红 */
+  --color-blue-800: #701414;
+  --color-blue-900: #5b1517;
+  --color-blue-950: #3c0d0e;
 
-  /* blue -> 实验红（主品牌色） */
-  --color-blue-50: color-mix(in oklab, #a31f24 5%, white);
-  --color-blue-100: color-mix(in oklab, #a31f24 11%, white);
-  --color-blue-200: color-mix(in oklab, #a31f24 22%, white);
-  --color-blue-300: color-mix(in oklab, #a31f24 37%, white);
-  --color-blue-400: color-mix(in oklab, #a31f24 58%, white);
-  --color-blue-500: color-mix(in oklab, #a31f24 80%, white);
-  --color-blue-600: #a31f24;
-  --color-blue-700: color-mix(in oklab, #a31f24 90%, #231815);
-  --color-blue-800: color-mix(in oklab, #a31f24 76%, #231815);
-  --color-blue-900: color-mix(in oklab, #a31f24 62%, #231815);
-  --color-blue-950: color-mix(in oklab, #a31f24 45%, #231815);
+  --color-indigo-50: #fdf6f5;
+  --color-indigo-100: #f5e8e7;
+  --color-indigo-200: #ebd1d2;
+  --color-indigo-300: #e3bbbb;
+  --color-indigo-400: #b54c50; /* 实验红 80% 色阶 */
+  --color-indigo-500: #a93539; /* 实验红 90% 色阶 */
+  --color-indigo-600: #8a1010; /* 深赤红 */
+  --color-indigo-700: #730d0d;
+  --color-indigo-800: #5c0f0f;
+  --color-indigo-900: #4c1112;
+  --color-indigo-950: #300b0c;
 
-  /* indigo -> 深赤红（保证 blue->indigo 渐变仍为红色系） */
-  --color-indigo-50: color-mix(in oklab, #8a1010 5%, white);
-  --color-indigo-100: color-mix(in oklab, #8a1010 11%, white);
-  --color-indigo-200: color-mix(in oklab, #8a1010 22%, white);
-  --color-indigo-300: color-mix(in oklab, #8a1010 37%, white);
-  --color-indigo-400: color-mix(in oklab, #8a1010 58%, white);
-  --color-indigo-500: color-mix(in oklab, #8a1010 80%, white);
-  --color-indigo-600: #8a1010;
-  --color-indigo-700: color-mix(in oklab, #8a1010 90%, #231815);
-  --color-indigo-800: color-mix(in oklab, #8a1010 76%, #231815);
-  --color-indigo-900: color-mix(in oklab, #8a1010 62%, #231815);
-  --color-indigo-950: color-mix(in oklab, #8a1010 45%, #231815);
+  --color-sky-50: #fdf7f6;
+  --color-sky-100: #f7ebe9;
+  --color-sky-200: #efd8d6;
+  --color-sky-300: #e7c1bf;
+  --color-sky-400: #d9a5a6; /* 实验红 40% 色阶 */
+  --color-sky-500: #c7797c; /* 实验红 60% 色阶 */
+  --color-sky-600: #c22525; /* 赤诚红 */
+  --color-sky-700: #a31f24; /* 实验红 */
+  --color-sky-800: #851515;
+  --color-sky-900: #6a1616;
+  --color-sky-950: #450d0e;
 
-  /* red -> 赤诚红（错误 / 危险语义） */
-  --color-red-50: color-mix(in oklab, #c22525 5%, white);
-  --color-red-100: color-mix(in oklab, #c22525 11%, white);
-  --color-red-200: color-mix(in oklab, #c22525 22%, white);
-  --color-red-300: color-mix(in oklab, #c22525 37%, white);
-  --color-red-400: color-mix(in oklab, #c22525 58%, white);
-  --color-red-500: color-mix(in oklab, #c22525 80%, white);
-  --color-red-600: #c22525;
-  --color-red-700: color-mix(in oklab, #c22525 90%, #231815);
-  --color-red-800: color-mix(in oklab, #c22525 76%, #231815);
-  --color-red-900: color-mix(in oklab, #c22525 62%, #231815);
-  --color-red-950: color-mix(in oklab, #c22525 45%, #231815);
+  --color-cyan-50: #fdf7f6;
+  --color-cyan-100: #f7ebe9;
+  --color-cyan-200: #efd8d6;
+  --color-cyan-300: #e7c1bf;
+  --color-cyan-400: #d9a5a6;
+  --color-cyan-500: #c7797c;
+  --color-cyan-600: #c22525;
+  --color-cyan-700: #a31f24;
+  --color-cyan-800: #851515;
+  --color-cyan-900: #6a1616;
+  --color-cyan-950: #450d0e;
 
-  /* rose -> 赤诚红 */
-  --color-rose-50: color-mix(in oklab, #c22525 5%, white);
-  --color-rose-100: color-mix(in oklab, #c22525 11%, white);
-  --color-rose-200: color-mix(in oklab, #c22525 22%, white);
-  --color-rose-300: color-mix(in oklab, #c22525 37%, white);
-  --color-rose-400: color-mix(in oklab, #c22525 58%, white);
-  --color-rose-500: color-mix(in oklab, #c22525 80%, white);
-  --color-rose-600: #c22525;
-  --color-rose-700: color-mix(in oklab, #c22525 90%, #231815);
-  --color-rose-800: color-mix(in oklab, #c22525 76%, #231815);
-  --color-rose-900: color-mix(in oklab, #c22525 62%, #231815);
-  --color-rose-950: color-mix(in oklab, #c22525 45%, #231815);
+  --color-teal-50: #fcf4f4;
+  --color-teal-100: #f6e3e4;
+  --color-teal-200: #eeccce;
+  --color-teal-300: #e5b3b6;
+  --color-teal-400: #d98b90;
+  --color-teal-500: #c22525; /* 赤诚红 */
+  --color-teal-600: #a31f24; /* 实验红 */
+  --color-teal-700: #8a1010; /* 深赤红 */
+  --color-teal-800: #701414;
+  --color-teal-900: #5b1517;
+  --color-teal-950: #3c0d0e;
 
-  /* pink -> 赤诚红 */
-  --color-pink-50: color-mix(in oklab, #c22525 5%, white);
-  --color-pink-100: color-mix(in oklab, #c22525 11%, white);
-  --color-pink-200: color-mix(in oklab, #c22525 22%, white);
-  --color-pink-300: color-mix(in oklab, #c22525 37%, white);
-  --color-pink-400: color-mix(in oklab, #c22525 58%, white);
-  --color-pink-500: color-mix(in oklab, #c22525 80%, white);
-  --color-pink-600: #c22525;
-  --color-pink-700: color-mix(in oklab, #c22525 90%, #231815);
-  --color-pink-800: color-mix(in oklab, #c22525 76%, #231815);
-  --color-pink-900: color-mix(in oklab, #c22525 62%, #231815);
-  --color-pink-950: color-mix(in oklab, #c22525 45%, #231815);
+  --color-purple-50: #fcf4f4;
+  --color-purple-100: #f6e3e4;
+  --color-purple-200: #eeccce;
+  --color-purple-300: #e5b3b6;
+  --color-purple-400: #d98b90;
+  --color-purple-500: #c22525; /* 赤诚红 */
+  --color-purple-600: #a31f24; /* 实验红 */
+  --color-purple-700: #8a1010; /* 深赤红 */
+  --color-purple-800: #701414;
+  --color-purple-900: #5b1517;
+  --color-purple-950: #3c0d0e;
 
-  /* green -> 辅助绿 */
-  --color-green-50: color-mix(in oklab, #41b25d 5%, white);
-  --color-green-100: color-mix(in oklab, #41b25d 11%, white);
-  --color-green-200: color-mix(in oklab, #41b25d 22%, white);
-  --color-green-300: color-mix(in oklab, #41b25d 37%, white);
-  --color-green-400: color-mix(in oklab, #41b25d 58%, white);
-  --color-green-500: color-mix(in oklab, #41b25d 80%, white);
-  --color-green-600: #41b25d;
-  --color-green-700: color-mix(in oklab, #41b25d 90%, #231815);
-  --color-green-800: color-mix(in oklab, #41b25d 76%, #231815);
-  --color-green-900: color-mix(in oklab, #41b25d 62%, #231815);
-  --color-green-950: color-mix(in oklab, #41b25d 45%, #231815);
+  --color-violet-50: #fcf4f4;
+  --color-violet-100: #f6e3e4;
+  --color-violet-200: #eeccce;
+  --color-violet-300: #e5b3b6;
+  --color-violet-400: #d98b90;
+  --color-violet-500: #c22525; /* 赤诚红 */
+  --color-violet-600: #a31f24; /* 实验红 */
+  --color-violet-700: #8a1010; /* 深赤红 */
+  --color-violet-800: #701414;
+  --color-violet-900: #5b1517;
+  --color-violet-950: #3c0d0e;
 
-  /* emerald -> 辅助深绿 */
-  --color-emerald-50: color-mix(in oklab, #007963 5%, white);
-  --color-emerald-100: color-mix(in oklab, #007963 11%, white);
-  --color-emerald-200: color-mix(in oklab, #007963 22%, white);
-  --color-emerald-300: color-mix(in oklab, #007963 37%, white);
-  --color-emerald-400: color-mix(in oklab, #007963 58%, white);
-  --color-emerald-500: color-mix(in oklab, #007963 80%, white);
-  --color-emerald-600: #007963;
-  --color-emerald-700: color-mix(in oklab, #007963 90%, #231815);
-  --color-emerald-800: color-mix(in oklab, #007963 76%, #231815);
-  --color-emerald-900: color-mix(in oklab, #007963 62%, #231815);
-  --color-emerald-950: color-mix(in oklab, #007963 45%, #231815);
-
-  /* lime -> 体育绿 */
-  --color-lime-50: color-mix(in oklab, #90bf3d 5%, white);
-  --color-lime-100: color-mix(in oklab, #90bf3d 11%, white);
-  --color-lime-200: color-mix(in oklab, #90bf3d 22%, white);
-  --color-lime-300: color-mix(in oklab, #90bf3d 37%, white);
-  --color-lime-400: color-mix(in oklab, #90bf3d 58%, white);
-  --color-lime-500: color-mix(in oklab, #90bf3d 80%, white);
-  --color-lime-600: #90bf3d;
-  --color-lime-700: color-mix(in oklab, #90bf3d 90%, #231815);
-  --color-lime-800: color-mix(in oklab, #90bf3d 76%, #231815);
-  --color-lime-900: color-mix(in oklab, #90bf3d 62%, #231815);
-  --color-lime-950: color-mix(in oklab, #90bf3d 45%, #231815);
-
-  /* teal -> 辅助深绿 */
-  --color-teal-50: color-mix(in oklab, #007963 5%, white);
-  --color-teal-100: color-mix(in oklab, #007963 11%, white);
-  --color-teal-200: color-mix(in oklab, #007963 22%, white);
-  --color-teal-300: color-mix(in oklab, #007963 37%, white);
-  --color-teal-400: color-mix(in oklab, #007963 58%, white);
-  --color-teal-500: color-mix(in oklab, #007963 80%, white);
-  --color-teal-600: #007963;
-  --color-teal-700: color-mix(in oklab, #007963 90%, #231815);
-  --color-teal-800: color-mix(in oklab, #007963 76%, #231815);
-  --color-teal-900: color-mix(in oklab, #007963 62%, #231815);
-  --color-teal-950: color-mix(in oklab, #007963 45%, #231815);
-
-  /* purple -> 艺术紫 */
-  --color-purple-50: color-mix(in oklab, #492b93 5%, white);
-  --color-purple-100: color-mix(in oklab, #492b93 11%, white);
-  --color-purple-200: color-mix(in oklab, #492b93 22%, white);
-  --color-purple-300: color-mix(in oklab, #492b93 37%, white);
-  --color-purple-400: color-mix(in oklab, #492b93 58%, white);
-  --color-purple-500: color-mix(in oklab, #492b93 80%, white);
-  --color-purple-600: #492b93;
-  --color-purple-700: color-mix(in oklab, #492b93 90%, #231815);
-  --color-purple-800: color-mix(in oklab, #492b93 76%, #231815);
-  --color-purple-900: color-mix(in oklab, #492b93 62%, #231815);
-  --color-purple-950: color-mix(in oklab, #492b93 45%, #231815);
-
-  /* violet -> 艺术紫（浅） */
-  --color-violet-50: color-mix(in oklab, #6a4fbf 5%, white);
-  --color-violet-100: color-mix(in oklab, #6a4fbf 11%, white);
-  --color-violet-200: color-mix(in oklab, #6a4fbf 22%, white);
-  --color-violet-300: color-mix(in oklab, #6a4fbf 37%, white);
-  --color-violet-400: color-mix(in oklab, #6a4fbf 58%, white);
-  --color-violet-500: color-mix(in oklab, #6a4fbf 80%, white);
-  --color-violet-600: #6a4fbf;
-  --color-violet-700: color-mix(in oklab, #6a4fbf 90%, #231815);
-  --color-violet-800: color-mix(in oklab, #6a4fbf 76%, #231815);
-  --color-violet-900: color-mix(in oklab, #6a4fbf 62%, #231815);
-  --color-violet-950: color-mix(in oklab, #6a4fbf 45%, #231815);
-
-  /* fuchsia -> 艺术紫 */
-  --color-fuchsia-50: color-mix(in oklab, #492b93 5%, white);
-  --color-fuchsia-100: color-mix(in oklab, #492b93 11%, white);
-  --color-fuchsia-200: color-mix(in oklab, #492b93 22%, white);
-  --color-fuchsia-300: color-mix(in oklab, #492b93 37%, white);
-  --color-fuchsia-400: color-mix(in oklab, #492b93 58%, white);
-  --color-fuchsia-500: color-mix(in oklab, #492b93 80%, white);
-  --color-fuchsia-600: #492b93;
-  --color-fuchsia-700: color-mix(in oklab, #492b93 90%, #231815);
-  --color-fuchsia-800: color-mix(in oklab, #492b93 76%, #231815);
-  --color-fuchsia-900: color-mix(in oklab, #492b93 62%, #231815);
-  --color-fuchsia-950: color-mix(in oklab, #492b93 45%, #231815);
-
-  /* sky -> 辅助浅蓝 */
-  --color-sky-50: color-mix(in oklab, #0086d1 5%, white);
-  --color-sky-100: color-mix(in oklab, #0086d1 11%, white);
-  --color-sky-200: color-mix(in oklab, #0086d1 22%, white);
-  --color-sky-300: color-mix(in oklab, #0086d1 37%, white);
-  --color-sky-400: color-mix(in oklab, #0086d1 58%, white);
-  --color-sky-500: color-mix(in oklab, #0086d1 80%, white);
-  --color-sky-600: #0086d1;
-  --color-sky-700: color-mix(in oklab, #0086d1 90%, #231815);
-  --color-sky-800: color-mix(in oklab, #0086d1 76%, #231815);
-  --color-sky-900: color-mix(in oklab, #0086d1 62%, #231815);
-  --color-sky-950: color-mix(in oklab, #0086d1 45%, #231815);
-
-  /* cyan -> 辅助浅蓝 */
-  --color-cyan-50: color-mix(in oklab, #0086d1 5%, white);
-  --color-cyan-100: color-mix(in oklab, #0086d1 11%, white);
-  --color-cyan-200: color-mix(in oklab, #0086d1 22%, white);
-  --color-cyan-300: color-mix(in oklab, #0086d1 37%, white);
-  --color-cyan-400: color-mix(in oklab, #0086d1 58%, white);
-  --color-cyan-500: color-mix(in oklab, #0086d1 80%, white);
-  --color-cyan-600: #0086d1;
-  --color-cyan-700: color-mix(in oklab, #0086d1 90%, #231815);
-  --color-cyan-800: color-mix(in oklab, #0086d1 76%, #231815);
-  --color-cyan-900: color-mix(in oklab, #0086d1 62%, #231815);
-  --color-cyan-950: color-mix(in oklab, #0086d1 45%, #231815);
-
-  /* amber -> 青春橙 */
-  --color-amber-50: color-mix(in oklab, #e59d48 5%, white);
-  --color-amber-100: color-mix(in oklab, #e59d48 11%, white);
-  --color-amber-200: color-mix(in oklab, #e59d48 22%, white);
-  --color-amber-300: color-mix(in oklab, #e59d48 37%, white);
-  --color-amber-400: color-mix(in oklab, #e59d48 58%, white);
-  --color-amber-500: color-mix(in oklab, #e59d48 80%, white);
-  --color-amber-600: #e59d48;
-  --color-amber-700: color-mix(in oklab, #e59d48 90%, #231815);
-  --color-amber-800: color-mix(in oklab, #e59d48 76%, #231815);
-  --color-amber-900: color-mix(in oklab, #e59d48 62%, #231815);
-  --color-amber-950: color-mix(in oklab, #e59d48 45%, #231815);
-
-  /* orange -> 辅助橙 */
-  --color-orange-50: color-mix(in oklab, #f08300 5%, white);
-  --color-orange-100: color-mix(in oklab, #f08300 11%, white);
-  --color-orange-200: color-mix(in oklab, #f08300 22%, white);
-  --color-orange-300: color-mix(in oklab, #f08300 37%, white);
-  --color-orange-400: color-mix(in oklab, #f08300 58%, white);
-  --color-orange-500: color-mix(in oklab, #f08300 80%, white);
-  --color-orange-600: #f08300;
-  --color-orange-700: color-mix(in oklab, #f08300 90%, #231815);
-  --color-orange-800: color-mix(in oklab, #f08300 76%, #231815);
-  --color-orange-900: color-mix(in oklab, #f08300 62%, #231815);
-  --color-orange-950: color-mix(in oklab, #f08300 45%, #231815);
-
-  /* yellow -> 辅助黄 */
-  --color-yellow-50: color-mix(in oklab, #fdd000 5%, white);
-  --color-yellow-100: color-mix(in oklab, #fdd000 11%, white);
-  --color-yellow-200: color-mix(in oklab, #fdd000 22%, white);
-  --color-yellow-300: color-mix(in oklab, #fdd000 37%, white);
-  --color-yellow-400: color-mix(in oklab, #fdd000 58%, white);
-  --color-yellow-500: color-mix(in oklab, #fdd000 80%, white);
-  --color-yellow-600: #fdd000;
-  --color-yellow-700: color-mix(in oklab, #fdd000 90%, #231815);
-  --color-yellow-800: color-mix(in oklab, #fdd000 76%, #231815);
-  --color-yellow-900: color-mix(in oklab, #fdd000 62%, #231815);
-  --color-yellow-950: color-mix(in oklab, #fdd000 45%, #231815);
+  --color-fuchsia-50: #fcf4f4;
+  --color-fuchsia-100: #f6e3e4;
+  --color-fuchsia-200: #eeccce;
+  --color-fuchsia-300: #e5b3b6;
+  --color-fuchsia-400: #d98b90;
+  --color-fuchsia-500: #c22525; /* 赤诚红 */
+  --color-fuchsia-600: #a31f24; /* 实验红 */
+  --color-fuchsia-700: #8a1010; /* 深赤红 */
+  --color-fuchsia-800: #701414;
+  --color-fuchsia-900: #5b1517;
+  --color-fuchsia-950: #3c0d0e;
 
   /* gray / slate / zinc / neutral / stone -> 坚实黑 + 行政灰 暖中性色阶 */
   --color-gray-50: #faf9f9;

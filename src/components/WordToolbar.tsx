@@ -335,7 +335,7 @@ export const WordToolbar = ({
                 setShowBatchDropdown((prev) => !prev);
               }}
               disabled={!canBatchOperate}
-              className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+              className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Layers className="h-4 w-4 mr-2" />
               <span className="hidden lg:inline">批量操作</span>
@@ -605,7 +605,7 @@ export const WordToolbar = ({
                 setShowBatchDropdown((prev) => !prev);
               }}
               disabled={!canBatchOperate}
-              className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+              className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               aria-label="批量操作"
             >
               <Layers className="h-4 w-4" />

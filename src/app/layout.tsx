@@ -9,8 +9,8 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#3b82f6" },
-    { media: "(prefers-color-scheme: dark)", color: "#1e40af" },
+    { media: "(prefers-color-scheme: light)", color: "#a31f24" },
+    { media: "(prefers-color-scheme: dark)", color: "#8a1010" },
   ],
 };
 
@@ -54,10 +54,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="广学英语" />
         <meta name="application-name" content="广学英语" />
-        <meta name="msapplication-TileColor" content="#3b82f6" />
+        <meta name="msapplication-TileColor" content="#a31f24" />
         <meta name="msapplication-tap-highlight" content="no" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
-        <link rel="mask-icon" href="/icon-512.png" color="#3b82f6" />
+        <link rel="mask-icon" href="/icon-512.png" color="#a31f24" />
       </head>
       <body className="antialiased flex flex-col min-h-screen">
         <main className="flex-1">

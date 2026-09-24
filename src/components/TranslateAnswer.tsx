@@ -354,7 +354,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
             <button
               onClick={handleRetryGrading}
               disabled={isRetryingGrading}
-              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isRetryingGrading ? '重试中...' : '重新批改'}
             </button>
@@ -490,7 +490,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
               <button
                 onClick={handleReset}
                 disabled={isResetting}
-                className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isResetting ? '重置中...' : '重新作答'}
               </button>
@@ -577,7 +577,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
             <button
               onClick={handleSubmitAll}
               disabled={submitting}
-              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? '提交中...' : completedCount === 0 ? '提交全部 (0/${totalCount})' : `提交全部 (${completedCount}/${totalCount})`}
             </button>

@@ -285,7 +285,7 @@ export const WritingToolbar = ({
                 setShowBatchDropdown((prev) => !prev);
               }}
               disabled={!canBatchOperate}
-              className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+              className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Layers className="h-4 w-4 mr-2" />
               <span className="hidden lg:inline">批量操作</span>
@@ -325,7 +325,7 @@ export const WritingToolbar = ({
                     onMouseDown={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <FileDown className="h-4 w-4 text-green-600" />
+                    <FileDown className="h-4 w-4 text-brand-crimson" />
                     <span className="text-sm">导出 PDF</span>
                   </button>
 
@@ -534,7 +534,7 @@ export const WritingToolbar = ({
                 setShowBatchDropdown((prev) => !prev);
               }}
               disabled={!canBatchOperate}
-              className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+              className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
               aria-label="批量操作"
             >
               <Layers className="h-4 w-4" />
@@ -574,7 +574,7 @@ export const WritingToolbar = ({
                     onMouseDown={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <FileDown className="h-4 w-4 text-green-600" />
+                    <FileDown className="h-4 w-4 text-brand-crimson" />
                     <span className="text-sm">导出 PDF</span>
                   </button>
 

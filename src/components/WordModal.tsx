@@ -403,11 +403,11 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                     <div className="flex items-center gap-2">
                       <div className="relative">
                         <Camera className="h-5 w-5" />
-                        <Sparkles className="absolute -top-2 -right-2 h-3 w-3 text-amber-400" />
+                        <Sparkles className="absolute -top-2 -right-2 h-3 w-3 text-brand-crimson" />
                       </div>
                       <span>拍照识别单词</span>
                     </div>
-                    <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold">
+                    <span className="rounded-full bg-brand-crimson px-2 py-0.5 text-[10px] font-bold">
                       NEW
                     </span>
                   </div>
@@ -418,7 +418,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                     e.stopPropagation();
                     setShowBatchAdd(true);
                   }}
-                  className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] px-4 py-3 text-white font-medium transition-all h-auto"
+                  className="flex-1 rounded-xl bg-brand-crimson hover:bg-brand-red active:scale-[0.98] px-4 py-3 text-white font-medium transition-all h-auto"
                 >
                   <ListPlus className="h-5 w-5" />
                   <span>批量添加单词</span>

@@ -118,7 +118,7 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
 
           {/* 反面 - 所有释义（合并相同词性） */}
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl shadow-lg bg-gradient-to-br from-emerald-500 to-green-600 text-white p-4 overflow-auto"
+            className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl shadow-lg bg-gradient-to-br from-brand-crimson to-brand-deep-red text-white p-4 overflow-auto"
             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           >
             <div className="text-xl font-bold mb-3">{currentCard.word}</div>

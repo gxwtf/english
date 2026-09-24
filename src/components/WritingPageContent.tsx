@@ -320,7 +320,7 @@ export function WritingPageContent() {
               setEditingEntry(undefined);
               setShowModal(true);
             }}
-            className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-all shadow-lg hover:shadow-xl text-sm sm:text-base"
+            className="bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-all shadow-lg hover:shadow-xl text-sm sm:text-base"
           >
             <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
             <span className="hidden sm:inline">添加积累</span>

@@ -53,7 +53,7 @@ export const UnauthenticatedPage = () => {
         </div>
 
         <div className="mt-12 animate-pulse">
-          <Sparkles className="w-8 h-8 text-yellow-500 mx-auto" />
+          <Sparkles className="w-8 h-8 text-brand-crimson mx-auto" />
         </div>
       </div>
     </div>

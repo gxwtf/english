@@ -306,9 +306,9 @@ export const BatchAddWord = ({
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
           {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-emerald-50 dark:bg-gray-700">
+          <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-red-50 dark:bg-gray-700">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 shrink-0">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-crimson shrink-0">
                 <ListPlus className="h-5 w-5 text-white" />
               </div>
               <div className="min-w-0">
@@ -403,7 +403,7 @@ export const BatchAddWord = ({
                   </div>
                   <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-emerald-500 transition-all duration-300"
+                      className="h-full bg-brand-crimson transition-all duration-300"
                       style={{
                         width: `${totalCount > 0 ? (processedCount / totalCount) * 100 : 0}%`,
                       }}
@@ -508,7 +508,7 @@ export const BatchAddWord = ({
                   <Button
                     onClick={handleBatchAdd}
                     disabled={isProcessing || parseWords(inputText).length === 0}
-                    className="bg-emerald-500 hover:bg-emerald-600"
+                    className="bg-brand-crimson hover:bg-brand-red"
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     添加
@@ -545,7 +545,7 @@ export const BatchAddWord = ({
                       <Button variant="outline" onClick={handleReset}>
                         继续添加
                       </Button>
-                      <Button onClick={onClose} className="bg-emerald-500 hover:bg-emerald-600">
+                      <Button onClick={onClose} className="bg-brand-crimson hover:bg-brand-red">
                         完成
                       </Button>
                     </>

@@ -251,9 +251,9 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
         {/* 头部 */}
-        <div className="flex items-center justify-between p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-6 bg-gradient-to-r from-red-50 to-rose-50 dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center text-white">
+            <div className="w-10 h-10 bg-gradient-to-br from-brand-crimson to-brand-deep-red rounded-xl flex items-center justify-center text-white">
               <Type className="h-5 w-5" />
             </div>
             <div>
@@ -286,7 +286,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
               <span className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                 开启遗忘曲线
               </span>
-              <span className="px-2 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-pink-500 to-orange-500 rounded-full shadow-sm animate-pulse">
+              <span className="px-2 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-brand-crimson to-brand-red rounded-full shadow-sm animate-pulse">
                 NEW
               </span>
               <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -329,13 +329,13 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   onClick={() => setSelectedType(type.id)}
                   variant={isSelected ? 'default' : 'outline'}
                   className={`group flex items-center gap-3 p-3 rounded-xl h-auto w-full justify-start text-left ${isSelected
-                    ? 'border-green-500 dark:border-green-400 bg-green-500 dark:bg-green-600 text-white shadow-lg'
-                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-green-500 dark:hover:border-green-400 hover:shadow-lg'}`}
+                    ? 'border-brand-red dark:border-brand-crimson bg-brand-crimson dark:bg-brand-red text-white shadow-lg'
+                    : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:border-brand-crimson dark:hover:border-brand-crimson hover:shadow-lg'}`}
                 >
                   <div className={`w-9 h-9 shrink-0 flex items-center justify-center rounded-lg transition-all duration-200 ${
                     isSelected
-                      ? 'bg-green-500 dark:bg-green-600 text-white shadow-sm'
-                      : 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 group-hover:bg-green-200 dark:group-hover:bg-green-800/40'
+                      ? 'bg-brand-crimson dark:bg-brand-red text-white shadow-sm'
+                      : 'bg-brand-crimson/10 dark:bg-brand-crimson/30 text-brand-crimson dark:text-brand-crimson group-hover:bg-brand-crimson/20 dark:group-hover:bg-brand-crimson/40'
                   }`}>
                     <Icon className="h-5 w-5" />
                   </div>
@@ -657,7 +657,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
             <Button
               onClick={handleGenerate}
               disabled={!!validationError}
-              className={`mt-4 w-full py-3 font-semibold rounded-xl shadow-md hover:shadow-lg h-auto ${validationError ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white'}`}
+              className={`mt-4 w-full py-3 font-semibold rounded-xl shadow-md hover:shadow-lg h-auto ${validationError ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white'}`}
             >
               {selectedType === 'fill-blank'
                 ? `生成选词填空（${typeof questionN === 'number' ? questionN : 0} 道小题，${typeof questionM === 'number' ? questionM : 0} 个干扰词）`

@@ -48,7 +48,7 @@ export const ColorSelector = ({ isOpen, onClose, onColorSelect, currentColorId }
               key={color.id}
               className={`relative h-16 rounded-lg border-2 transition-all duration-200 transform hover:scale-105 hover:shadow-lg ${
                 selectedColorId === color.id
-                  ? 'ring-2 ring-offset-2 ring-blue-500 border-blue-500'
+                  ? 'ring-2 ring-offset-2 ring-primary border-primary'
                   : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
               }`}
               onClick={() => handleColorSelect(color)}
@@ -62,7 +62,7 @@ export const ColorSelector = ({ isOpen, onClose, onColorSelect, currentColorId }
               {/* 选中指示器 */}
               {selectedColorId === color.id && (
                 <div className="absolute -top-1 -right-1">
-                  <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                  <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
                     <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>

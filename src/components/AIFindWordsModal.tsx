@@ -359,7 +359,7 @@ export const AIFindWordsModal = ({
                 <Button
                   onClick={handleImportFull}
                   disabled={selectedWords.length === 0 || importing || !queryWord}
-                  className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600"
+                  className="flex items-center gap-2 bg-brand-crimson hover:bg-brand-red"
                 >
                   <BookOpen className="h-4 w-4" />
                   {importing ? '查询中...' : '导入全部释义'}

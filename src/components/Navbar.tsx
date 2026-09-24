@@ -41,7 +41,7 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
               href="/writing"
               className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 currentPage === 'writing'
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
                   : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
             >
@@ -53,7 +53,7 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
               href="/practice"
               className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                 currentPage === 'practice'
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
                   : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
             >

@@ -306,7 +306,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
             <button
               onClick={handleRetryGrading}
               disabled={isRetryingGrading}
-              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isRetryingGrading ? '重试中...' : '重新批改'}
             </button>
@@ -385,7 +385,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
               className={`flex-1 py-3 font-semibold rounded-xl transition-all shadow-md text-white disabled:opacity-50 disabled:cursor-not-allowed ${
                 currentStatus === 'ANSWERED'
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
-                  : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                  : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red'
               }`}
             >
               {isResetting ? '重置中...' : '重新作答'}
@@ -446,7 +446,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
             className={`w-full py-3 font-semibold rounded-xl transition-all shadow-md ${
               submitting
                 ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white hover:shadow-lg'
+                : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white hover:shadow-lg'
             }`}
           >
             {submitting ? '提交中...' : `提交答案 (${answers.filter(a => a.trim()).length}/${answers.length})`}

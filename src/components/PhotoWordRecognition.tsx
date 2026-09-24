@@ -321,7 +321,7 @@ export const PhotoWordRecognition = ({
         <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
           <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-amber-50 dark:bg-gray-700">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-crimson">
                 <Highlighter className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -338,16 +338,16 @@ export const PhotoWordRecognition = ({
             {step === 'idle' && (
                 <div className="flex flex-col items-center justify-center py-16 gap-5">
                   <div className="relative">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-crimson">
                       <Highlighter className="h-8 w-8 text-white" />
                     </div>
-                    <Sparkles className="absolute -top-2 -right-2 h-5 w-5 text-amber-400" />
+                    <Sparkles className="absolute -top-2 -right-2 h-5 w-5 text-brand-crimson" />
                   </div>
                   <div className="text-center space-y-2">
                     <p className="font-semibold text-gray-800 dark:text-gray-200">选择图片开始识别</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">上传用荧光笔高亮生词的图片，自动识别高亮单词</p>
                   </div>
-                  <Button asChild className="rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.98] px-8 py-6 text-white font-semibold transition-all cursor-pointer">
+                  <Button asChild className="rounded-xl bg-brand-crimson hover:bg-brand-red active:scale-[0.98] px-8 py-6 text-white font-semibold transition-all cursor-pointer">
                     <label htmlFor="photo-word-upload" className="cursor-pointer">
                       <div className="flex items-center justify-center gap-2">
                         <ImageIcon className="h-5 w-5" />
@@ -401,7 +401,7 @@ export const PhotoWordRecognition = ({
                   <Button
                     onClick={handleRecognize}
                     disabled={loading}
-                    className="group relative w-full rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 active:scale-[0.98] px-6 py-3 text-white font-semibold transition-all h-auto"
+                    className="group relative w-full rounded-xl bg-brand-crimson hover:bg-brand-red disabled:opacity-50 active:scale-[0.98] px-6 py-3 text-white font-semibold transition-all h-auto"
                   >
                     <div className="flex items-center justify-center gap-2">
                       {loading ? (
@@ -425,8 +425,8 @@ export const PhotoWordRecognition = ({
                 <div className="flex flex-col items-center justify-center py-16 gap-5">
                   <div className="relative">
                     <div className="animate-spin rounded-full h-14 w-14 border-4 border-amber-200 dark:border-amber-800"></div>
-                    <div className="absolute inset-0 animate-spin rounded-full h-14 w-14 border-4 border-transparent border-t-amber-500" style={{ animationDuration: '1.5s' }}></div>
-                    <Highlighter className="absolute inset-0 m-auto h-5 w-5 text-amber-500" />
+                    <div className="absolute inset-0 animate-spin rounded-full h-14 w-14 border-4 border-transparent border-t-brand-crimson" style={{ animationDuration: '1.5s' }}></div>
+                    <Highlighter className="absolute inset-0 m-auto h-5 w-5 text-brand-crimson" />
                   </div>
                   <div className="text-center space-y-1">
                     <p className="font-semibold text-gray-800 dark:text-gray-200">正在识别高亮单词...</p>
@@ -446,7 +446,7 @@ export const PhotoWordRecognition = ({
                         variant="default"
                         size="default"
                         onClick={handleBatchAddAll}
-                        className="bg-green-500 hover:bg-green-600 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+                        className="bg-brand-crimson hover:bg-brand-red text-white font-semibold shadow-md hover:shadow-lg transition-all"
                       >
                         <Plus className="h-4 w-4 mr-1" />
                         全部添加 ({recognizedWords.length}个)
