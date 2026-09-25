@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
 import { WordToolbar } from '@/components/WordToolbar';
+import { WordPagination, PAGE_SIZE_OPTIONS } from '@/components/WordPagination';
 import { WordCard } from '@/components/WordCard';
 import { WordModal } from '@/components/WordModal';
 import { AIQuestionTypeSelector, type QuestionGenerationOptions } from '@/components/AIQuestionTypeSelector';
@@ -67,6 +68,8 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
   const [loading, setLoading] = useState(true);
   const [exportingWords, setExportingWords] = useState(false);
   const [rangeSelectMode, setRangeSelectMode] = useState(false);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [currentPage, setCurrentPage] = useState(1);
   const rangeFirstEndpoint = useRef<number | null>(null);
   const rangeSelectModeRef = useRef(false);
   const [wordReviewStates, setWordReviewStates] = useState<Map<number, { lastReviewedAt: Date | null; interval: number; errorCount: number }>>(new Map());
@@ -126,6 +129,26 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
   useEffect(() => {
     loadData();
   }, []);
+
+  // 从本地读取用户偏好的每页数量
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('wordbook-page-size');
+      if (saved) {
+        const parsed = Number(saved);
+        if (PAGE_SIZE_OPTIONS.includes(parsed)) {
+          setPageSize(parsed);
+        }
+      }
+    } catch {
+      // 忽略读取失败
+    }
+  }, []);
+
+  // 筛选/排序/每页数量变化时回到第一页
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterTags, filterLogic, sortBy, pageSize, wordbookId]);
 
   // 保存单词
   const handleSaveWord = async (wordData: {
@@ -262,6 +285,26 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
 
     return filtered;
   }, [words, searchTerm, filterTags, filterLogic, sortBy, allTagConfigs]);
+
+  // 分页计算
+  const totalPages = Math.max(1, Math.ceil(filteredAndSortedWords.length / pageSize));
+  // 当总数减少导致当前页越界时，回退到最后一页（派生值，避免与“回到第一页”的副作用冲突）
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedWords = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredAndSortedWords.slice(start, start + pageSize);
+  }, [filteredAndSortedWords, safeCurrentPage, pageSize]);
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+    try {
+      localStorage.setItem('wordbook-page-size', String(size));
+    } catch {
+      // 忽略写入失败
+    }
+  };
 
   // 处理选择 — 使用 rangeSelectModeRef 以避免闭包陈旧
   const handleToggleSelect = useCallback((id: number) => {
@@ -667,32 +710,43 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredAndSortedWords.map((word, index) => {
-              const state = wordReviewStates.get(word.id) ?? null;
-              const now = new Date();
-              const f = state ? forgettingWeight(state, now) : 1.0;
-              const g = state ? errorWeight(state.errorCount) : 1.0;
-              const w = totalWeight(state, now);
-              return (
-                <WordCard
-                  key={word.id}
-                  word={word}
-                  isSelected={selectedWordIds.includes(word.id)}
-                  onToggleSelect={handleToggleSelect}
-                  onEdit={(word) => {
-                    setEditingWord(word);
-                    setShowModal(true);
-                  }}
-                  onDelete={handleDeleteWord}
-                  allTagConfigs={allTagConfigs}
-                  onTagClick={handleTagClick}
-                  weights={{ total: w, forgetting: f, error: g }}
-                  readOnly={readOnly}
-                />
-              );
-            })}
-          </div>
+          <>
+            <div className="space-y-3">
+              {paginatedWords.map((word) => {
+                const state = wordReviewStates.get(word.id) ?? null;
+                const now = new Date();
+                const f = state ? forgettingWeight(state, now) : 1.0;
+                const g = state ? errorWeight(state.errorCount) : 1.0;
+                const w = totalWeight(state, now);
+                return (
+                  <WordCard
+                    key={word.id}
+                    word={word}
+                    isSelected={selectedWordIds.includes(word.id)}
+                    onToggleSelect={handleToggleSelect}
+                    onEdit={(word) => {
+                      setEditingWord(word);
+                      setShowModal(true);
+                    }}
+                    onDelete={handleDeleteWord}
+                    allTagConfigs={allTagConfigs}
+                    onTagClick={handleTagClick}
+                    weights={{ total: w, forgetting: f, error: g }}
+                    readOnly={readOnly}
+                  />
+                );
+              })}
+            </div>
+
+            <WordPagination
+              currentPage={safeCurrentPage}
+              totalPages={totalPages}
+              totalItems={filteredAndSortedWords.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          </>
         )}
       </div>
 
