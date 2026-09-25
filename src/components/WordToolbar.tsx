@@ -330,6 +330,17 @@ export const WordToolbar = ({
             />
           </div>
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAIGenerate}
+            disabled={!canBatchOperate}
+            className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            <span className="hidden lg:inline">AI 复习</span>
+          </Button>
+
           <div className="relative">
             <Button
               data-batch-button
@@ -354,21 +365,6 @@ export const WordToolbar = ({
             {showBatchDropdown && (
               <div className="absolute top-full right-0 mt-2 w-64 sm:w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
                 <div className="p-3 sm:p-4" data-batch-dropdown-inner onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-                  {/* AI 复习选项 */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowBatchDropdown(false);
-                      onAIGenerate();
-                    }}
-                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    <Sparkles className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm">AI 复习</span>
-                  </button>
-
                   {/* 导出选中选项 */}
                   <button
                     onClick={(e) => {
@@ -621,6 +617,17 @@ export const WordToolbar = ({
             />
           </div>
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAIGenerate}
+            disabled={!canBatchOperate}
+            className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+            aria-label="AI 复习"
+          >
+            <Sparkles className="h-4 w-4" />
+          </Button>
+
           <div className="relative">
             <Button
               data-batch-button
@@ -645,21 +652,6 @@ export const WordToolbar = ({
             {showBatchDropdown && (
               <div className="absolute top-full right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 max-h-80 overflow-y-auto">
                 <div className="p-3" data-batch-dropdown-inner onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                  {/* AI 复习选项 */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowBatchDropdown(false);
-                      onAIGenerate();
-                    }}
-                    className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    <Sparkles className="h-4 w-4 text-purple-600" />
-                    <span className="text-sm">AI 复习</span>
-                  </button>
-
                   {/* 导出选中选项 */}
                   <button
                     onClick={(e) => {
