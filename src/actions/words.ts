@@ -45,7 +45,7 @@ export async function loadWords(wordbookId?: number): Promise<Word[]> {
     include: {
       wordTags: { include: { tag: true } },
     },
-    orderBy: { updatedAt: 'desc' },
+    orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
   });
 
   const relatedWordsDb = await prisma.relatedWord.findMany({

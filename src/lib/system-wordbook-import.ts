@@ -9,7 +9,7 @@ export async function importSystemWordsToWordbook(
 ): Promise<{ imported: number; linked: number }> {
   const systemWords = await prisma.systemWord.findMany({
     where: { systemWordbookId },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { id: 'asc' },
   });
   if (systemWords.length === 0) return { imported: 0, linked: 0 };
 

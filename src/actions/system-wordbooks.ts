@@ -46,7 +46,7 @@ export async function loadSystemWordbooks(): Promise<SystemWordbook[]> {
 
   const wordbooks = await prisma.systemWordbook.findMany({
     include: {
-      words: { select: { text: true }, orderBy: { createdAt: 'asc' } },
+      words: { select: { text: true }, orderBy: { id: 'asc' } },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -60,7 +60,7 @@ export async function loadSystemWordbooksAdmin(): Promise<SystemWordbook[]> {
 
   const wordbooks = await prisma.systemWordbook.findMany({
     include: {
-      words: { select: { text: true }, orderBy: { createdAt: 'asc' } },
+      words: { select: { text: true }, orderBy: { id: 'asc' } },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -132,7 +132,7 @@ export async function createSystemWordbook(input: {
 
     return tx.systemWordbook.findUniqueOrThrow({
       where: { id: wordbook.id },
-      include: { words: { select: { text: true }, orderBy: { createdAt: 'asc' } } },
+      include: { words: { select: { text: true }, orderBy: { id: 'asc' } } },
     });
   });
 
@@ -163,7 +163,7 @@ export async function updateSystemWordbook(
         ? { description: data.description.trim() || null }
         : {}),
     },
-    include: { words: { select: { text: true }, orderBy: { createdAt: 'asc' } } },
+    include: { words: { select: { text: true }, orderBy: { id: 'asc' } } },
   });
 
   return buildSummary(updated);

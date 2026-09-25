@@ -32,7 +32,7 @@ export async function loadWordbooks(): Promise<Wordbook[]> {
     include: {
       words: {
         include: { word: { select: { text: true } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       },
     },
     orderBy: { updatedAt: 'desc' },
@@ -51,7 +51,7 @@ export async function getWordbook(id: number): Promise<Wordbook | null> {
     include: {
       words: {
         include: { word: { select: { text: true } } },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       },
     },
   });
@@ -79,7 +79,7 @@ export async function createWordbook(
 
   const created = await prisma.wordbook.create({
     data: { userId: user.userId, name: nameTrim },
-    include: { words: { include: { word: { select: { text: true } } } } },
+    include: { words: { include: { word: { select: { text: true } } }, orderBy: { id: 'asc' } } },
   });
 
   if (systemWordbookId) {
@@ -95,7 +95,7 @@ export async function createWordbook(
 
     const refreshed = await prisma.wordbook.findUniqueOrThrow({
       where: { id: created.id },
-      include: { words: { include: { word: { select: { text: true } } } } },
+      include: { words: { include: { word: { select: { text: true } } }, orderBy: { id: 'asc' } } },
     });
     return buildWordbookSummary(refreshed);
   }
@@ -124,7 +124,7 @@ export async function renameWordbook(id: number, name: string): Promise<Wordbook
   const updated = await prisma.wordbook.update({
     where: { id },
     data: { name: nameTrim },
-    include: { words: { include: { word: { select: { text: true } } } } },
+    include: { words: { include: { word: { select: { text: true } } }, orderBy: { id: 'asc' } } },
   });
 
   return buildWordbookSummary(updated);
