@@ -16,7 +16,7 @@ export const GxaccountLogin = () => {
   return (
     <button
       onClick={handleLogin}
-      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors mx-auto"
+      className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors"
     >
       <LogIn className="w-5 h-5" />
       使用广学账号登录

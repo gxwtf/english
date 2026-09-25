@@ -1,4 +1,4 @@
-import { BookOpen, Brain, Sparkles } from 'lucide-react';
+import { BookOpen, Brain, FileText, Sparkles } from 'lucide-react';
 import { GxaccountLogin } from '@/components/GxaccountLogin';
 
 export const UnauthenticatedPage = () => {
@@ -48,8 +48,17 @@ export const UnauthenticatedPage = () => {
           </div>
         </div>
 
-        <div className="mt-8">
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
           <GxaccountLogin />
+          <a
+            href="https://docs.gxwtf.cn/#/english/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-6 py-3 rounded-lg flex items-center gap-2 transition-colors dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
+          >
+            <FileText className="w-5 h-5" />
+            查看文档
+          </a>
         </div>
 
         <div className="mt-12 animate-pulse">
