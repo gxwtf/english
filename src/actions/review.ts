@@ -11,6 +11,7 @@
 
 import { prisma } from '@/lib/db';
 import { getAuthUser } from '@/actions/auth';
+import { loadReviewSettings } from '@/actions/review-settings';
 import { sm2InitState, sm2Update } from '@/lib/spaced-repetition/sm2';
 import {
   clampErrorCount,
@@ -346,12 +347,22 @@ export async function getReviewStats(): Promise<{
   if (!user) return { due: 0, newWords: 0, total: 0, errorTotal: 0 };
   const userId = user.userId;
 
+  // 应用「一键复习范围设置」：custom 时只统计所选单词本内的单词
+  const scope = await loadReviewSettings();
+  const scopedWordbookIds = scope.mode === 'custom' ? scope.wordbookIds : null;
+  const wordWhere = {
+    userId,
+    ...(scopedWordbookIds
+      ? { wordbooks: { some: { wordbookId: { in: scopedWordbookIds } } } }
+      : {}),
+  };
+
   // 总词数
-  const total = await prisma.word.count({ where: { userId } });
+  const total = await prisma.word.count({ where: wordWhere });
 
   // 有复习状态的词数
   const reviewedCount = await prisma.wordReviewState.count({
-    where: { userId },
+    where: { userId, word: wordWhere },
   });
 
   // 新词数 = 总词数 - 已复习词数
@@ -365,7 +376,7 @@ export async function getReviewStats(): Promise<{
   // 等价于 elapsed > 0.693 × interval
   const now = new Date();
   const allStates = await prisma.wordReviewState.findMany({
-    where: { userId },
+    where: { userId, word: wordWhere },
     select: { lastReviewedAt: true, interval: true, errorCount: true },
   });
 
