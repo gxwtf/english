@@ -8,20 +8,16 @@ import { QuestionList } from '@/components/QuestionDisplay';
 import { QuestionQueueItem } from '@/types/word';
 import {
   loadQuestionQueue as loadQuestionQueueAction,
-  generateFillBlankWithQuestion,
-  generateTranslateWithQuestion,
-  generateMeaningSelectWithQuestion,
-  generateMeaningSelectEnWithQuestion,
-  generateDefinitionFillBlankWithQuestion,
-  generateWordSelectTranslateWithQuestion,
-  markQuestionAsFailed,
   retryQuestion,
-  retryQuestionsAndGenerate,
   getQuestionsForPdf,
 } from '@/actions/ai-question';
 import { generatePdf } from '@/lib/pdf-generator';
-import { useRouter } from 'next/navigation';
-import { FileDown, Loader2, RefreshCw } from 'lucide-react';
+import {
+  dispatchQuestionGeneration,
+  takeAllPendingQuestions,
+  type PendingQuestionItem,
+} from '@/lib/ai-question-client';
+import { FileDown, Loader2 } from 'lucide-react';
 
 export function PracticePageContent() {
   const { isLoggedIn, isClient, isLoading } = useAuth();
@@ -30,8 +26,6 @@ export function PracticePageContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set()); // 正在重试的题目ID
-  const [batchRetrying, setBatchRetrying] = useState(false);
-  const router = useRouter();
 
   const loadQueue = useCallback(async () => {
     try {
@@ -44,113 +38,14 @@ export function PracticePageContent() {
     }
   }, []);
 
-  const generateQuestionByItem = useCallback(async (item: {
-    questionId: string;
-    questionType: string;
-    wordIds: number[];
-    options: any;
-    relatedWordEntries: any[];
-  }) => {
-    const { questionId, questionType, wordIds, options, relatedWordEntries } = item;
-    console.log('[generateQuestionByItem]', questionId, questionType);
-    try {
-      switch (questionType) {
-        case 'fill-blank': {
-          const fillBlankOptions = options.fillBlank ?? { n: 5, m: 0 };
-          await generateFillBlankWithQuestion(
-            questionId, wordIds, fillBlankOptions,
-            undefined, options.deepThinking,
-            relatedWordEntries, options.allowFormChange
-          );
-          break;
-        }
-        case 'translate': {
-          const translateOptions = options.translate ?? { n: 5 };
-          await generateTranslateWithQuestion(
-            questionId, wordIds, translateOptions,
-            undefined, options.deepThinking,
-            relatedWordEntries
-          );
-          break;
-        }
-        case 'meaning-select': {
-          const meaningSelectOptions = options.meaningSelect ?? { n: 5 };
-          await generateMeaningSelectWithQuestion(
-            questionId, wordIds, meaningSelectOptions,
-            options.deepThinking,
-            relatedWordEntries
-          );
-          break;
-        }
-        case 'meaning-select-en': {
-          const meaningSelectEnOptions = options.meaningSelectEn ?? { n: 5 };
-          await generateMeaningSelectEnWithQuestion(
-            questionId, wordIds, meaningSelectEnOptions,
-            options.deepThinking,
-            relatedWordEntries
-          );
-          break;
-        }
-        case 'definition-fill-blank': {
-          const definitionFillBlankOptions = options.definitionFillBlank ?? { n: 5, m: 0 };
-          await generateDefinitionFillBlankWithQuestion(
-            questionId, wordIds, definitionFillBlankOptions,
-            undefined, options.deepThinking,
-            relatedWordEntries
-          );
-          break;
-        }
-        case 'word-select-translate': {
-          const wordSelectTranslateOptions = options.wordSelectTranslate ?? { n: 5 };
-          await generateWordSelectTranslateWithQuestion(
-            questionId, wordIds, wordSelectTranslateOptions,
-            undefined, options.deepThinking,
-            relatedWordEntries
-          );
-          break;
-        }
-        case 'word-card': {
-          // word-card 不需要 AI 生成，直接生成完成
-          // 此分支不会被调用，因为 word-card 不经过 sessionStorage 处理
-          break;
-        }
-        default: {
-          console.warn('[generateQuestionByItem] unknown questionType', questionType);
-        }
-      }
-      setTimeout(() => loadQueue(), 200);
-    } catch (error) {
-      console.error('AI 出题异常:', error);
-      try {
-        await markQuestionAsFailed(questionId);
-        loadQueue();
-      } catch {
-        loadQueue();
-      }
-    }
+  const generateQuestionByItem = useCallback(async (item: PendingQuestionItem) => {
+    console.log('[generateQuestionByItem]', item.questionId, item.questionType);
+    await dispatchQuestionGeneration(item);
+    setTimeout(() => loadQueue(), 200);
   }, [loadQueue]);
 
   const processPendingQuestion = useCallback(() => {
-    const raw = sessionStorage.getItem('pendingQuestions');
-    if (!raw) return;
-
-    let items: Array<{
-      questionId: string;
-      questionType: string;
-      wordIds: number[];
-      options: any;
-      relatedWordEntries: any[];
-    }>;
-    try {
-      items = JSON.parse(raw);
-      if (!Array.isArray(items) || items.length === 0) return;
-    } catch {
-      sessionStorage.removeItem('pendingQuestions');
-      return;
-    }
-
-    sessionStorage.removeItem('pendingQuestions');
-
+    const items = takeAllPendingQuestions();
     for (const item of items) {
       generateQuestionByItem(item);
     }
@@ -195,12 +90,18 @@ export function PracticePageContent() {
           translate: { n },
         };
       } else if (result.questionType === 'meaning-select') {
+        const wordCount = result.wordIds?.length || 2;
+        const n = getN(Math.min(5, wordCount));
         retryOptions = {
           type: 'meaning-select',
+          meaningSelect: { n },
         };
       } else if (result.questionType === 'meaning-select-en') {
+        const wordCount = result.wordIds?.length || 2;
+        const n = getN(Math.min(5, wordCount));
         retryOptions = {
           type: 'meaning-select-en',
+          meaningSelectEn: { n },
         };
       } else if (result.questionType === 'definition-fill-blank') {
         const wordCount = result.wordIds?.length || 2;
@@ -259,31 +160,6 @@ export function PracticePageContent() {
       ));
     }
   }, [generateQuestionByItem]);
-
-  const handleRetryAllFailed = useCallback(async () => {
-    const failedItems = queue.filter(q => q.status === 'FAILED');
-    if (failedItems.length === 0) return;
-
-    setBatchRetrying(true);
-
-    // 乐观更新：将失败的题目显示为生成中
-    setQueue(prev => prev.map(q =>
-      failedItems.some(f => f.id === q.id) ? { ...q, status: 'GENERATING' as any } : q
-    ));
-
-    try {
-      const questionIds = failedItems.map(q => q.id);
-      await retryQuestionsAndGenerate(questionIds);
-
-      // 服务器端已并行启动生成，本地定期刷新状态
-      setTimeout(() => loadQueue(), 300);
-    } catch (error) {
-      console.error('批量重试失败:', error);
-      loadQueue();
-    } finally {
-      setBatchRetrying(false);
-    }
-  }, [queue, loadQueue]);
 
   const handleToggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -372,7 +248,6 @@ export function PracticePageContent() {
   }
 
   const selectableCount = queue.filter(q => ['GENERATED', 'ANSWERED', 'GRADING'].includes(q.status)).length;
-  const failedCount = queue.filter(q => q.status === 'FAILED').length;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -416,32 +291,6 @@ export function PracticePageContent() {
                 <>
                   <FileDown className="h-4 w-4" />
                   导出为 PDF
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* Batch retry toolbar */}
-        {failedCount > 0 && (
-          <div className="mb-4 flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 shadow-sm">
-            <span className="text-sm text-red-700 dark:text-red-300">
-              有 {failedCount} 道题目生成失败
-            </span>
-            <button
-              onClick={handleRetryAllFailed}
-              disabled={batchRetrying}
-              className="flex items-center gap-2 text-sm px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {batchRetrying ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  重试中...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4" />
-                  全部重试
                 </>
               )}
             </button>

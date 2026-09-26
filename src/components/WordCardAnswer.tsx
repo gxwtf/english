@@ -138,8 +138,8 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
       {/* 卡片容器 */}
       <div
         ref={containerRef}
-        className="relative mx-auto"
-        style={{ width: '100%', maxWidth: '320px', height: '240px', perspective: '1000px' }}
+        className="relative mx-auto w-full max-w-[320px] h-[240px] sm:max-w-[420px] sm:h-[300px] lg:max-w-[560px] lg:h-[400px]"
+        style={{ perspective: '1000px' }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -158,30 +158,30 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
             className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl shadow-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-6"
             style={{ backfaceVisibility: 'hidden' }}
           >
-            <div className="text-4xl font-bold mb-4">{currentCard.word}</div>
-            <div className="text-sm opacity-75">点击翻转查看释义</div>
-            <RotateCcw className="w-5 h-5 opacity-50 mt-2" />
+            <div className="text-4xl sm:text-6xl lg:text-7xl font-bold mb-4 break-all text-center px-2">{currentCard.word}</div>
+            <div className="text-sm lg:text-lg opacity-75">点击翻转查看释义</div>
+            <RotateCcw className="w-5 h-5 lg:w-6 lg:h-6 opacity-50 mt-2" />
           </div>
 
           {/* 反面 - 所有释义（合并相同词性） */}
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl shadow-lg bg-gradient-to-br from-brand-crimson to-brand-deep-red text-white p-4 overflow-auto"
+            className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl shadow-lg bg-gradient-to-br from-brand-crimson to-brand-deep-red text-white p-4 lg:p-8 overflow-auto"
             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           >
-            <div className="text-xl font-bold mb-3">{currentCard.word}</div>
+            <div className="text-2xl lg:text-4xl font-bold mb-3 lg:mb-5">{currentCard.word}</div>
             {mergedMeanings.length > 0 ? (
-              <div className="space-y-2 text-center">
+              <div className="space-y-2 lg:space-y-3 text-center">
                 {mergedMeanings.map((m, idx) => (
-                  <div key={idx} className="text-sm">
+                  <div key={idx} className="text-sm lg:text-xl leading-relaxed">
                     <span className="font-semibold opacity-90">{m.type}</span>
                     <span className="opacity-80"> {m.content}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-base opacity-75">暂无释义</div>
+              <div className="text-base lg:text-xl opacity-75">暂无释义</div>
             )}
-            <RotateCcw className="w-5 h-5 opacity-50 mt-3" />
+            <RotateCcw className="w-5 h-5 lg:w-6 lg:h-6 opacity-50 mt-3" />
           </div>
         </div>
       </div>

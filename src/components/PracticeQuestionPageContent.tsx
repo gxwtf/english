@@ -4,6 +4,7 @@ import { useEffect, useState, use, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { QuestionQueueItem, QUESTION_TYPE_LABELS } from '@/types/word';
 import { loadQuestionById } from '@/actions/ai-question';
+import { dispatchQuestionGeneration, takePendingQuestion } from '@/lib/ai-question-client';
 import { getBatchReviewStates } from '@/actions/review';
 import { FillBlankAnswer } from '@/components/FillBlankAnswer';
 import { TranslateAnswer } from '@/components/TranslateAnswer';
@@ -55,12 +56,27 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
   useEffect(() => {
     if (!isClient || !isLoggedIn) return;
     setLoading(true);
+    // 如果该题目是一次新生成的请求，在此触发 AI 生成（不阻塞页面加载）
+    const pending = takePendingQuestion(questionId);
+    if (pending) {
+      dispatchQuestionGeneration(pending);
+    }
     reloadQuestionAndReviewStates()
       .catch((err: Error) => {
         setError(err.message || '加载题目失败');
       })
       .finally(() => setLoading(false));
   }, [questionId, isClient, isLoggedIn, reloadQuestionAndReviewStates]);
+
+  // 生成中时轮询题目状态，生成完成后自动显示
+  useEffect(() => {
+    if (!isClient || !isLoggedIn) return;
+    if (question?.status !== 'GENERATING') return;
+    const interval = setInterval(() => {
+      reloadQuestionAndReviewStates();
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [isClient, isLoggedIn, question?.status, reloadQuestionAndReviewStates]);
 
   // 答题提交后重新加载题目和复习状态
   const handleSubmitted = useCallback(() => {
@@ -113,8 +129,10 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
         </div>
 
         {question.status === 'GENERATING' && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 dark:text-gray-400">题目正在生成中，请稍候...</p>
+          <div className="text-center py-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="mt-4 text-gray-500 dark:text-gray-400">AI 正在生成题目，请稍候...</p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">生成完成后将自动显示</p>
           </div>
         )}
 

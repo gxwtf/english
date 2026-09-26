@@ -409,8 +409,8 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
       const { wordIds, relatedWordEntries } = await selectWordsForQuestion(
         selectedWords, neededCount, includeRelatedWords, useSpacedRepetition
       );
-      await createWordCardQuestion(wordIds, relatedWordEntries);
-      router.push('/practice');
+      const result = await createWordCardQuestion(wordIds, relatedWordEntries);
+      router.push(`/practice/${result.id}`);
     } catch (error) {
       console.error('创建单词卡片异常:', error);
     }
@@ -488,12 +488,12 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
           break;
         }
         case 'meaning-select': {
-          pendingItem = await enqueuePendingMeaningSelect(wordIds, options.deepThinking, relatedWordEntries);
+          pendingItem = await enqueuePendingMeaningSelect(wordIds, options.meaningSelect, options.deepThinking, relatedWordEntries);
           questionType = 'meaning-select';
           break;
         }
         case 'meaning-select-en': {
-          pendingItem = await enqueuePendingMeaningSelectEn(wordIds, options.deepThinking, relatedWordEntries);
+          pendingItem = await enqueuePendingMeaningSelectEn(wordIds, options.meaningSelectEn, options.deepThinking, relatedWordEntries);
           questionType = 'meaning-select-en';
           break;
         }
@@ -527,7 +527,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
       existing.push(pendingItemData);
       sessionStorage.setItem('pendingQuestions', JSON.stringify(existing));
 
-      router.push('/practice');
+      router.push(`/practice/${pendingItem.id}`);
     } catch (error) {
       console.error('创建题目异常:', error);
     }

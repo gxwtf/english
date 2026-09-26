@@ -198,8 +198,8 @@ export function HomePageContent() {
           options.includeRelatedWords,
           options.useSpacedRepetition
         );
-        await createWordCardQuestion(wordIds, relatedWordEntries);
-        router.push('/practice');
+        const wordCardResult = await createWordCardQuestion(wordIds, relatedWordEntries);
+        router.push(`/practice/${wordCardResult.id}`);
         return;
       }
 
@@ -235,6 +235,7 @@ export function HomePageContent() {
         case 'meaning-select':
           pendingItem = await enqueuePendingMeaningSelect(
             wordIds,
+            options.meaningSelect,
             options.deepThinking,
             relatedWordEntries
           );
@@ -242,6 +243,7 @@ export function HomePageContent() {
         case 'meaning-select-en':
           pendingItem = await enqueuePendingMeaningSelectEn(
             wordIds,
+            options.meaningSelectEn,
             options.deepThinking,
             relatedWordEntries
           );
@@ -279,7 +281,7 @@ export function HomePageContent() {
       existing.push(pendingItemData);
       sessionStorage.setItem('pendingQuestions', JSON.stringify(existing));
 
-      router.push('/practice');
+      router.push(`/practice/${pendingItem.id}`);
     } catch (error) {
       console.error('创建复习题目失败:', error);
       setReviewError('生成复习题目失败，请稍后重试');

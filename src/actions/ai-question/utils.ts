@@ -90,7 +90,7 @@ export async function loadQuestionQueue() {
     questionContent: (q.questionContent as Record<string, unknown> | undefined) ?? undefined,
     lastAnswer: (q.lastAnswer as Record<string, unknown> | undefined) ?? undefined,
     wordIds: q.wordIds,
-    relatedWordEntries: (q.relatedWordEntries as object[] | null) ?? [],
+    relatedWordEntries: ((q.relatedWordEntries as object[] | null) ?? []).filter((e: any) => !e?._genOptions),
     createdAt: q.createdAt.toISOString(),
     updatedAt: q.updatedAt.toISOString(),
   }));
@@ -254,7 +254,7 @@ export async function loadQuestionById(questionId: string) {
     gradingResult: (q.gradingResult as GradeResult[] | null) ?? null,
     lastAnswer: (q.lastAnswer as Record<string, unknown> | undefined) ?? undefined,
     wordIds: q.wordIds,
-    relatedWordEntries: (q.relatedWordEntries as object[] | null) ?? [],
+    relatedWordEntries: ((q.relatedWordEntries as object[] | null) ?? []).filter((e: any) => !e?._genOptions),
     createdAt: q.createdAt.toISOString(),
     updatedAt: q.updatedAt.toISOString(),
   };
@@ -920,7 +920,8 @@ export async function getQuestionWordMeanings(questionId: string): Promise<Quest
   const { user, question: q } = await getAuthenticatedQuestion(questionId);
 
   const wordIds = q.wordIds as number[];
-  const relatedWordEntries = (q.relatedWordEntries as Array<{ text: string; types: string[]; sourceWords: string[] }> | null) ?? [];
+  const relatedWordEntries = ((q.relatedWordEntries as Array<{ text: string; types: string[]; sourceWords: string[] }> | null) ?? [])
+    .filter((entry: any) => !entry?._genOptions);
 
   const result: QuestionWordMeaning[] = [];
 

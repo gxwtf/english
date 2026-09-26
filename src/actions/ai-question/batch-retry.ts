@@ -26,6 +26,10 @@ function startGenerate(item: RetryResult) {
   if (generationOptions && typeof generationOptions.n === 'number') {
     n = generationOptions.n;
     m = generationOptions.m ?? 0;
+  } else if (questionType === 'meaning-select' || questionType === 'meaning-select-en') {
+    // 英译中/英英释义没有干扰词，默认按可用单词数出题（上限 10）
+    n = Math.max(1, Math.min(wordIds?.length || 1, 10));
+    m = 0;
   } else {
     const wordCount = wordIds?.length || 2;
     n = Math.min(1, wordCount);

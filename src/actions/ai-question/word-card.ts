@@ -93,9 +93,9 @@ export async function createWordCardQuestion(
     cards: allCards,
   };
 
-  // 单词卡片不需要作答，直接创建为已作答状态
+  // 单词卡片通过逐张标记「会/不会」完成，创建时保持未作答状态
   const allWordIds = [...wordIds];
-  const result = await enqueueQuestion(content, 'word-card', allWordIds, 'ANSWERED');
+  const result = await enqueueQuestion(content, 'word-card', allWordIds, 'GENERATED');
 
   return result;
 }

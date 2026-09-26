@@ -83,14 +83,14 @@ export function ConsolidatePracticeButton({ wordIds, relatedWordEntries, disable
         }
         case 'meaning-select': {
           pendingItem = await enqueuePendingMeaningSelect(
-            validWordIds, options.deepThinking, relatedWordEntries
+            validWordIds, options.meaningSelect, options.deepThinking, relatedWordEntries
           );
           questionType = 'meaning-select';
           break;
         }
         case 'meaning-select-en': {
           pendingItem = await enqueuePendingMeaningSelectEn(
-            validWordIds, options.deepThinking, relatedWordEntries
+            validWordIds, options.meaningSelectEn, options.deepThinking, relatedWordEntries
           );
           questionType = 'meaning-select-en';
           break;
@@ -123,9 +123,9 @@ export function ConsolidatePracticeButton({ wordIds, relatedWordEntries, disable
             cardCount,
             options.useSpacedRepetition
           );
-          await createWordCardQuestion(selectedIds, relatedWordEntries);
-          // 跳转到题目列表页面
-          router.push('/practice');
+          const wordCardResult = await createWordCardQuestion(selectedIds, relatedWordEntries);
+          // 跳转到单词卡片页面
+          router.push(`/practice/${wordCardResult.id}`);
           return;
         }
         default: {
@@ -145,8 +145,8 @@ export function ConsolidatePracticeButton({ wordIds, relatedWordEntries, disable
       existing.push(pendingItemData);
       sessionStorage.setItem('pendingQuestions', JSON.stringify(existing));
 
-      // 跳转到题目列表页面，等待题目生成完成
-      router.push('/practice');
+      // 跳转到题目页面，等待题目生成完成
+      router.push(`/practice/${pendingItem.id}`);
     } catch (error) {
       console.error('创建巩固练习题目失败:', error);
       alert('创建题目失败，请稍后重试');

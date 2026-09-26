@@ -8,6 +8,7 @@ import { SYSTEM_MESSAGE } from '@/lib/prompts/system-prompt';
 import { query as queryDict } from '@/lib/dict/query';
 import { aiQueue, withTimeout } from '@/lib/ai-queue';
 import { isOptionInMeanings } from '@/lib/utils';
+import { embedGenerationOptions } from './shared-utils';
 
 const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
 
@@ -37,11 +38,18 @@ const MAX_RETRIES = 3;
 
 export async function enqueuePendingMeaningSelectEn(
   wordIds: number[],
+  options?: MeaningSelectOptions,
   deepThinking?: boolean,
   relatedWordEntries?: RelatedWordEntry[],
 ) {
   if (!wordIds?.length) throw new Error('缺少单词列表');
-  return await enqueuePendingQuestion('meaning-select-en', wordIds, relatedWordEntries);
+  // 持久化题目数量 n，保证重试时能按原始数量重新生成
+  const n = options?.n ?? wordIds.length;
+  return await enqueuePendingQuestion(
+    'meaning-select-en',
+    wordIds,
+    embedGenerationOptions(relatedWordEntries, { n, m: 0 })
+  );
 }
 
 export async function generateAndEnqueueMeaningSelectEn(
@@ -119,6 +127,9 @@ async function doGenerateMeaningSelectEn(
 
   const targetCount = options?.n ?? wordIds.length; // 用户指定的题目数量,默认为单词数量
 
+  // 排除 _genOptions 标记条目（重试用的生成参数），避免污染关联词数据
+  const actualRelatedEntries = (relatedWordEntries || []).filter((r: any) => !r._genOptions) as RelatedWordEntry[];
+
   const wordData = await fetchEnrichedWords(wordIds);
   if (wordData.length === 0) throw new Error('所选单词不存在');
   // 检查至少有一些单词含有释义，避免无意义消耗 AI 配额
@@ -142,7 +153,7 @@ async function doGenerateMeaningSelectEn(
   let lastError: string | null = null;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const result = await generateQuestionsWithAI(selectedWordData, relatedWordEntries);
+      const result = await generateQuestionsWithAI(selectedWordData, actualRelatedEntries);
       const validationResults = await Promise.all(result.questions.map(q =>
         validateQuestion(q, wordToUserMeanings.get(q.word.toLowerCase())),
       ));
