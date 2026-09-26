@@ -24,5 +24,7 @@ export interface WordSelectTranslateOptions {
 }
 
 export interface WordCardOptions {
-  // 单词卡片不需要额外参数，每个选中的单词生成一张卡片
+  // 单词卡片数量。不传或传入值 ≥ 所选单词数时，生成全部卡片。
+  // 小于所选单词数时，从所选单词中随机（可加权）抽取 n 个生成卡片。
+  n?: number;
 }

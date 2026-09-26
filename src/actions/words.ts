@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { getAuthUser } from './auth';
 import { Word, RelatedWordType } from '@/types/word';
 import { Meaning } from '@/types/dict';
+import { normalizeMeanings } from '@/lib/meanings';
 import { getWordInfo, type WordInfo } from '@/lib/word.service';
 
 export async function getWordInfoById(wordId: number): Promise<WordInfo | null> {
@@ -20,7 +21,7 @@ function buildWordResult(
     id: word.id,
     text: word.text,
     tags: word.wordTags.map((wt) => wt.tag.name),
-    meanings: word.meanings as Meaning[],
+    meanings: normalizeMeanings(word.meanings),
     relatedWords: relatedWordsList.map((rw) => ({
       text: rw.text,
       type: rw.type as RelatedWordType,
@@ -30,16 +31,24 @@ function buildWordResult(
 }
 
 // GET /api/words -> loadWords
-// 传入 wordbookId 时只加载该单词本内的单词，否则加载用户全部单词
-export async function loadWords(wordbookId?: number): Promise<Word[]> {
+// 传入 wordbookId / wordbookIds 时只加载对应单词本内的单词（传空数组则返回空），
+// 不传时加载用户全部单词
+export async function loadWords(wordbookId?: number | number[]): Promise<Word[]> {
   const user = await getAuthUser();
   if (!user) return [];
+
+  const hasScope = wordbookId !== undefined && wordbookId !== null;
+  const wordbookIds = !hasScope
+    ? []
+    : (Array.isArray(wordbookId) ? wordbookId : [wordbookId]).filter((id) =>
+        Number.isInteger(id)
+      );
 
   const words = await prisma.word.findMany({
     where: {
       userId: user.userId,
-      ...(wordbookId
-        ? { wordbooks: { some: { wordbookId } } }
+      ...(hasScope
+        ? { wordbooks: { some: { wordbookId: { in: wordbookIds } } } }
         : {}),
     },
     include: {
@@ -185,6 +194,115 @@ export async function saveWord(data: {
   }
 
   return buildWordResult(resultWord, rwData);
+}
+
+// 仅更新单词释义（不影响标签、关联词等其他数据）
+export async function updateWordMeanings(
+  wordId: number,
+  meanings: Meaning[]
+): Promise<{ success: boolean }> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const word = await prisma.word.findFirst({
+    where: { id: wordId, userId: user.userId },
+    select: { id: true },
+  });
+  if (!word) throw new Error('单词不存在');
+
+  await prisma.word.update({
+    where: { id: wordId },
+    data: { meanings: meanings as any },
+  });
+
+  return { success: true };
+}
+
+// 过滤出仍然存在的单词 ID（用于巩固练习等场景，避免使用已删除的单词）
+export async function getExistingWordIds(wordIds: number[]): Promise<number[]> {
+  const user = await getAuthUser();
+  if (!user) return [];
+
+  const ids = (wordIds ?? []).map(Number).filter((id) => Number.isInteger(id));
+  if (ids.length === 0) return [];
+
+  const words = await prisma.word.findMany({
+    where: { id: { in: ids }, userId: user.userId },
+    select: { id: true },
+  });
+
+  const existing = new Set(words.map((w) => w.id));
+  return ids.filter((id) => existing.has(id));
+}
+
+export type WordWordbook = {
+  id: number;
+  name: string;
+};
+
+// 列出某个单词所处的全部单词本
+export async function getWordWordbooks(wordId: number): Promise<WordWordbook[]> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const word = await prisma.word.findFirst({
+    where: { id: wordId, userId: user.userId },
+    select: { id: true },
+  });
+  if (!word) throw new Error('单词不存在');
+
+  return prisma.wordbook.findMany({
+    where: { userId: user.userId, words: { some: { wordId } } },
+    select: { id: true, name: true },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+// 将单词从指定的一些单词本中删除；
+// 若删除后该单词不再属于任何单词本，则同时删除该单词本身。
+export async function removeWordFromWordbooks(
+  wordId: number,
+  wordbookIds: number[]
+): Promise<{ removed: number; wordDeleted: boolean }> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const word = await prisma.word.findFirst({
+    where: { id: wordId, userId: user.userId },
+    select: { id: true },
+  });
+  if (!word) throw new Error('单词不存在');
+
+  const validIds = Array.from(
+    new Set((wordbookIds ?? []).map(Number).filter((id) => Number.isInteger(id)))
+  );
+  if (validIds.length === 0) {
+    return { removed: 0, wordDeleted: false };
+  }
+
+  const result = await prisma.wordbookWord.deleteMany({
+    where: {
+      wordId,
+      wordbookId: { in: validIds },
+      wordbook: { userId: user.userId },
+    },
+  });
+
+  if (result.count > 0) {
+    await prisma.wordbook.updateMany({
+      where: { id: { in: validIds }, userId: user.userId },
+      data: { updatedAt: new Date() },
+    });
+  }
+
+  // 已不属于任何单词本时，删除该单词本身，避免留下孤立数据
+  const remaining = await prisma.wordbookWord.count({ where: { wordId } });
+  if (remaining === 0) {
+    await deleteWords([wordId]);
+    return { removed: result.count, wordDeleted: true };
+  }
+
+  return { removed: result.count, wordDeleted: false };
 }
 
 // DELETE /api/words -> deleteWords

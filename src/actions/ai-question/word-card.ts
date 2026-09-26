@@ -3,9 +3,12 @@
 import { fetchEnrichedWords, enqueueQuestion } from './utils';
 import type { RelatedWordEntry } from '@/lib/word-selection';
 import type { Meaning } from '@/types/dict';
+import { prisma } from '@/lib/db';
 
 export interface WordCardItem {
   id: number;
+  /** 对应数据库中的 Word.id；关联词若不在用户词库中则为 null（无法标记复习） */
+  wordId: number | null;
   word: string;
   meanings: Meaning[];
 }
@@ -37,6 +40,7 @@ export async function createWordCardQuestion(
   for (let i = 0; i < wordData.length; i++) {
     allCards.push({
       id: i + 1,
+      wordId: wordData[i].id,
       word: wordData[i].text,
       meanings: wordData[i].meanings as unknown as Meaning[],
     });
@@ -44,6 +48,26 @@ export async function createWordCardQuestion(
 
   // 关联词卡片（如果有）
   if (relatedWordEntries && relatedWordEntries.length > 0) {
+    // 解析关联词在用户词库中的真实 wordId（用于标记复习状态）
+    const owner = await prisma.word.findUnique({
+      where: { id: wordIds[0] },
+      select: { userId: true },
+    });
+    const relatedTextToId = new Map<string, number>();
+    if (owner) {
+      const relatedTexts = relatedWordEntries.map((rw) => rw.text);
+      const relatedWords = await prisma.word.findMany({
+        where: {
+          userId: owner.userId,
+          text: { in: relatedTexts, mode: 'insensitive' },
+        },
+        select: { id: true, text: true },
+      });
+      for (const rw of relatedWords) {
+        relatedTextToId.set(rw.text.toLowerCase(), rw.id);
+      }
+    }
+
     const startId = allCards.length + 1;
     for (let i = 0; i < relatedWordEntries.length; i++) {
       const rw = relatedWordEntries[i];
@@ -57,6 +81,7 @@ export async function createWordCardQuestion(
       }
       allCards.push({
         id: startId + i,
+        wordId: relatedTextToId.get(rw.text.toLowerCase()) ?? null,
         word: rw.text,
         meanings: sourceMeanings.length > 0 ? sourceMeanings : [],
       });

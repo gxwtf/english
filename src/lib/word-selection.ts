@@ -129,6 +129,72 @@ export type RelatedWordEntry = {
   sourceWords: string[];
 };
 
+/** Fisher-Yates 原地洗牌（返回新数组） */
+function shuffle<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/**
+ * 从一个已知的单词 ID 池中抽取 neededCount 个单词。
+ *
+ * 与 selectWordsForQuestion 的区别：调用方只持有 wordId（没有完整的 Word 对象），
+ * 用于「巩固练习」等场景。保留加权抽样（遗忘曲线 × 错误权重）。
+ *
+ * @param candidateIds 候选单词 ID 池
+ * @param neededCount 需要抽取的数量；≥ 池大小时返回全部（随机顺序）
+ * @param useWeightedSampling 是否按遗忘曲线加权抽取
+ */
+export async function selectWordIdsFromPool(
+  candidateIds: number[],
+  neededCount: number,
+  useWeightedSampling: boolean = true
+): Promise<number[]> {
+  const unique = Array.from(new Set(candidateIds.filter((id) => Number.isFinite(id))));
+  if (unique.length === 0) return [];
+
+  const k = Math.max(1, Math.min(Math.floor(neededCount) || unique.length, unique.length));
+
+  // 池 ≤ 需求数量：全部返回（随机顺序）
+  if (unique.length <= k) return shuffle(unique);
+
+  // 关闭遗忘曲线：等概率抽样
+  if (!useWeightedSampling) return shuffle(unique).slice(0, k);
+
+  // 反查 userId
+  const first = await prisma.word.findUnique({
+    where: { id: unique[0] },
+    select: { userId: true },
+  });
+  if (!first) return shuffle(unique).slice(0, k);
+
+  const states = await prisma.wordReviewState.findMany({
+    where: { userId: first.userId, wordId: { in: unique } },
+  });
+  const stateMap = new Map(states.map((s) => [s.wordId, s]));
+
+  const now = new Date();
+  const weights = unique.map((id) => {
+    const s = stateMap.get(id);
+    return totalWeight(
+      s
+        ? {
+            lastReviewedAt: s.lastReviewedAt,
+            interval: s.interval,
+            errorCount: s.errorCount,
+          }
+        : null,
+      now
+    );
+  });
+
+  return weightedSample(unique, weights, k);
+}
+
 /**
  * 从选中的单词中抽取核心词
  *

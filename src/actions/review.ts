@@ -149,6 +149,86 @@ export async function recordReviewFromQuestion(questionId: string): Promise<void
 }
 
 /**
+ * 单词卡片「会 / 不会」标记：更新该词的复习状态（SM-2 + 错误权重）
+ *
+ * - 会（known=true）：quality=5，间隔前进，errorCount 衰减
+ * - 不会（known=false）：quality=1，间隔重置，errorCount +1
+ *
+ * 更新后遗忘权重 f(t)、错误权重 g(e) 都会随之变化，影响后续加权抽词。
+ */
+export async function recordWordCardReview(
+  wordId: number,
+  known: boolean
+): Promise<{
+  wordId: number;
+  repetitions: number;
+  ef: number;
+  interval: number;
+  errorCount: number;
+  lastReviewedAt: string;
+}> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const word = await prisma.word.findUnique({
+    where: { id: wordId },
+    select: { userId: true },
+  });
+  if (!word || word.userId !== user.userId) throw new Error('无权访问此单词');
+
+  const quality = known ? 5 : 1;
+  const now = new Date();
+
+  const saved = await prisma.$transaction(async (tx) => {
+    const existing = await tx.wordReviewState.findUnique({
+      where: { userId_wordId: { userId: user.userId, wordId } },
+    });
+
+    const prevState = existing
+      ? { repetitions: existing.repetitions, ef: existing.ef, interval: existing.interval }
+      : sm2InitState();
+    const newState = sm2Update(prevState, quality);
+
+    const newErrorCount = known
+      ? decayErrorCount(existing?.errorCount ?? 1)
+      : clampErrorCount((existing?.errorCount ?? 1) + 1);
+
+    return tx.wordReviewState.upsert({
+      where: { userId_wordId: { userId: user.userId, wordId } },
+      update: {
+        repetitions: newState.repetitions,
+        ef: newState.ef,
+        interval: newState.interval,
+        errorCount: newErrorCount,
+        totalReviews: (existing?.totalReviews ?? 0) + 1,
+        correctReviews: (existing?.correctReviews ?? 0) + (known ? 1 : 0),
+        lastReviewedAt: now,
+      },
+      create: {
+        userId: user.userId,
+        wordId,
+        repetitions: newState.repetitions,
+        ef: newState.ef,
+        interval: newState.interval,
+        errorCount: newErrorCount,
+        totalReviews: 1,
+        correctReviews: known ? 1 : 0,
+        lastReviewedAt: now,
+      },
+    });
+  });
+
+  return {
+    wordId: saved.wordId,
+    repetitions: saved.repetitions,
+    ef: saved.ef,
+    interval: saved.interval,
+    errorCount: saved.errorCount,
+    lastReviewedAt: (saved.lastReviewedAt ?? now).toISOString(),
+  };
+}
+
+/**
  * 从小题内容反推对应的 wordId
  */
 function inferWordId(

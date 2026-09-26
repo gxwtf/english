@@ -21,6 +21,7 @@ import {
   type QuestionGenerationOptions,
 } from '@/components/AIQuestionTypeSelector';
 import { getReviewStats } from '@/actions/review';
+import { loadReviewSettings } from '@/actions/review-settings';
 import { loadWordbooks } from '@/actions/wordbooks';
 import { storage } from '@/lib/storage';
 import { selectWordsForQuestion } from '@/lib/word-selection';
@@ -77,6 +78,7 @@ export function HomePageContent() {
   const [reviewing, setReviewing] = useState(false);
   const [reviewError, setReviewError] = useState('');
   const [allWords, setAllWords] = useState<Word[] | null>(null);
+  const [scopeWordbookIds, setScopeWordbookIds] = useState<number[] | null>(null);
   const [relatedWordsCount, setRelatedWordsCount] = useState(0);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
 
@@ -106,9 +108,16 @@ export function HomePageContent() {
     setPreparing(true);
     setReviewError('');
     try {
-      const words = await storage.loadWords();
+      const scope = await loadReviewSettings();
+      const wordbookIds = scope.mode === 'custom' ? scope.wordbookIds : undefined;
+      setScopeWordbookIds(wordbookIds ?? null);
+      const words = await storage.loadWords(wordbookIds);
       if (words.length === 0) {
-        setReviewError('还没有添加任何单词');
+        setReviewError(
+          scope.mode === 'custom'
+            ? '所选复习范围内还没有单词，请调整「一键复习范围设置」'
+            : '还没有添加任何单词'
+        );
         return;
       }
       setAllWords(words);
@@ -170,7 +179,7 @@ export function HomePageContent() {
     setReviewing(true);
     setReviewError('');
     try {
-      const words = allWords ?? (await storage.loadWords());
+      const words = allWords ?? (await storage.loadWords(scopeWordbookIds ?? undefined));
       if (words.length === 0) {
         setReviewError('还没有添加任何单词');
         setReviewing(false);
@@ -179,9 +188,13 @@ export function HomePageContent() {
 
       // 单词卡片直接生成，不需要 AI
       if (options.type === 'word-card') {
+        const cardCount = Math.max(
+          1,
+          Math.min(options.wordCard?.n ?? words.length, words.length)
+        );
         const { wordIds, relatedWordEntries } = await selectWordsForQuestion(
           words,
-          words.length,
+          cardCount,
           options.includeRelatedWords,
           options.useSpacedRepetition
         );
@@ -290,7 +303,8 @@ export function HomePageContent() {
   const due = stats?.due ?? 0;
   const newWords = stats?.newWords ?? 0;
   const learned = Math.max(0, total - newWords);
-  const progress = total > 0 ? Math.max(0, Math.min(1, (total - due) / total)) : 0;
+  const learning = due + newWords;
+  const progress = total > 0 ? Math.max(0, Math.min(1, (total - learning) / total)) : 0;
   const hasWords = !loading && total > 0;
 
   const statItems = [
@@ -371,10 +385,10 @@ export function HomePageContent() {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white leading-none">
-                  {loading ? '-' : due}
+                  {loading ? '-' : learning}
                 </span>
                 <span className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                  待复习
+                  待学习
                 </span>
               </div>
             </div>
@@ -384,8 +398,8 @@ export function HomePageContent() {
                 ? '正在加载...'
                 : !hasWords
                   ? '还没有添加任何单词'
-                  : due > 0
-                    ? `有 ${due} 个单词等待复习，选择出题类型即可开始`
+                  : learning > 0
+                    ? `有 ${learning} 个单词等待学习，选择出题类型即可开始`
                     : '选择出题类型，按遗忘曲线巩固你的单词'}
             </p>
 
@@ -401,7 +415,7 @@ export function HomePageContent() {
                 </>
               ) : (
                 <>
-                  复习所有单词
+                  一键复习
                   <ArrowRight className="h-5 w-5" />
                 </>
               )}

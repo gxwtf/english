@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { getAuthUser } from '../auth';
 import { QuestionType } from '@/types/word';
 import { Meaning } from '@/types/dict';
+import { normalizeMeanings } from '@/lib/meanings';
 import { callOpenAI, parseThinkingContent } from '@/lib/openai';
 import { aiQueue } from '@/lib/ai-queue';
 import { extractJSONFromAIContent, embedGenerationOptions, extractGenerationOptions } from './shared-utils';
@@ -57,7 +58,7 @@ export async function fetchEnrichedWords(wordIds: number[]) {
   return words.map((w) => ({
     id: w.id,
     text: w.text,
-    meanings: w.meanings,
+    meanings: normalizeMeanings(w.meanings),
     tags: w.wordTags.map((wt) => ({
       id: wt.tag.id,
       name: wt.tag.name,
@@ -902,11 +903,20 @@ export type QuestionWordMeaning = {
   meanings: Meaning[];
   isRelatedWord: boolean;
   sourceWords?: string[];
+  // 该词在用户单词库中的 Word.id（仅当该词已存在时才有值）。
+  // 用于在练习结果中编辑释义 / 删除单词。
+  wordId?: number;
 };
 
 // embedGenerationOptions and extractGenerationOptions are imported from shared-utils.ts
 
-export async function getQuestionWordMeanings(questionId: string): Promise<QuestionWordMeaning[]> {
+export type QuestionWordMeaningsResult = {
+  words: QuestionWordMeaning[];
+  // 原题涉及的单词中被删除（已不存在）的核心词数量
+  deletedWordCount: number;
+};
+
+export async function getQuestionWordMeanings(questionId: string): Promise<QuestionWordMeaningsResult> {
   const { user, question: q } = await getAuthenticatedQuestion(questionId);
 
   const wordIds = q.wordIds as number[];
@@ -918,13 +928,17 @@ export async function getQuestionWordMeanings(questionId: string): Promise<Quest
     where: { id: { in: wordIds } },
   });
 
+  const foundCoreIds = new Set(coreWords.map(w => w.id));
+  const deletedWordCount = wordIds.filter(id => !foundCoreIds.has(id)).length;
+
   const coreWordTexts = new Set(coreWords.map(w => w.text.toLowerCase()));
 
   for (const word of coreWords) {
     result.push({
       text: word.text,
-      meanings: word.meanings as unknown as Meaning[],
+      meanings: normalizeMeanings(word.meanings),
       isRelatedWord: false,
+      wordId: word.id,
     });
   }
 
@@ -937,9 +951,10 @@ export async function getQuestionWordMeanings(questionId: string): Promise<Quest
       if (!coreWordTexts.has(existingWord.text.toLowerCase())) {
         result.push({
           text: existingWord.text,
-          meanings: existingWord.meanings as unknown as Meaning[],
+          meanings: normalizeMeanings(existingWord.meanings),
           isRelatedWord: true,
           sourceWords: relatedEntry.sourceWords,
+          wordId: existingWord.id,
         });
       }
     } else {
@@ -951,7 +966,7 @@ export async function getQuestionWordMeanings(questionId: string): Promise<Quest
           where: { userId: user.userId, text: { equals: sourceText, mode: 'insensitive' } },
         });
         if (sourceWord && sourceWord.meanings.length > 0) {
-          sourceWordMeanings.push(...(sourceWord.meanings as unknown as Meaning[]));
+          sourceWordMeanings.push(...normalizeMeanings(sourceWord.meanings));
         }
       }
 
@@ -964,7 +979,7 @@ export async function getQuestionWordMeanings(questionId: string): Promise<Quest
     }
   }
 
-  return result;
+  return { words: result, deletedWordCount };
 }
 
 /**

@@ -14,6 +14,8 @@ model User {
   admin             Int                @default(0)
   email             String?
   realName          String?
+  aiSettings        Json?
+  reviewSettings    Json?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   questions         QuestionQueue[]

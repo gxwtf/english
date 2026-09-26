@@ -3,6 +3,8 @@
  * 支持多供应商模型配置和降级策略
  */
 
+import { loadUserModelConfigs } from '@/lib/user-ai-config';
+
 export interface ModelConfig {
   name: string;
   model: string;
@@ -62,6 +64,23 @@ interface OpenAIOptions {
   temperature?: number;
   reasoning_effort?: 'low' | 'medium' | 'high' | number; // Deepseek 深度思考模式
   response_format?: { type: 'json_object' }; // 结构化输出
+  configs?: ModelConfig[]; // 显式指定模型配置（优先级最高）
+}
+
+/**
+ * 解析本次调用应使用的模型配置。
+ * 优先级：显式传入 > 当前用户自定义配置 > 系统环境变量配置。
+ */
+async function resolveModelConfigs(explicit?: ModelConfig[]): Promise<ModelConfig[]> {
+  if (explicit && explicit.length > 0) return explicit;
+
+  const userConfigs = await loadUserModelConfigs();
+  if (userConfigs && userConfigs.length > 0) {
+    console.log(`[openai] 使用用户自定义大模型配置: ${userConfigs.map(c => `${c.name}(${c.model})`).join(', ')}`);
+    return userConfigs;
+  }
+
+  return modelConfigs;
 }
 
 export function parseThinkingContent(content: string): { thinking: string | null; content: string } {
@@ -172,8 +191,10 @@ export async function callOpenAI(
 ): Promise<OpenAIResponse> {
   const { prompt = '', temperature, response_format } = options;
 
+  const configs = await resolveModelConfigs(options.configs);
+
   return callWithRetry({
-    configs: modelConfigs,
+    configs,
     timeout: options.timeout,
     buildRequestBody: (config) => {
       const messages = [];
@@ -207,9 +228,9 @@ export async function callOpenAI(
 export async function callTextAI(
   systemPrompt: string,
   userPrompt: string,
-  options: { timeout?: number; temperature?: number } = {}
+  options: { timeout?: number; temperature?: number; configs?: ModelConfig[] } = {}
 ): Promise<OpenAIResponse> {
-  const allConfigs = [...modelConfigs];
+  const allConfigs = await resolveModelConfigs(options.configs);
   if (allConfigs.length === 0) throw new Error('未配置任何模型');
 
   const { timeout, temperature = 0.1 } = options;
@@ -267,8 +288,10 @@ export async function callOpenAIWithTools(
 ): Promise<OpenAIResponse> {
   const { prompt = '', tools, reasoning_effort, response_format } = options;
 
+  const configs = await resolveModelConfigs(options.configs);
+
   return callWithRetry({
-    configs: modelConfigs,
+    configs,
     timeout: options.timeout,
     label: '模型 (with tools)',
     buildRequestBody: (config) => {

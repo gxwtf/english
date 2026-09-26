@@ -196,8 +196,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
         onSubmitted();
       }
 
-      // 4. 返回 /practice 页面
-      router.push('/practice');
+      // 4. 取消原本回到 /practice 列表页面的跳转，将用户留在当前结果展示页面
     } catch (error) {
       console.error('提交失败:', error);
       setSubmitError('提交失败，请稍后重试');

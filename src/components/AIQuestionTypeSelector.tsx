@@ -92,6 +92,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
   const [definitionFillBlankM, setDefinitionFillBlankM] = useState<number | ''>(0);
   const [wordSelectTranslateN, setWordSelectTranslateN] = useState<number | ''>(5);
   const [wordSelectTranslateM, setWordSelectTranslateM] = useState<number | ''>(0);
+  const [wordCardN, setWordCardN] = useState<number | ''>(5);
   const [includeRelatedWords, setIncludeRelatedWords] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     const stored = localStorage.getItem(STORAGE_KEY_INCLUDE_RELATED);
@@ -143,6 +144,11 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     const wn = typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 1;
     const wm = typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0;
     if (wn + wm > pool) setWordSelectTranslateM(Math.max(0, pool - Math.min(wn, pool)));
+    // 单词卡片数量不能超过所选单词数（关联词不占用该上限）
+    const selectedPool = maxWords ?? 11;
+    if (typeof wordCardN === 'number' && wordCardN > selectedPool) {
+      setWordCardN(Math.max(1, selectedPool));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxWords, relatedWordsCount, includeRelatedWords]);
 
@@ -219,7 +225,16 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
           : null
     : null;
 
-  const validationError = fillBlankValidationError || translateValidationError || meaningSelectValidationError || meaningSelectEnValidationError || definitionFillBlankValidationError || wordSelectTranslateValidationError;
+  const isWordCard = selectedType === 'word-card';
+  const wordCardValidationError = isWordCard
+    ? wordCardN === '' || wordCardN < 1
+      ? '至少要有 1 张卡片'
+      : wordCardN > effectiveMaxWords
+        ? `卡片数量不能超过所选单词数量 (${effectiveMaxWords})`
+        : null
+    : null;
+
+  const validationError = fillBlankValidationError || translateValidationError || meaningSelectValidationError || meaningSelectEnValidationError || definitionFillBlankValidationError || wordSelectTranslateValidationError || wordCardValidationError;
 
   const handleGenerate = () => {
     if (!selectedType || validationError) return;
@@ -242,7 +257,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     } else if (selectedType === 'word-select-translate') {
       options.wordSelectTranslate = { n: typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 5, m: typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0 };
     } else if (selectedType === 'word-card') {
-      options.wordCard = {};
+      options.wordCard = { n: typeof wordCardN === 'number' ? wordCardN : effectiveMaxWords };
     }
     onGenerate(options);
   };
@@ -636,18 +651,43 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
             </div>
           )}
 
-          {/* 单词卡片参数（不需要参数，只需提示） */}
+          {/* 单词卡片参数 */}
           {selectedType === 'word-card' && (
             <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
               <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                题目说明
+                题目参数设置
               </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                单词卡片直接生成，无需 AI 处理。每个选中的单词生成一张卡片，点击卡片可以翻转查看释义。
-              </p>
+              <div>
+                <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  卡片数量 n
+                </label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  min={1}
+                  max={effectiveMaxWords}
+                  value={wordCardN ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '') {
+                      setWordCardN('');
+                    } else if (/^\d+$/.test(val)) {
+                      const numVal = Math.max(1, Math.min(effectiveMaxWords, parseInt(val) || 1));
+                      setWordCardN(numVal);
+                    }
+                  }}
+                />
+                {wordCardValidationError && (
+                  <p className="text-xs text-red-500 mt-1">{wordCardValidationError}</p>
+                )}
+              </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                当前选中 {effectiveMaxWords} 个单词，将生成 {effectiveMaxWords} 张卡片
-                {includeRelatedWords && effectiveRelatedCount > 0 && `（关联词 ${effectiveRelatedCount} 个）`}
+                将从当前选中的 {effectiveMaxWords} 个单词中随机抽取 {typeof wordCardN === 'number' ? wordCardN : 0} 个生成卡片
+                {useSpacedRepetition ? '（按遗忘曲线加权抽取）' : '（等概率随机抽取）'}
+                {includeRelatedWords && effectiveRelatedCount > 0 && '，并可能随机加入关联词'}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                单词卡片直接生成，无需 AI 处理。点击卡片翻转查看释义，并可标记「会 / 不会」。
               </p>
             </div>
           )}
@@ -670,7 +710,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                       : selectedType === 'word-select-translate'
                         ? `生成选词翻译句子（${typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 0} 道小题，${typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0} 个干扰词）`
                         : selectedType === 'word-card'
-                          ? `生成单词卡片（${effectiveMaxWords} 张）`
+                          ? `生成单词卡片（${typeof wordCardN === 'number' ? wordCardN : 0} 张）`
                           : `生成翻译句子题目（${typeof translateN === 'number' ? translateN : 0} 道小题）`}
             </Button>
           )}

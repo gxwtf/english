@@ -138,7 +138,6 @@ export function DefinitionFillBlankAnswer({ questionId, words, questions, thinki
         })
         .finally(() => setIsLoadingGrading(false));
       onSubmitted?.();
-      router.push('/practice');
     } catch (error) {
       console.error('提交答案失败:', error);
       alert('提交答案失败，请重试');

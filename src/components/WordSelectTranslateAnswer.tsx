@@ -170,7 +170,6 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
         })
         .finally(() => setIsLoadingGrading(false));
       if (onSubmitted) onSubmitted();
-      router.push('/practice');
     } catch (error) {
       console.error('提交失败:', error);
       setSubmitError('提交失败，请稍后重试');

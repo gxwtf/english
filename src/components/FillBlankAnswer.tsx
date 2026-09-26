@@ -151,7 +151,6 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
         });
 
       onSubmitted?.();
-      router.push('/practice');
     } catch (error) {
       console.error('提交答案失败:', error);
       alert('提交答案失败，请重试');

@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Tag as TagIcon, Shield } from 'lucide-react';
+import { Settings, Tag as TagIcon, Shield, Sparkles, Layers } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
 import { TagEditModal } from '@/components/TagEditModal';
+import { AiSettingsModal } from '@/components/AiSettingsModal';
+import { ReviewScopeModal } from '@/components/ReviewScopeModal';
 import { AdminWordbooksPage } from '@/components/AdminWordbooksPage';
 import {
   Dialog,
@@ -21,6 +23,8 @@ export function SettingsPageContent() {
   const isAdmin = !!userInfo && Number(userInfo.admin) > 0;
   const [allTagConfigs, setAllTagConfigs] = useState<Record<WordTag, TagConfig>>({});
   const [showTagEditModal, setShowTagEditModal] = useState(false);
+  const [showAiSettings, setShowAiSettings] = useState(false);
+  const [showReviewScope, setShowReviewScope] = useState(false);
   const [showSystemWordbooks, setShowSystemWordbooks] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -68,6 +72,20 @@ export function SettingsPageContent() {
   }
 
   const menuItems = [
+    {
+      id: 'ai',
+      icon: Sparkles,
+      title: 'AI 出题设置',
+      description: '配置 AI 出题与批改使用的大模型，可使用系统模型或自定义 API',
+      onClick: () => setShowAiSettings(true),
+    },
+    {
+      id: 'review-scope',
+      icon: Layers,
+      title: '一键复习范围设置',
+      description: '选择首页「一键复习」使用的单词范围（全部或指定单词本）',
+      onClick: () => setShowReviewScope(true),
+    },
     {
       id: 'tags',
       icon: TagIcon,
@@ -146,6 +164,18 @@ export function SettingsPageContent() {
           </p>
         </div>
       </div>
+
+      {/* AI 出题设置弹窗 */}
+      <AiSettingsModal
+        isOpen={showAiSettings}
+        onClose={() => setShowAiSettings(false)}
+      />
+
+      {/* 一键复习范围设置弹窗 */}
+      <ReviewScopeModal
+        isOpen={showReviewScope}
+        onClose={() => setShowReviewScope(false)}
+      />
 
       {/* 标签管理弹窗 */}
       <TagEditModal

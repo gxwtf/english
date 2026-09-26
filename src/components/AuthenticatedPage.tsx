@@ -400,10 +400,14 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
     }
   };
   // 单词卡片直接生成（不需要 AI）
-  const handleCreateWordCard = async (selectedWords: Word[], includeRelatedWords?: boolean, useSpacedRepetition?: boolean) => {
+  const handleCreateWordCard = async (selectedWords: Word[], includeRelatedWords?: boolean, useSpacedRepetition?: boolean, cardCount?: number) => {
     try {
+      const neededCount = Math.max(
+        1,
+        Math.min(cardCount ?? selectedWords.length, selectedWords.length)
+      );
       const { wordIds, relatedWordEntries } = await selectWordsForQuestion(
-        selectedWords, selectedWords.length, includeRelatedWords, useSpacedRepetition
+        selectedWords, neededCount, includeRelatedWords, useSpacedRepetition
       );
       await createWordCardQuestion(wordIds, relatedWordEntries);
       router.push('/practice');
@@ -420,7 +424,12 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
 
     // 单词卡片直接生成，不需要 AI
     if (options.type === 'word-card') {
-      handleCreateWordCard(selectedWords, options.includeRelatedWords, options.useSpacedRepetition);
+      handleCreateWordCard(
+        selectedWords,
+        options.includeRelatedWords,
+        options.useSpacedRepetition,
+        options.wordCard?.n
+      );
       return;
     }
 

@@ -1,10 +1,21 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { WordCardItem } from '@/actions/ai-question/word-card';
+import { recordWordCardReview } from '@/actions/review';
 import type { Meaning } from '@/types/dict';
+import { normalizeMeanings } from '@/lib/meanings';
+
+type MarkResult = 'known' | 'unknown';
+
+interface WordCardState {
+  repetition: number;
+  interval: number;
+  errorCount: number;
+  lastReviewedAt: string;
+}
 
 interface WordCardAnswerProps {
   questionId: string;
@@ -32,19 +43,55 @@ function mergeMeaningsByType(meanings: Meaning[]): { type: string; content: stri
 export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordCardAnswerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [marks, setMarks] = useState<Record<number, MarkResult>>({});
+  const [cardStates, setCardStates] = useState<Record<number, WordCardState>>({});
+  const [saving, setSaving] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
 
   const currentCard = cards[currentIndex];
-  const currentMeanings = currentCard?.meanings || [];
 
   // 合并相同词性的释义
-  const mergedMeanings = useMemo(() => mergeMeaningsByType(currentMeanings), [currentMeanings]);
+  const mergedMeanings = useMemo(
+    () => mergeMeaningsByType(normalizeMeanings(currentCard?.meanings)),
+    [currentCard],
+  );
 
   const handleFlip = useCallback(() => {
     setIsFlipped(prev => !prev);
   }, []);
+
+  // 标记「会 / 不会」并同步更新复习状态（遗忘曲线 + 错误权重）
+  const handleMark = useCallback(async (known: boolean) => {
+    const card = cards[currentIndex];
+    if (!card || card.wordId == null || saving) return;
+
+    setSaving(true);
+    try {
+      const state = await recordWordCardReview(card.wordId, known);
+      setMarks(prev => ({ ...prev, [card.id]: known ? 'known' : 'unknown' }));
+      setCardStates(prev => ({
+        ...prev,
+        [card.id]: {
+          repetition: state.repetitions,
+          interval: state.interval,
+          errorCount: state.errorCount,
+          lastReviewedAt: state.lastReviewedAt,
+        },
+      }));
+      onSubmitted?.();
+      // 标记后自动翻到下一张
+      if (currentIndex < cards.length - 1) {
+        setIsFlipped(false);
+        setCurrentIndex(prev => Math.min(cards.length - 1, prev + 1));
+      }
+    } catch (e) {
+      console.error('标记单词复习状态失败:', e);
+    } finally {
+      setSaving(false);
+    }
+  }, [cards, currentIndex, saving, onSubmitted]);
 
   const handlePrevCard = useCallback(() => {
     setIsFlipped(false);
@@ -139,6 +186,56 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
         </div>
       </div>
 
+      {/* 会 / 不会 标记 */}
+      <div className="space-y-3">
+        {currentCard.wordId == null && (
+          <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+            关联词不在词库中，无法更新复习状态
+          </p>
+        )}
+        <div className="flex items-center justify-center gap-4">
+          <Button
+            onClick={() => handleMark(false)}
+            disabled={saving || currentCard.wordId == null}
+            variant="outline"
+            className={`flex-1 max-w-[140px] gap-2 py-3 h-auto font-semibold rounded-xl border-2 ${
+              marks[currentCard.id] === 'unknown'
+                ? 'border-red-500 bg-red-500 text-white hover:bg-red-600 hover:text-white'
+                : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20'
+            }`}
+          >
+            <X className="w-5 h-5" />
+            不会
+          </Button>
+          <Button
+            onClick={() => handleMark(true)}
+            disabled={saving || currentCard.wordId == null}
+            variant="outline"
+            className={`flex-1 max-w-[140px] gap-2 py-3 h-auto font-semibold rounded-xl border-2 ${
+              marks[currentCard.id] === 'known'
+                ? 'border-green-500 bg-green-500 text-white hover:bg-green-600 hover:text-white'
+                : 'border-green-300 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20'
+            }`}
+          >
+            <Check className="w-5 h-5" />
+            会
+          </Button>
+        </div>
+        {marks[currentCard.id] && cardStates[currentCard.id] && (
+          <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+            {marks[currentCard.id] === 'known' ? '已标记「会」' : '已标记「不会」'}
+            {' · '}
+            下次复习约 {(() => {
+              const s = cardStates[currentCard.id];
+              const next = new Date(s.lastReviewedAt).getTime() + s.interval * 24 * 60 * 60 * 1000;
+              return Math.max(0, Math.ceil((next - Date.now()) / (1000 * 60 * 60 * 24)));
+            })()} 天后
+            {' · '}
+            错误权重 e={cardStates[currentCard.id].errorCount}
+          </p>
+        )}
+      </div>
+
       {/* 左右导航按钮 */}
       <div className="flex items-center justify-center gap-4">
         <Button
@@ -168,7 +265,8 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
             单词卡片已生成完毕
           </p>
           <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
-            共 {cards.length} 张卡片，可随时翻阅学习
+            共 {cards.length} 张卡片，已标记 {Object.keys(marks).length} 张
+            （会 {Object.values(marks).filter(m => m === 'known').length} · 不会 {Object.values(marks).filter(m => m === 'unknown').length}）
           </p>
         </div>
 

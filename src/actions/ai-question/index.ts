@@ -60,4 +60,5 @@ export {
   getQuestionWordMeanings,
   type GradeResult,
   type QuestionWordMeaning,
+  type QuestionWordMeaningsResult,
 } from './utils';

@@ -1,5 +1,6 @@
 import { prisma } from './db';
 import { Meaning } from '@/types/dict';
+import { normalizeMeanings } from './meanings';
 
 export type WordInfo = {
   wordId: number;
@@ -28,7 +29,7 @@ export async function getWordInfo(userId: number, wordId: number): Promise<WordI
     wordId: word.id,
     text: word.text,
     userId: word.userId,
-    meanings: word.meanings as unknown as Meaning[],
+    meanings: normalizeMeanings(word.meanings),
     tags: word.wordTags.map((wt) => ({
       id: wt.tag.id,
       name: wt.tag.name,
