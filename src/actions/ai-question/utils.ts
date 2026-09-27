@@ -9,6 +9,7 @@ import { callOpenAI, parseThinkingContent } from '@/lib/openai';
 import { aiQueue } from '@/lib/ai-queue';
 import { extractJSONFromAIContent, embedGenerationOptions, extractGenerationOptions } from './shared-utils';
 import { recordReviewFromQuestion } from '@/actions/review';
+import { query as queryDict } from '@/lib/dict/query';
 
 /**
  * 鉴权+所有权检查辅助函数，消除重复的 getAuthUser + findUnique + 权限校验样板代码
@@ -43,16 +44,33 @@ export async function fetchEnrichedWords(wordIds: number[]) {
   });
 
   const allTexts = words.map(w => w.text);
+  const allTextsLower = new Set(allTexts.map(t => t.toLowerCase()));
+  // 关联关系（容易混淆 / 不同形式）本质对称，读取时同时纳入两个方向
   const allRelated = await prisma.relatedWord.findMany({
-    where: { wordText: { in: allTexts } },
+    where: {
+      OR: [
+        { wordText: { in: allTexts } },
+        { relatedText: { in: allTexts } },
+      ],
+    },
   });
 
   const relatedByWordText = new Map<string, { relatedText: string; type: string }[]>();
-  for (const rw of allRelated) {
-    if (!relatedByWordText.has(rw.wordText)) {
-      relatedByWordText.set(rw.wordText, []);
+  const seenRelated = new Set<string>();
+  const pushRelated = (key: string, text: string, type: string) => {
+    const dedupeKey = `${key}\u0000${text.toLowerCase()}\u0000${type}`;
+    if (seenRelated.has(dedupeKey)) return;
+    seenRelated.add(dedupeKey);
+    if (!relatedByWordText.has(key)) {
+      relatedByWordText.set(key, []);
     }
-    relatedByWordText.get(rw.wordText)!.push({ relatedText: rw.relatedText, type: rw.type });
+    relatedByWordText.get(key)!.push({ relatedText: text, type });
+  };
+  for (const rw of allRelated) {
+    const wordKey = rw.wordText.toLowerCase();
+    const relatedKey = rw.relatedText.toLowerCase();
+    if (allTextsLower.has(wordKey)) pushRelated(wordKey, rw.relatedText, rw.type);
+    if (allTextsLower.has(relatedKey)) pushRelated(relatedKey, rw.wordText, rw.type);
   }
 
   return words.map((w) => ({
@@ -64,7 +82,7 @@ export async function fetchEnrichedWords(wordIds: number[]) {
       name: wt.tag.name,
       colorId: wt.tag.colorId,
     })),
-    relatedWords: (relatedByWordText.get(w.text) || []).map((rw) => ({
+    relatedWords: (relatedByWordText.get(w.text.toLowerCase()) || []).map((rw) => ({
       text: rw.relatedText,
       type: rw.type,
     })),
@@ -959,21 +977,16 @@ export async function getQuestionWordMeanings(questionId: string): Promise<Quest
         });
       }
     } else {
-      const sourceWordTexts = relatedEntry.sourceWords;
-      const sourceWordMeanings: Meaning[] = [];
-
-      for (const sourceText of sourceWordTexts) {
-        const sourceWord = await prisma.word.findFirst({
-          where: { userId: user.userId, text: { equals: sourceText, mode: 'insensitive' } },
-        });
-        if (sourceWord && sourceWord.meanings.length > 0) {
-          sourceWordMeanings.push(...normalizeMeanings(sourceWord.meanings));
-        }
-      }
+      // 关联词不在用户词库中：使用其自身的词典释义，
+      // 而不是来源词的释义（否则会把来源词的释义错误地标注在关联词上）
+      const dictEntry = queryDict(relatedEntry.text);
+      const dictMeanings: Meaning[] = dictEntry
+        ? dictEntry.meaning.map((m) => ({ type: m.type, content: m.content }))
+        : [];
 
       result.push({
         text: relatedEntry.text,
-        meanings: sourceWordMeanings.length > 0 ? [...new Set(sourceWordMeanings)] : [],
+        meanings: dictMeanings,
         isRelatedWord: true,
         sourceWords: relatedEntry.sourceWords,
       });

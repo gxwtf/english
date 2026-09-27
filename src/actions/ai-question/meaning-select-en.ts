@@ -243,15 +243,16 @@ async function generateQuestionsWithAI(
     const differentFormWords = relatedWordEntries.filter(rw => rw.types.includes('different_form'));
     const easilyConfusedWords = relatedWordEntries.filter(rw => rw.types.includes('easily_confused'));
 
-    relatedWordsSection = `\n## 关联词（补充单词池）：
-以下关联词来自选中单词的关联词列表，请将它们纳入可选单词池：
+    relatedWordsSection = `\n## 关联词（仅作干扰/对照，不是考察目标）：
+以下关联词来自选中单词的关联词列表，只用于生成干扰选项或作为对照参考，**不要为它们单独出题**：
 ${JSON.stringify(relatedWordEntries.map(rw => ({ text: rw.text, types: rw.types, sourceWords: rw.sourceWords })), null, 2)}
 
-### 关联词出题指导：
-- 关联词没有标注特定释义，你可以考察其任意释义
-- 关联词也可以作为干扰选项的来源（用其释义作为错误选项）
-${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${differentFormWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词是同一词的不同形式，你可以用其释义作为干扰选项` : ''}
-${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，你可以用其释义作为极具迷惑性的干扰选项` : ''}`;
+### 关联词使用指导：
+- **关联词不作为答案目标词，不要出现在 questions 的 word 字段中**
+- 可以用关联词的释义作为错误选项（干扰项）
+- 关联词没有标注特定释义，使用其任意释义即可
+${differentFormWords.length > 0 ? `- **不同形式（different_form）**：${differentFormWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词是同一词的不同形式，可用其释义作为干扰选项` : ''}
+${easilyConfusedWords.length > 0 ? `- **容易混淆（easily_confused）**：${easilyConfusedWords.map(rw => `"${rw.text}"（来自 ${rw.sourceWords.join('、')}）`).join('、')}。这些词与源单词容易混淆，可用其释义作为极具迷惑性的干扰选项` : ''}`;
   }
 
   const userPrompt = `提供的单词列表（注意：每个单词的 meanings 字段是用户不熟悉、需要重点练习的释义）：

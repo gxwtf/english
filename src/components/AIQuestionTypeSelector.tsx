@@ -318,7 +318,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 包含这些词的关联词
               </label>
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                — 关联词会以较低概率被随机抽取加入单词列表，AI 可考察其任意释义
+                — 关联词只作为干扰选项/对照词出现，不会单独出题
                 {effectiveRelatedCount > 0 && `（当前有 ${effectiveRelatedCount} 个关联词可用）`}
               </span>
             </label>

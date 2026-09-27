@@ -327,12 +327,52 @@
   }
   html {
     font-size: 17px;
+    /* iOS WebApp：禁用长按/点按高亮，禁止橡皮筋与下拉刷新 */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
   }
   body {
     @apply bg-background text-foreground;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+    /* WebApp 中避免长按选中导航/按钮文本 */
+    -webkit-touch-callout: none;
   }
-  button {
+  /* 输入框、正文仍需允许选择 */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  button,
+  a,
+  [role="button"] {
     cursor: pointer;
+    /* 去除移动端 300ms 点击延迟与双击缩放 */
+    touch-action: manipulation;
+  }
+}
+
+/* ===== iOS 安全区工具类（刘海 / Home Indicator）===== */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* standalone（已添加到主屏幕）模式下的钩子 */
+@media (display-mode: standalone) {
+  html {
+    /* WebApp 中离开页面时更省电；同时保留正常滚动 */
+    overscroll-behavior-y: none;
   }
 }
 

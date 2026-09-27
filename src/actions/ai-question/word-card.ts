@@ -4,6 +4,7 @@ import { fetchEnrichedWords, enqueueQuestion } from './utils';
 import type { RelatedWordEntry } from '@/lib/word-selection';
 import type { Meaning } from '@/types/dict';
 import { prisma } from '@/lib/db';
+import { query as queryDict } from '@/lib/dict/query';
 
 export interface WordCardItem {
   id: number;
@@ -54,6 +55,7 @@ export async function createWordCardQuestion(
       select: { userId: true },
     });
     const relatedTextToId = new Map<string, number>();
+    const relatedTextToMeanings = new Map<string, Meaning[]>();
     if (owner) {
       const relatedTexts = relatedWordEntries.map((rw) => rw.text);
       const relatedWords = await prisma.word.findMany({
@@ -61,29 +63,38 @@ export async function createWordCardQuestion(
           userId: owner.userId,
           text: { in: relatedTexts, mode: 'insensitive' },
         },
-        select: { id: true, text: true },
+        select: { id: true, text: true, meanings: true },
       });
       for (const rw of relatedWords) {
         relatedTextToId.set(rw.text.toLowerCase(), rw.id);
+        relatedTextToMeanings.set(
+          rw.text.toLowerCase(),
+          (rw.meanings as unknown as Meaning[]) ?? [],
+        );
       }
     }
 
     const startId = allCards.length + 1;
     for (let i = 0; i < relatedWordEntries.length; i++) {
       const rw = relatedWordEntries[i];
-      // 尝试获取关联词的释义
-      const sourceMeanings: Meaning[] = [];
-      for (const sourceText of rw.sourceWords) {
-        const sourceWord = wordData.find(w => w.text.toLowerCase() === sourceText.toLowerCase());
-        if (sourceWord && sourceWord.meanings.length > 0) {
-          sourceMeanings.push(...(sourceWord.meanings as unknown as Meaning[]));
-        }
+      // 关联词释义：优先使用词库中的释义，否则回退到词典释义。
+      // 注意不能使用来源词的释义，否则会把来源词的释义错误地标注在关联词上。
+      const key = rw.text.toLowerCase();
+      const ownMeanings = relatedTextToMeanings.get(key);
+      let meanings: Meaning[];
+      if (ownMeanings && ownMeanings.length > 0) {
+        meanings = ownMeanings;
+      } else {
+        const dictEntry = queryDict(rw.text);
+        meanings = dictEntry
+          ? dictEntry.meaning.map((m) => ({ type: m.type, content: m.content }))
+          : [];
       }
       allCards.push({
         id: startId + i,
-        wordId: relatedTextToId.get(rw.text.toLowerCase()) ?? null,
+        wordId: relatedTextToId.get(key) ?? null,
         word: rw.text,
-        meanings: sourceMeanings.length > 0 ? sourceMeanings : [],
+        meanings,
       });
     }
   }

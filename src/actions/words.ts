@@ -30,6 +30,33 @@ function buildWordResult(
   };
 }
 
+/**
+ * 收集某个单词的关联词（双向）。
+ * 关联关系（容易混淆 / 不同形式）本质是对称的，但数据库只存了用户录入的方向，
+ * 因此读取时把「我指向别人」和「别人指向我」两个方向都算作关联词。
+ */
+function buildRelatedForWord(
+  relatedWordsDb: { wordText: string; relatedText: string; type: string }[],
+  wordText: string,
+): { text: string; type: string }[] {
+  const seen = new Set<string>();
+  const result: { text: string; type: string }[] = [];
+  const push = (text: string, type: string) => {
+    if (text.toLowerCase() === wordText.toLowerCase()) return;
+    const key = `${text.toLowerCase()}\u0000${type}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push({ text, type });
+  };
+
+  for (const rw of relatedWordsDb) {
+    if (rw.wordText === wordText) push(rw.relatedText, rw.type);
+    if (rw.relatedText === wordText) push(rw.wordText, rw.type);
+  }
+
+  return result;
+}
+
 // GET /api/words -> loadWords
 // 传入 wordbookId / wordbookIds 时只加载对应单词本内的单词（传空数组则返回空），
 // 不传时加载用户全部单词
@@ -62,12 +89,7 @@ export async function loadWords(wordbookId?: number | number[]): Promise<Word[]>
   });
 
   return words.map((word: any) => {
-    const wordRelated = relatedWordsDb
-      .filter((rw: any) => rw.wordText === word.text)
-      .map((rw: any) => ({
-        text: rw.relatedText,
-        type: rw.type as string,
-      }));
+    const wordRelated = buildRelatedForWord(relatedWordsDb, word.text);
     return buildWordResult(word, wordRelated);
   });
 }
@@ -194,6 +216,78 @@ export async function saveWord(data: {
   }
 
   return buildWordResult(resultWord, rwData);
+}
+
+// 把练习中出现的关联词加入用户单词本（用户主动操作，不强制）
+// 单词不存在时按传入释义创建，再关联到所选单词本。
+export async function addWordToWordbooksByText(params: {
+  text: string;
+  meanings?: Meaning[];
+  wordbookIds: number[];
+}): Promise<{ wordId: number; added: number }> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const textTrim = (params.text ?? '').trim();
+  if (!textTrim) throw new Error('单词不能为空');
+
+  const validBookIds = Array.from(
+    new Set((params.wordbookIds ?? []).map(Number).filter((id) => Number.isInteger(id)))
+  );
+  if (validBookIds.length === 0) throw new Error('请至少选择一个单词本');
+
+  const userId = user.userId;
+  const meanings = params.meanings ?? [];
+
+  const ownedBooks = await prisma.wordbook.findMany({
+    where: { id: { in: validBookIds }, userId },
+    select: { id: true },
+  });
+  if (ownedBooks.length === 0) throw new Error('单词本不存在');
+
+  const existing = await prisma.word.findFirst({ where: { userId, text: textTrim } });
+
+  let wordId: number;
+  if (existing) {
+    wordId = existing.id;
+    if (meanings.length > 0) {
+      const keyOf = (m: Meaning) => `${m?.type ?? ''}\u0000${m?.content ?? ''}`;
+      const previousMeanings = ((existing.meanings as unknown as Meaning[]) ?? []);
+      const seen = new Set(previousMeanings.map(keyOf));
+      const merged = [...previousMeanings];
+      for (const m of meanings) {
+        const key = keyOf(m);
+        if (!seen.has(key)) {
+          seen.add(key);
+          merged.push(m);
+        }
+      }
+      await prisma.word.update({ where: { id: wordId }, data: { meanings: merged as any } });
+    }
+  } else {
+    const created = await prisma.word.create({
+      data: { userId, text: textTrim, meanings: meanings as any },
+    });
+    wordId = created.id;
+  }
+
+  let added = 0;
+  for (const wordbookId of ownedBooks.map((b) => b.id)) {
+    const res = await prisma.wordbookWord.upsert({
+      where: { wordbookId_wordId: { wordbookId, wordId } },
+      create: { wordbookId, wordId },
+      update: {},
+    });
+    void res;
+    added += 1;
+  }
+
+  await prisma.wordbook.updateMany({
+    where: { id: { in: ownedBooks.map((b) => b.id) }, userId },
+    data: { updatedAt: new Date() },
+  });
+
+  return { wordId, added };
 }
 
 // 仅更新单词释义（不影响标签、关联词等其他数据）
@@ -472,12 +566,7 @@ export async function updateWordTags(wordIds: number[], tags: string[]): Promise
   });
 
   return updatedWords.map((word: any) => {
-    const wordRelated = relatedWordsDb
-      .filter((rw: any) => rw.wordText === word.text)
-      .map((rw: any) => ({
-        text: rw.relatedText,
-        type: rw.type as string,
-      }));
+    const wordRelated = buildRelatedForWord(relatedWordsDb, word.text);
     return buildWordResult(word, wordRelated);
   });
 }

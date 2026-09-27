@@ -7,8 +7,11 @@ import {
   getWordWordbooks,
   removeWordFromWordbooks,
   deleteWords,
+  addWordToWordbooksByText,
   type WordWordbook,
 } from '@/actions/words';
+import { loadWordbooks } from '@/actions/wordbooks';
+import type { Wordbook } from '@/types/word';
 import { Meaning } from '@/types/dict';
 import { Pencil, Trash2, Plus, X } from 'lucide-react';
 import {
@@ -48,6 +51,14 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
   const [loadingBooks, setLoadingBooks] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // 将关联词加入单词本相关状态（用户主动选择，不强制）
+  const [addingWord, setAddingWord] = useState<QuestionWordMeaning | null>(null);
+  const [addWordbooks, setAddWordbooks] = useState<Wordbook[]>([]);
+  const [selectedAddBookIds, setSelectedAddBookIds] = useState<number[]>([]);
+  const [loadingAddBooks, setLoadingAddBooks] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const shouldShow = status === 'ANSWERED' || isShowingResults;
 
@@ -213,6 +224,75 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
     }
   };
 
+  // 关联词“加入单词本”：由用户主动决定，不强制
+  const openAdd = async (word: QuestionWordMeaning) => {
+    setAddingWord(word);
+    setAddWordbooks([]);
+    setSelectedAddBookIds([]);
+    setAddError(null);
+    setLoadingAddBooks(true);
+    try {
+      const books = await loadWordbooks();
+      setAddWordbooks(books);
+      setSelectedAddBookIds(books.length === 1 ? [books[0].id] : []);
+    } catch (err) {
+      console.error('加载单词本失败:', err);
+      setAddError('加载单词本失败，请稍后重试');
+    } finally {
+      setLoadingAddBooks(false);
+    }
+  };
+
+  const closeAdd = () => {
+    if (adding) return;
+    setAddingWord(null);
+    setAddWordbooks([]);
+    setSelectedAddBookIds([]);
+    setAddError(null);
+  };
+
+  const toggleAddBook = (bookId: number, checked: boolean) => {
+    setSelectedAddBookIds(prev =>
+      checked ? Array.from(new Set([...prev, bookId])) : prev.filter(id => id !== bookId)
+    );
+  };
+
+  const selectAllAddBooks = () => setSelectedAddBookIds(addWordbooks.map(b => b.id));
+  const deselectAllAddBooks = () => setSelectedAddBookIds([]);
+
+  const handleConfirmAdd = async () => {
+    if (!addingWord) return;
+    if (selectedAddBookIds.length === 0) {
+      setAddError('请至少选择一个单词本');
+      return;
+    }
+    setAdding(true);
+    setAddError(null);
+    try {
+      const result = await addWordToWordbooksByText({
+        text: addingWord.text,
+        meanings: addingWord.meanings,
+        wordbookIds: selectedAddBookIds,
+      });
+      const targetText = addingWord.text.toLowerCase();
+      setWordMeanings(prev =>
+        prev.map(w =>
+          w.isRelatedWord && w.text.toLowerCase() === targetText
+            ? { ...w, wordId: result.wordId }
+            : w
+        )
+      );
+      setAddingWord(null);
+      setAddWordbooks([]);
+      setSelectedAddBookIds([]);
+    } catch (err) {
+      console.error('加入单词本失败:', err);
+      setAddError('加入单词本失败，请稍后重试');
+    } finally {
+      setAdding(false);
+    }
+  };
+
   if (!shouldShow) return null;
 
   if (loading) {
@@ -281,7 +361,7 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                 <span className="text-xs text-gray-400 dark:text-gray-500">暂无释义</span>
               )}
             </div>
-            {word.wordId !== undefined && (
+            {word.wordId !== undefined ? (
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   type="button"
@@ -302,7 +382,17 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
-            )}
+            ) : word.isRelatedWord ? (
+              <button
+                type="button"
+                onClick={() => openAdd(word)}
+                title="把该关联词加入我的单词本"
+                className="shrink-0 inline-flex items-center gap-1 rounded border border-blue-300 dark:border-blue-700 px-2 py-0.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                加入单词本
+              </button>
+            ) : null}
           </div>
         ))}
       </div>
@@ -447,6 +537,80 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                 {deleting ? '删除中...' : '删除'}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 关联词加入单词本对话框（可选操作） */}
+      <Dialog open={!!addingWord} onOpenChange={(open) => { if (!open) closeAdd(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>加入单词本</DialogTitle>
+            <DialogDescription>
+              「{addingWord?.text}」目前只是本次练习的关联词/对照词，没有加入你的单词本。
+              如果你觉得这个词确实不熟，可以选择要加入的单词本。
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingAddBooks ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">正在加载单词本...</p>
+          ) : addWordbooks.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">你还没有单词本，请先创建单词本。</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  已选 {selectedAddBookIds.length} / {addWordbooks.length}
+                </span>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={selectAllAddBooks}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    全选
+                  </button>
+                  <button
+                    type="button"
+                    onClick={deselectAllAddBooks}
+                    className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
+                  >
+                    全不选
+                  </button>
+                </div>
+              </div>
+
+              <div className="max-h-64 overflow-y-auto space-y-2 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+                {addWordbooks.map(book => (
+                  <label
+                    key={book.id}
+                    className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={selectedAddBookIds.includes(book.id)}
+                      onCheckedChange={(checked) => toggleAddBook(book.id, checked === true)}
+                    />
+                    {book.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {addError && (
+            <p className="text-xs text-red-600 dark:text-red-400">{addError}</p>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeAdd} disabled={adding}>
+              取消
+            </Button>
+            <Button
+              onClick={handleConfirmAdd}
+              disabled={adding || loadingAddBooks || addWordbooks.length === 0 || selectedAddBookIds.length === 0}
+            >
+              {adding ? '加入中...' : '加入'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
