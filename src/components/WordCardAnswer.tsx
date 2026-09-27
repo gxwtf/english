@@ -47,11 +47,50 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
   const [marks, setMarks] = useState<Record<number, MarkResult>>({});
   const [cardStates, setCardStates] = useState<Record<number, WordCardState>>({});
   const [saving, setSaving] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
 
   const currentCard = cards[currentIndex];
+
+  const storageKey = `word-card-progress:${questionId}`;
+
+  // 从本地恢复本次卡片的浏览进度（当前第几张、已标记状态）
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as {
+          currentIndex?: number;
+          marks?: Record<number, MarkResult>;
+        };
+        if (
+          typeof parsed.currentIndex === 'number' &&
+          parsed.currentIndex >= 0 &&
+          parsed.currentIndex < cards.length
+        ) {
+          setCurrentIndex(parsed.currentIndex);
+        }
+        if (parsed.marks && typeof parsed.marks === 'object') {
+          setMarks(parsed.marks);
+        }
+      }
+    } catch {
+      // 忽略读取失败
+    }
+    setHydrated(true);
+  }, [storageKey, cards.length]);
+
+  // 保存本次卡片的浏览进度
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ currentIndex, marks }));
+    } catch {
+      // 忽略写入失败
+    }
+  }, [hydrated, storageKey, currentIndex, marks]);
 
   // 合并相同词性的释义
   const mergedMeanings = useMemo(
