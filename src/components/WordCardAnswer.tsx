@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, RotateCcw, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { WordCardItem } from '@/actions/ai-question/word-card';
@@ -43,6 +43,7 @@ function mergeMeaningsByType(meanings: Meaning[]): { type: string; content: stri
 export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordCardAnswerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [suppressFlipAnimation, setSuppressFlipAnimation] = useState(false);
   const [marks, setMarks] = useState<Record<number, MarkResult>>({});
   const [cardStates, setCardStates] = useState<Record<number, WordCardState>>({});
   const [saving, setSaving] = useState(false);
@@ -60,6 +61,19 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
 
   const handleFlip = useCallback(() => {
     setIsFlipped(prev => !prev);
+  }, []);
+
+  // 切换卡片时先无动画复位翻转，避免在翻回正面过程中闪现下一张卡片的释义
+  useEffect(() => {
+    if (!suppressFlipAnimation) return;
+    const id = window.setTimeout(() => setSuppressFlipAnimation(false), 60);
+    return () => window.clearTimeout(id);
+  }, [suppressFlipAnimation]);
+
+  const switchToCard = useCallback((nextIndex: number) => {
+    setSuppressFlipAnimation(true);
+    setIsFlipped(false);
+    setCurrentIndex(nextIndex);
   }, []);
 
   // 标记「会 / 不会」并同步更新复习状态（遗忘曲线 + 错误权重）
@@ -83,25 +97,22 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
       onSubmitted?.();
       // 标记后自动翻到下一张
       if (currentIndex < cards.length - 1) {
-        setIsFlipped(false);
-        setCurrentIndex(prev => Math.min(cards.length - 1, prev + 1));
+        switchToCard(currentIndex + 1);
       }
     } catch (e) {
       console.error('标记单词复习状态失败:', e);
     } finally {
       setSaving(false);
     }
-  }, [cards, currentIndex, saving, onSubmitted]);
+  }, [cards, currentIndex, saving, onSubmitted, switchToCard]);
 
   const handlePrevCard = useCallback(() => {
-    setIsFlipped(false);
-    setCurrentIndex(prev => Math.max(0, prev - 1));
-  }, []);
+    switchToCard(Math.max(0, currentIndex - 1));
+  }, [currentIndex, switchToCard]);
 
   const handleNextCard = useCallback(() => {
-    setIsFlipped(false);
-    setCurrentIndex(prev => Math.min(cards.length - 1, prev + 1));
-  }, []);
+    switchToCard(Math.min(cards.length - 1, currentIndex + 1));
+  }, [cards.length, currentIndex, switchToCard]);
 
   // Swipe gesture handling
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -150,6 +161,7 @@ export function WordCardAnswer({ questionId, cards, status, onSubmitted }: WordC
           style={{
             transformStyle: 'preserve-3d',
             transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+            transition: suppressFlipAnimation ? 'none' : undefined,
           }}
           onClick={handleFlip}
         >

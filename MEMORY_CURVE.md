@@ -278,7 +278,7 @@ model WordReviewState {
   totalReviews    Int      @default(0)
   correctReviews  Int      @default(0)
   // 时间戳
-  lastReviewedAt  DateTime?                // 批改完成时更新（f(t) 的基准）
+  lastReviewedAt  DateTime?                // 答题时间（QuestionQueue.answeredAt，f(t) 的基准）
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -423,7 +423,7 @@ export async function getBatchReviewStates(wordIds: number[]): Promise<Map<numbe
    - quality >= 3：correctReviews++，errorCount = clamp(max(1, ceil(e/2)))
    - quality < 3：errorCount = clamp(e + 1)
    - totalReviews++
-   - lastReviewedAt = now
+   - lastReviewedAt = 答题时间（QuestionQueue.answeredAt；缺失时回退到当前时间）
 5. 批量保存（事务）
 ```
 

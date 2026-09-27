@@ -252,6 +252,8 @@ export async function submitAnswer(questionId: string, answers: Record<string, u
     data: {
       lastAnswer: answers as any,
       status: 'GRADING',
+      // 记录答题时间：遗忘权重 f(t) 的基准时间（而不是生成/批改时间）
+      answeredAt: new Date(),
     },
   });
 
@@ -1008,7 +1010,7 @@ export async function resetQuestion(questionId: string) {
 
   const updated = await prisma.questionQueue.update({
     where: { id: questionId },
-    data: { status: 'GENERATED', lastAnswer: null as any },
+    data: { status: 'GENERATED', lastAnswer: null as any, answeredAt: null },
   });
 
   return {

@@ -86,7 +86,9 @@ export async function recordReviewFromQuestion(questionId: string): Promise<void
 
   // 批量更新 WordReviewState（事务）
   await prisma.$transaction(async (tx) => {
-    const now = new Date();
+    // 遗忘权重 f(t) 以「答题时间」为基准，而不是题目生成/批改完成时间。
+    // answeredAt 在用户提交答案时写入；缺失时（历史数据/异常）回退到当前时间。
+    const now = q.answeredAt ?? new Date();
 
     // 一次查所有需要更新的 state
     const existingStates = await tx.wordReviewState.findMany({

@@ -103,6 +103,9 @@ model QuestionQueue {
   questionContent    Json?
   lastAnswer         Json?
   wordIds            Int[]
+  /// 用户提交答案的时间；作为遗忘权重 f(t) 的基准（lastReviewedAt），
+  /// 而非题目生成/批改完成时间
+  answeredAt         DateTime?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   gradingResult      Json?
@@ -224,7 +227,7 @@ model WordReviewState {
   totalReviews    Int       @default(0)
   correctReviews  Int       @default(0)
   // 时间戳
-  lastReviewedAt  DateTime?                  /// 批改完成时更新（f(t) 的基准）
+  lastReviewedAt  DateTime?                  /// 答题时间（f(t) 的基准）
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
