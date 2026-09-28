@@ -34,6 +34,18 @@ interface WordModalProps {
   zIndex?: number;
 }
 
+// 编辑单词时，重新查询到的词典释义可能与用户已保存的释义不一致
+// （例如自定义释义、词典源更新后已不存在的旧释义）。
+// 这里把二者合并，保证已保存的释义仍然显示在列表中，避免“自定义释义消失”。
+function mergeMeaningsWithSaved(dictMeanings: Meaning[], savedMeanings: Meaning[]): Meaning[] {
+  const keyOf = (m: Meaning) => `${m?.content ?? ''}\u0000${m?.type ?? ''}`;
+  const seen = new Set(dictMeanings.map(keyOf));
+  const extras = savedMeanings.filter(
+    (m) => m && m.content && !seen.has(keyOf(m))
+  );
+  return [...dictMeanings, ...extras];
+}
+
 export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [], queryWord, allTagConfigs, onTagsUpdate, onWordAdded, zIndex = 50 }: WordModalProps) => {
   const [word, setWord] = useState('');
   const [dictionaryData, setDictionaryData] = useState<DictionaryEntry | null>(null);
@@ -67,6 +79,10 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
       setSelectedRelatedWords(initialWord.relatedWords || []);
       setOriginalDictData(null);
       setDictionaryData(null);
+      setCustomMeaningContent('');
+      setCustomMeaningType('');
+      setEditingMeaningIndex(null);
+      setError('');
     } else {
       setWord('');
       setSearchedWord('');
@@ -109,13 +125,17 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
         try {
           const result = await queryWord(searchedWord);
           if (result && currentWordRef.current === searchedWord) {
-            setDictionaryData(result);
+            const savedMeanings = initialWord?.meanings ?? [];
+            setDictionaryData({
+              ...result,
+              meaning: mergeMeaningsWithSaved(result.meaning ?? [], savedMeanings),
+            });
             setOriginalDictData(result);
           } else {
             setDictionaryData({
               word: searchedWord,
               pronunciation: '',
-              meaning: []
+              meaning: mergeMeaningsWithSaved([], initialWord?.meanings ?? []),
             });
           }
         } catch (err) {
