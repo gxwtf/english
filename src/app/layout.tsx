@@ -3,6 +3,7 @@ import "./globals.css";
 import { Footer } from "@/components/Footer";
 import { AuthProvider } from "@/components/AuthProvider";
 import { WebAppManager } from "@/components/WebAppManager";
+import { Toaster } from "@/components/ui/toaster";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -131,6 +132,7 @@ export default function RootLayout({
           </main>
           <Footer />
           <WebAppManager />
+          <Toaster />
         </AuthProvider>
       </body>
     </html>

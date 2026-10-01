@@ -225,26 +225,106 @@ export async function addWordsToWordbook(wordbookId: number, wordIds: number[]):
   return { added: toAdd.length };
 }
 
-// 将单词移出单词本（不删除单词本身）
-export async function removeWordsFromWordbook(wordbookId: number, wordIds: number[]): Promise<{ removed: number }> {
+// 复制单词到其它单词本（自动去重，原单词本的关联保留）
+export async function copyWordsToWordbook(
+  targetWordbookId: number,
+  wordIds: number[],
+): Promise<{ copied: number; skipped: number }> {
   const user = await getAuthUser();
   if (!user) throw new Error('未登录');
 
-  const wordbook = await prisma.wordbook.findFirst({
-    where: { id: wordbookId, userId: user.userId },
+  const target = await prisma.wordbook.findFirst({
+    where: { id: targetWordbookId, userId: user.userId },
   });
-  if (!wordbook) throw new Error('单词本不存在');
+  if (!target) throw new Error('单词本不存在');
 
-  const result = await prisma.wordbookWord.deleteMany({
-    where: { wordbookId, wordId: { in: wordIds } },
-  });
-
-  if (result.count > 0) {
-    await prisma.wordbook.update({
-      where: { id: wordbookId },
-      data: { updatedAt: new Date() },
+  return prisma.$transaction(async (tx) => {
+    const ownedWords = await tx.word.findMany({
+      where: { id: { in: wordIds }, userId: user.userId },
+      select: { id: true },
     });
+    const ownedIds = ownedWords.map((w) => w.id);
+
+    const existing = ownedIds.length > 0
+      ? await tx.wordbookWord.findMany({
+          where: { wordbookId: targetWordbookId, wordId: { in: ownedIds } },
+          select: { wordId: true },
+        })
+      : [];
+    const existingIds = new Set(existing.map((e) => e.wordId));
+    const toAdd = ownedWords.filter((w) => !existingIds.has(w.id));
+
+    if (toAdd.length > 0) {
+      await tx.wordbookWord.createMany({
+        data: toAdd.map((w) => ({ wordbookId: targetWordbookId, wordId: w.id })),
+        skipDuplicates: true,
+      });
+      await tx.wordbook.update({
+        where: { id: targetWordbookId },
+        data: { updatedAt: new Date() },
+      });
+    }
+
+    return { copied: toAdd.length, skipped: existingIds.size };
+  });
+}
+
+// 移动单词到其它单词本（自动去重，移动后从原单词本移除，单词本身保留）
+export async function moveWordsToWordbook(
+  sourceWordbookId: number,
+  targetWordbookId: number,
+  wordIds: number[],
+): Promise<{ moved: number; skipped: number }> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  if (sourceWordbookId === targetWordbookId) {
+    throw new Error('目标单词本不能与当前单词本相同');
   }
 
-  return { removed: result.count };
+  const [source, target] = await Promise.all([
+    prisma.wordbook.findFirst({ where: { id: sourceWordbookId, userId: user.userId } }),
+    prisma.wordbook.findFirst({ where: { id: targetWordbookId, userId: user.userId } }),
+  ]);
+  if (!source) throw new Error('原单词本不存在');
+  if (!target) throw new Error('目标单词本不存在');
+
+  return prisma.$transaction(async (tx) => {
+    const ownedWords = await tx.word.findMany({
+      where: { id: { in: wordIds }, userId: user.userId },
+      select: { id: true },
+    });
+    const ownedIds = ownedWords.map((w) => w.id);
+
+    const existing = ownedIds.length > 0
+      ? await tx.wordbookWord.findMany({
+          where: { wordbookId: targetWordbookId, wordId: { in: ownedIds } },
+          select: { wordId: true },
+        })
+      : [];
+    const existingIds = new Set(existing.map((e) => e.wordId));
+    const toAdd = ownedWords.filter((w) => !existingIds.has(w.id));
+
+    if (toAdd.length > 0) {
+      await tx.wordbookWord.createMany({
+        data: toAdd.map((w) => ({ wordbookId: targetWordbookId, wordId: w.id })),
+        skipDuplicates: true,
+      });
+    }
+
+    const removed = await tx.wordbookWord.deleteMany({
+      where: { wordbookId: sourceWordbookId, wordId: { in: ownedIds } },
+    });
+
+    await tx.wordbook.update({
+      where: { id: targetWordbookId },
+      data: { updatedAt: new Date() },
+    });
+    await tx.wordbook.update({
+      where: { id: sourceWordbookId },
+      data: { updatedAt: new Date() },
+    });
+
+    return { moved: removed.count, skipped: existingIds.size };
+  });
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Plus, ChevronDown, ArrowLeft, BookOpen, FolderMinus } from 'lucide-react';
+import { Plus, ChevronDown, ArrowLeft, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
@@ -22,7 +22,9 @@ import {
 import { DictionaryEntry, Meaning } from '@/types/dict';
 import { storage } from '@/lib/storage';
 import { saveWord as saveWordAction, deleteWords as deleteWordsAction, updateWordTags as updateWordTagsAction } from '@/actions/words';
-import { loadWordbooks, removeWordsFromWordbook } from '@/actions/wordbooks';
+import { loadWordbooks, copyWordsToWordbook, moveWordsToWordbook } from '@/actions/wordbooks';
+import { WordbookTransferDialog } from '@/components/WordbookTransferDialog';
+import { toast } from '@/hooks/use-toast';
 import {
   enqueuePendingFillBlank,
   enqueuePendingTranslate,
@@ -74,6 +76,9 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
   const rangeSelectModeRef = useRef(false);
   const [wordReviewStates, setWordReviewStates] = useState<Map<number, { lastReviewedAt: Date | null; interval: number; errorCount: number }>>(new Map());
   const [allWordbooks, setAllWordbooks] = useState<Wordbook[]>([]);
+  const [transferMode, setTransferMode] = useState<'copy' | 'move' | null>(null);
+  const [transferError, setTransferError] = useState<string | null>(null);
+  const [transferring, setTransferring] = useState(false);
   const router = useRouter();
 
   const relatedWordsCount = useMemo(() => {
@@ -239,18 +244,77 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
     }
   };
 
-  // 将选中单词移出当前单词本（不删除单词本身）
-  const handleRemoveFromWordbook = async () => {
-    if (!wordbookId || selectedWordIds.length === 0) return;
+  // 打开复制/移动到其它单词本的弹窗
+  const handleOpenTransfer = (mode: 'copy' | 'move') => {
+    if (selectedWordIds.length === 0) return;
+    setTransferError(null);
+    setTransferMode(mode);
+  };
+
+  const handleCloseTransfer = () => {
+    if (transferring) return;
+    setTransferMode(null);
+    setTransferError(null);
+  };
+
+  // 复制/移动选中单词到目标单词本（服务端自动去重）
+  const handleConfirmTransfer = async (targetWordbookIds: number[]) => {
+    if (!transferMode || targetWordbookIds.length === 0) {
+      setTransferError('请至少选择一个单词本');
+      return;
+    }
+    if (transferMode === 'move' && wordbookId === undefined) {
+      setTransferError('当前视图无法确定原单词本');
+      return;
+    }
+
     const ids = [...selectedWordIds];
+    setTransferring(true);
+    setTransferError(null);
+
     try {
-      await removeWordsFromWordbook(wordbookId, ids);
-      setWords(prev => prev.filter(w => !ids.includes(w.id)));
+      let copied = 0;
+      let moved = 0;
+      let skipped = 0;
+
+      for (const targetId of targetWordbookIds) {
+        if (transferMode === 'copy') {
+          const result = await copyWordsToWordbook(targetId, ids);
+          copied += result.copied;
+          skipped += result.skipped;
+        } else {
+          const result = await moveWordsToWordbook(wordbookId as number, targetId, ids);
+          moved += result.moved;
+          skipped += result.skipped;
+        }
+      }
+
+      setTransferMode(null);
       setSelectedWordIds([]);
-      const books = await loadWordbooks();
-      setAllWordbooks(books);
+
+      if (transferMode === 'move') {
+        await loadData();
+      } else {
+        const books = await loadWordbooks();
+        setAllWordbooks(books);
+      }
+
+      const actionText = transferMode === 'copy' ? '复制' : '移动';
+      const successCount = transferMode === 'copy' ? copied : moved;
+      const parts = [`成功${actionText} ${successCount} 个单词`];
+      if (skipped > 0) {
+        parts.push(`已跳过 ${skipped} 个目标单词本中已存在的单词`);
+      }
+      toast({
+        variant: 'success',
+        title: `${actionText}完成`,
+        description: parts.join('，'),
+      });
     } catch (error) {
-      console.error('移出单词本失败:', error);
+      console.error('复制/移动单词失败:', error);
+      setTransferError(error instanceof Error ? error.message : '操作失败，请稍后重试');
+    } finally {
+      setTransferring(false);
     }
   };
 
@@ -663,7 +727,16 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
           isExportingSelected={exportingWords}
           onSearchChange={setSearchTerm}
           onSetTags={handleSetTags}
-          onRemoveFromWordbook={wordbookId !== undefined && !readOnly ? handleRemoveFromWordbook : undefined}
+          onCopyToWordbook={
+            !readOnly && allWordbooks.some(b => b.id !== wordbookId)
+              ? () => handleOpenTransfer('copy')
+              : undefined
+          }
+          onMoveToWordbook={
+            wordbookId !== undefined && !readOnly && allWordbooks.some(b => b.id !== wordbookId)
+              ? () => handleOpenTransfer('move')
+              : undefined
+          }
           readOnly={readOnly}
         />
 
@@ -783,6 +856,19 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
         onGenerate={handleSelectQuestionType}
         maxWords={selectedWordIds.length}
         relatedWordsCount={relatedWordsCount}
+      />
+
+      {/* 复制/移动到其它单词本弹窗 */}
+      <WordbookTransferDialog
+        isOpen={transferMode !== null}
+        mode={transferMode ?? 'copy'}
+        wordbooks={allWordbooks}
+        excludeWordbookId={wordbookId}
+        selectedCount={selectedWordIds.length}
+        submitting={transferring}
+        error={transferError}
+        onClose={handleCloseTransfer}
+        onConfirm={handleConfirmTransfer}
       />
     </div>
   );

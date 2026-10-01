@@ -14,7 +14,8 @@ import {
   FileDown,
   Loader2,
   ChevronDown,
-  FolderMinus
+  Copy,
+  FolderInput
 } from 'lucide-react';
 import { WordTag, TagConfig } from '@/types/word';
 import { COLOR_PRESETS } from '@/constants/word-tags';
@@ -49,7 +50,8 @@ interface WordToolbarProps {
   isExportingSelected?: boolean;
   onSearchChange: (term: string) => void;
   onSetTags: (tags: WordTag[]) => void;
-  onRemoveFromWordbook?: () => void;
+  onCopyToWordbook?: () => void;
+  onMoveToWordbook?: () => void;
   readOnly?: boolean;
 }
 
@@ -72,7 +74,8 @@ export const WordToolbar = ({
   onDeleteSelected,
   onSearchChange,
   onSetTags,
-  onRemoveFromWordbook,
+  onCopyToWordbook,
+  onMoveToWordbook,
   readOnly = false,
   isExportingSelected = false
 }: WordToolbarProps) => {
@@ -400,20 +403,37 @@ export const WordToolbar = ({
                     <span className="text-sm">设置标签</span>
                   </button>
 
-                  {/* 移出本单词本选项 */}
-                  {onRemoveFromWordbook && (
+                  {/* 复制到其它单词本选项 */}
+                  {onCopyToWordbook && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowBatchDropdown(false);
-                        onRemoveFromWordbook();
+                        onCopyToWordbook();
                       }}
                       className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                       onMouseDown={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
                     >
-                      <FolderMinus className="h-4 w-4 text-amber-600" />
-                      <span className="text-sm">移出本单词本</span>
+                      <Copy className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">复制到其它单词本</span>
+                    </button>
+                  )}
+
+                  {/* 移动到其它单词本选项 */}
+                  {onMoveToWordbook && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowBatchDropdown(false);
+                        onMoveToWordbook();
+                      }}
+                      className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <FolderInput className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">移动到其它单词本</span>
                     </button>
                   )}
 
@@ -687,20 +707,37 @@ export const WordToolbar = ({
                     <span className="text-sm">设置标签</span>
                   </button>
 
-                  {/* 移出本单词本选项 */}
-                  {onRemoveFromWordbook && (
+                  {/* 复制到其它单词本选项 */}
+                  {onCopyToWordbook && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowBatchDropdown(false);
-                        onRemoveFromWordbook();
+                        onCopyToWordbook();
                       }}
                       className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                       onMouseDown={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
                     >
-                      <FolderMinus className="h-4 w-4 text-amber-600" />
-                      <span className="text-sm">移出本单词本</span>
+                      <Copy className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">复制到其它单词本</span>
+                    </button>
+                  )}
+
+                  {/* 移动到其它单词本选项 */}
+                  {onMoveToWordbook && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowBatchDropdown(false);
+                        onMoveToWordbook();
+                      }}
+                      className="flex items-center gap-3 w-full p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
+                    >
+                      <FolderInput className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">移动到其它单词本</span>
                     </button>
                   )}
 
