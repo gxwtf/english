@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitAnswer, gradeTranslateAnswerBatch, loadGradingResult, GradeResult, resetQuestion as resetQuestionAction, markQuestionAsGradingFailed } from '@/actions/ai-question';
 import { WordMeaningsDisplay } from '@/components/WordMeaningsDisplay';
+import { AIProgressDisplay } from '@/components/AIProgressDisplay';
+import { useAIProgress } from '@/hooks/useAIProgress';
 import Link from 'next/link';
 
 interface WordSelectTranslateQuestionItem {
@@ -44,6 +46,12 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
   const [savedGradingResults, setSavedGradingResults] = useState<GradeResult[] | null>(null);
   const [isRetryingGrading, setIsRetryingGrading] = useState(false);
   const [usedWords, setUsedWords] = useState<Set<string>>(new Set());
+  const [gradingTriggered, setGradingTriggered] = useState(false);
+
+  const showGradingProgress =
+    (currentStatus === 'GRADING' || gradingTriggered) && !gradingResults && !savedGradingResults;
+
+  const gradingProgress = useAIProgress(`grade-${questionId}`, showGradingProgress);
 
   useEffect(() => {
     if (currentStatus === 'ANSWERED' && lastAnswer && !savedGradingResults && !isLoadingGrading) {
@@ -127,6 +135,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
     setSubmitError(null);
     try {
       await submitAnswer(questionId, lastAnswer || {});
+      setGradingTriggered(true);
       router.refresh();
     } catch (error) {
       console.error('重试批改失败:', error);
@@ -155,6 +164,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
       setIsLoadingGrading(true);
       const gradingAnswers = { ...answers };
       setSavedGradingResults(null);
+      setGradingTriggered(true);
       gradeTranslateAnswerBatch(questionId, gradingAnswers)
         .then(results => {
           setGradingResults(results);
@@ -164,6 +174,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
         .catch(error => {
           console.error('批改失败:', error);
           setSubmitError('批改失败，请稍后重试');
+          setGradingTriggered(false);
           markQuestionAsGradingFailed(questionId)
             .then(() => router.refresh())
             .catch(e => console.error('标记批改失败状态失败:', e));
@@ -197,12 +208,14 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
         </details>
       )}
 
-      {currentStatus === 'GRADING' && !displayGradingResults ? (
+      {showGradingProgress ? (
         <>
-          <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200 mb-2">批改中</h3>
-            <p className="text-blue-700 dark:text-blue-300">正在为您批改答案，请稍候...</p>
-          </div>
+          <AIProgressDisplay
+            title="AI 正在批改"
+            description="正在为您批改答案"
+            progress={gradingProgress}
+            variant="amber"
+          />
           <div className="space-y-4">
             {questions.map((question, index) => {
               const userAnswer = lastAnswer ? (lastAnswer[question.id] as string) : '';

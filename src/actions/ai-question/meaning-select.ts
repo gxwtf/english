@@ -9,6 +9,7 @@ import { query as queryDict } from '@/lib/dict/query';
 import { aiQueue, withTimeout } from '@/lib/ai-queue';
 import { isOptionInMeanings } from '@/lib/utils';
 import { embedGenerationOptions } from './shared-utils';
+import { startAIProgress, setAIProgress, startProgressHeartbeat } from '@/lib/ai-progress';
 
 const GENERATION_TIMEOUT_MS = 600_000; // 10 分钟
 
@@ -69,11 +70,26 @@ export async function generateMeaningSelectWithQuestion(
   relatedWordEntries?: RelatedWordEntry[],
 ) {
   console.log('[generateMeaningSelectWithQuestion]', questionId);
+  startAIProgress(questionId, '正在准备生成题目...', 3);
   return new Promise((resolve, reject) => {
     aiQueue.addTask(questionId, async () => {
       const runGeneration = async () => {
-        const parsed = await doGenerateMeaningSelect(wordIds, options, deepThinking, relatedWordEntries);
+        setAIProgress(questionId, { percent: 12, stage: '正在准备词汇与出题参数...' });
+        const stopHeartbeat = startProgressHeartbeat(questionId, {
+          fromPercent: 12,
+          toPercent: 80,
+          durationMs: 90_000,
+          stage: (ms) => `正在等待 AI 生成题目（已等待 ${Math.round(ms / 1000)} 秒）...`,
+        });
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = await doGenerateMeaningSelect(wordIds, options, deepThinking, relatedWordEntries);
+        } finally {
+          stopHeartbeat();
+        }
+        setAIProgress(questionId, { percent: 85, stage: '正在解析、校验 AI 返回的题目...' });
         const result = await updateQuestionWithContent(questionId, parsed, 'meaning-select', wordIds);
+        setAIProgress(questionId, { percent: 100, stage: '题目生成完成', done: true });
         resolve(result);
       };
 

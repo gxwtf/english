@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitAnswer, gradeTranslateAnswerBatch, loadGradingResult, GradeResult, resetQuestion as resetQuestionAction, markQuestionAsGradingFailed } from '@/actions/ai-question';
 import { WordMeaningsDisplay } from '@/components/WordMeaningsDisplay';
+import { AIProgressDisplay } from '@/components/AIProgressDisplay';
+import { useAIProgress } from '@/hooks/useAIProgress';
 import Link from 'next/link';
 
 interface TranslateQuestionItem {
@@ -46,6 +48,12 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
   // 用于存储上次提交的批改结果
   const [savedGradingResults, setSavedGradingResults] = useState<GradeResult[] | null>(null);
   const [isRetryingGrading, setIsRetryingGrading] = useState(false);
+  const [gradingTriggered, setGradingTriggered] = useState(false);
+
+  const showGradingProgress =
+    (currentStatus === 'GRADING' || gradingTriggered) && !gradingResults && !savedGradingResults;
+
+  const gradingProgress = useAIProgress(`grade-${questionId}`, showGradingProgress);
 
   // Load grading results if the question has been answered and we haven't loaded them yet
   useEffect(() => {
@@ -137,6 +145,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
     try {
       // First, set status back to GRADING
       await submitAnswer(questionId, lastAnswer || {});
+      setGradingTriggered(true);
       router.refresh();
     } catch (error) {
       console.error('重试批改失败:', error);
@@ -170,6 +179,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
       setIsLoadingGrading(true);
       const gradingAnswers = { ...answers };
       setSavedGradingResults(null); // Clear saved results to allow grading
+      setGradingTriggered(true);
 
       // Trigger grading in background
       gradeTranslateAnswerBatch(questionId, gradingAnswers)
@@ -182,6 +192,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
         .catch(error => {
           console.error('批改失败:', error);
           setSubmitError('批改失败，请稍后重试');
+          setGradingTriggered(false);
           // Mark as GRADING_FAILED in DB
           markQuestionAsGradingFailed(questionId)
             .then(() => router.refresh())
@@ -225,18 +236,16 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
         </details>
       )}
 
-      {currentStatus === 'GRADING' && !displayGradingResults ? (
+      {showGradingProgress ? (
         // 批改中状态
         <>
-          {/* 批改中提示 */}
-          <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200 mb-2">
-              批改中
-            </h3>
-            <p className="text-blue-700 dark:text-blue-300">
-              正在为您批改答案，请稍候...
-            </p>
-          </div>
+          {/* 实时批改进度 */}
+          <AIProgressDisplay
+            title="AI 正在批改"
+            description="正在为您批改答案"
+            progress={gradingProgress}
+            variant="blue"
+          />
 
           {/* 显示用户已提交的答案 */}
           <div className="space-y-4">

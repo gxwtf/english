@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitAnswer, gradeFillBlankAnswerBatch, loadGradingResult, GradeResult, resetQuestion as resetQuestionAction, markQuestionAsGradingFailed } from '@/actions/ai-question';
 import { WordMeaningsDisplay } from '@/components/WordMeaningsDisplay';
+import { AIProgressDisplay } from '@/components/AIProgressDisplay';
+import { useAIProgress } from '@/hooks/useAIProgress';
 import Link from 'next/link';
 
 interface FillBlankQuestionItem {
@@ -42,6 +44,12 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
   const [isRetryingGrading, setIsRetryingGrading] = useState(false);
   const [savedAnswers, setSavedAnswers] = useState<string[]>(initialAnswers);
   const [usedWords, setUsedWords] = useState<Set<string>>(new Set());
+  const [gradingTriggered, setGradingTriggered] = useState(false);
+
+  const showGradingProgress =
+    (currentStatus === 'GRADING' || gradingTriggered) && !gradingResults && !savedGradingResults;
+
+  const gradingProgress = useAIProgress(`grade-${questionId}`, showGradingProgress);
 
   useEffect(() => {
     if (currentStatus === 'ANSWERED' && lastAnswer && !savedGradingResults && !isLoadingGrading) {
@@ -132,6 +140,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
 
       setSavedAnswers([...answers]);
       setSavedGradingResults(null);
+      setGradingTriggered(true);
 
       setIsLoadingGrading(true);
       gradeFillBlankAnswerBatch(questionId, answerMap)
@@ -142,6 +151,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
         })
         .catch(error => {
           console.error('批改失败:', error);
+          setGradingTriggered(false);
           markQuestionAsGradingFailed(questionId)
             .then(() => router.refresh())
             .catch(e => console.error('标记批改失败状态失败:', e));
@@ -185,6 +195,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
       await submitAnswer(questionId, lastAnswer || {});
       setSavedGradingResults(null);
       setGradingResults(null);
+      setGradingTriggered(true);
       setIsLoadingGrading(true);
       
       const gradingAnswers = Object.fromEntries(
@@ -199,6 +210,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
         })
         .catch(error => {
           console.error('批改失败:', error);
+          setGradingTriggered(false);
           markQuestionAsGradingFailed(questionId)
             .then(() => router.refresh())
             .catch(e => console.error('标记批改失败状态失败:', e));
@@ -228,16 +240,14 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
         </details>
       )}
 
-      {currentStatus === 'GRADING' && !displayGradingResults ? (
+      {showGradingProgress ? (
         <>
-          <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200 mb-2">
-              批改中
-            </h3>
-            <p className="text-blue-700 dark:text-blue-300">
-              正在为您生成 AI 点评，请稍候...
-            </p>
-          </div>
+          <AIProgressDisplay
+            title="AI 正在批改"
+            description="正在为您生成 AI 点评"
+            progress={gradingProgress}
+            variant="blue"
+          />
 
           <div className="space-y-4">
             {questions.map((q, i) => {

@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  generateFillBlankWithQuestion,
-  generateTranslateWithQuestion,
-  generateMeaningSelectWithQuestion,
-  generateMeaningSelectEnWithQuestion,
-  generateDefinitionFillBlankWithQuestion,
-  generateWordSelectTranslateWithQuestion,
-  markQuestionAsFailed,
-} from '@/actions/ai-question';
+import { markQuestionAsFailed } from '@/actions/ai-question';
 
 export interface PendingQuestionItem {
   questionId: string;
@@ -21,73 +13,23 @@ export interface PendingQuestionItem {
 /**
  * 客户端触发单道 AI 题目的生成（不阻塞调用方）。
  * 生成成功/失败会由服务端更新题目状态，调用方通过轮询获取最新状态。
+ *
+ * 通过 Route Handler（/api/ai-generate）触发，而非 Server Action：
+ * Server Action 会进入 App Router 的 action 队列串行执行，长时间运行的
+ * 出题会阻塞同一客户端后续的 Server Action（如读取题目状态），导致页面
+ * 一直停留在“加载中”而无法展示进度。Route Handler 不参与该队列。
  */
 export async function dispatchQuestionGeneration(item: PendingQuestionItem): Promise<void> {
-  const { questionId, questionType, wordIds, options, relatedWordEntries } = item;
+  const { questionId } = item;
 
   try {
-    switch (questionType) {
-      case 'fill-blank': {
-        const fillBlankOptions = options?.fillBlank ?? { n: 5, m: 0 };
-        await generateFillBlankWithQuestion(
-          questionId, wordIds, fillBlankOptions,
-          undefined, options?.deepThinking,
-          relatedWordEntries, options?.allowFormChange
-        );
-        break;
-      }
-      case 'translate': {
-        const translateOptions = options?.translate ?? { n: 5 };
-        await generateTranslateWithQuestion(
-          questionId, wordIds, translateOptions,
-          undefined, options?.deepThinking,
-          relatedWordEntries
-        );
-        break;
-      }
-      case 'meaning-select': {
-        const meaningSelectOptions = options?.meaningSelect ?? { n: 5 };
-        await generateMeaningSelectWithQuestion(
-          questionId, wordIds, meaningSelectOptions,
-          options?.deepThinking,
-          relatedWordEntries
-        );
-        break;
-      }
-      case 'meaning-select-en': {
-        const meaningSelectEnOptions = options?.meaningSelectEn ?? { n: 5 };
-        await generateMeaningSelectEnWithQuestion(
-          questionId, wordIds, meaningSelectEnOptions,
-          options?.deepThinking,
-          relatedWordEntries
-        );
-        break;
-      }
-      case 'definition-fill-blank': {
-        const definitionFillBlankOptions = options?.definitionFillBlank ?? { n: 5, m: 0 };
-        await generateDefinitionFillBlankWithQuestion(
-          questionId, wordIds, definitionFillBlankOptions,
-          undefined, options?.deepThinking,
-          relatedWordEntries
-        );
-        break;
-      }
-      case 'word-select-translate': {
-        const wordSelectTranslateOptions = options?.wordSelectTranslate ?? { n: 5, m: 0 };
-        await generateWordSelectTranslateWithQuestion(
-          questionId, wordIds, wordSelectTranslateOptions,
-          undefined, options?.deepThinking,
-          relatedWordEntries
-        );
-        break;
-      }
-      case 'word-card': {
-        // word-card 不需要 AI 生成
-        break;
-      }
-      default: {
-        console.warn('[dispatchQuestionGeneration] unknown questionType', questionType);
-      }
+    const res = await fetch('/api/ai-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
+    });
+    if (!res.ok) {
+      console.error('[dispatchQuestionGeneration] 生成请求失败:', res.status);
     }
   } catch (error) {
     console.error('AI 出题异常:', error);

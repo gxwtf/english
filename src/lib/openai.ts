@@ -115,7 +115,7 @@ interface CallOptions {
 async function callWithRetry(opts: CallOptions): Promise<OpenAIResponse> {
   const {
     configs, buildRequestBody, parseResponse, label = '模型',
-    timeout, defaultTimeout = 300000, defaultMaxRetries = 2,
+    timeout, defaultTimeout = 300000, defaultMaxRetries = 3,
   } = opts;
 
   let lastError: Error | null = null;
@@ -160,18 +160,27 @@ async function callWithRetry(opts: CallOptions): Promise<OpenAIResponse> {
         clearTimeout(timeoutId);
         lastError = error as Error;
 
-        if (error instanceof Error && error.name === 'AbortError') {
-          console.warn(`${label} ${config.name} 请求超时（第${attempt + 1}次）${attempt < maxRetriesPerModel ? '，重试中...' : '，尝试下一个模型...'}`);
-          if (attempt < maxRetriesPerModel) { await new Promise(r => setTimeout(r, 1000)); continue; }
-        }
+        const isAbort = error instanceof Error && error.name === 'AbortError';
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        // 可重试的错误：超时、限流(429)、网关/服务端错误(5xx)、网络异常
+        const isRetryable =
+          isAbort ||
+          /(408|409|425|429|500|502|503|504|522|524|529)/.test(errorMessage) ||
+          /fetch failed|network|ECONN|ETIMEDOUT|socket hang up|other side closed/i.test(errorMessage);
+        const hasNextAttempt = attempt < maxRetriesPerModel;
 
-        if (error instanceof Error && (error.message.includes('500') || error.message.includes('503') || error.message.includes('504'))) {
-          const errorCode = error.message.includes('500') ? '500' : error.message.includes('503') ? '503' : '504';
-          console.warn(`${label} ${config.name} ${errorCode} 错误（第${attempt + 1}次）${attempt < maxRetriesPerModel ? '，重试中...' : '，尝试下一个模型...'}`);
-          if (attempt < maxRetriesPerModel) { await new Promise(r => setTimeout(r, 3000)); continue; }
-        }
+        console.warn(
+          `${label} ${config.name} 第${attempt + 1}次调用失败${isAbort ? '（超时）' : ''}：${errorMessage.slice(0, 300)}` +
+          `${hasNextAttempt ? '，准备重试...' : '，尝试下一个模型...'}`
+        );
 
-        if (attempt < maxRetriesPerModel) { await new Promise(r => setTimeout(r, 1000)); continue; }
+        if (hasNextAttempt) {
+          // 非可重试错误（如 400/401）立即切换下一个模型；可重试错误指数退避
+          if (!isRetryable) break;
+          const backoff = Math.min(1000 * 2 ** attempt, 8000) + Math.floor(Math.random() * 500);
+          await new Promise(r => setTimeout(r, backoff));
+          continue;
+        }
       }
     }
 
@@ -189,7 +198,7 @@ export async function callOpenAI(
   systemPrompt: string,
   options: OpenAIOptions = {}
 ): Promise<OpenAIResponse> {
-  const { prompt = '', temperature, response_format } = options;
+  const { prompt = '', temperature, response_format, reasoning_effort } = options;
 
   const configs = await resolveModelConfigs(options.configs);
 
@@ -207,11 +216,13 @@ export async function callOpenAI(
       }
       const body: Record<string, unknown> = { model: config.model, messages, temperature: temperature ?? 0.7 };
       if (response_format) { body.response_format = response_format; }
+      if (reasoning_effort) { body.reasoning_effort = reasoning_effort; }
       return body;
     },
     parseResponse: (data) => {
       const message = data.choices?.[0]?.message;
-      const content = message?.content ?? message?.reasoning ?? '';
+      // 某些模型（如降级用的 reasoning 模型）会返回空 content，把内容放在 reasoning 字段
+      const content = (message?.content || '').trim() || message?.reasoning || message?.reasoning_content || '';
       return {
         content,
         thinking: null,

@@ -45,9 +45,10 @@ The database schema is defined in `prisma/schema.prisma` and includes the follow
 
 ### OCR (Image Recognition)
 - `src/lib/ocr.ts` communicates with a PaddleOCR microservice.
+- `src/lib/paddle-manager.ts` manages the microservice lifecycle with **lazy loading**: the Python service is NOT started at app boot; it is spawned on the first recognition request, reused while active, recycled after `PADDLEOCR_MAX_REQUESTS` requests, and killed after `PADDLEOCR_IDLE_MS` idle to release memory.
 - It sends base64 encoded images and receives recognized words, bounding boxes, and confidence scores.
 - It specifically handles "highlighted" words in images.
-- The development environment script `scripts/dev.mjs` can automatically start this PaddleOCR service.
+- If `PADDLEOCR_URL` is set, the service is treated as external and lifecycle management is skipped.
 
 ## Directory Structure
 - `src/app`: Next.js App Router pages and API routes.

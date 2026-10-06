@@ -3,7 +3,7 @@
 import { useEffect, useState, use, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { QuestionQueueItem, QUESTION_TYPE_LABELS } from '@/types/word';
-import { loadQuestionById } from '@/actions/ai-question';
+import { loadQuestionById, retryQuestionsAndGenerate } from '@/actions/ai-question';
 import { dispatchQuestionGeneration, takePendingQuestion } from '@/lib/ai-question-client';
 import { getBatchReviewStates } from '@/actions/review';
 import { FillBlankAnswer } from '@/components/FillBlankAnswer';
@@ -17,6 +17,9 @@ import { QuestionDisplay } from '@/components/QuestionDisplay';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
 import { ConsolidatePracticeButton } from '@/components/ConsolidatePracticeButton';
+import { AIProgressDisplay } from '@/components/AIProgressDisplay';
+import { useAIProgress } from '@/hooks/useAIProgress';
+import { Loader2, RotateCcw } from 'lucide-react';
 import Link from 'next/link';
 
 type ReviewStateLite = {
@@ -35,6 +38,8 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reviewStates, setReviewStates] = useState<ReviewStateLite[]>([]);
+  const [retryingGeneration, setRetryingGeneration] = useState(false);
+  const [retryGenerationError, setRetryGenerationError] = useState<string | null>(null);
 
   const reloadQuestionAndReviewStates = useCallback(async () => {
     try {
@@ -83,6 +88,29 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
     reloadQuestionAndReviewStates();
   }, [reloadQuestionAndReviewStates]);
 
+  // 在答题页直接重试失败的题目生成
+  const handleRetryGeneration = useCallback(async () => {
+    setRetryingGeneration(true);
+    setRetryGenerationError(null);
+    // 乐观更新：立即进入"生成中"，配合实时进度展示
+    setQuestion((prev) => (prev ? { ...prev, status: 'GENERATING' as QuestionQueueItem['status'] } : prev));
+    try {
+      const results = await retryQuestionsAndGenerate([questionId]);
+      if (!results || results.length === 0) {
+        setRetryGenerationError('重试失败，请稍后再试');
+      }
+    } catch (err) {
+      console.error('重试生成失败:', err);
+      setRetryGenerationError('重试失败，请稍后再试');
+    } finally {
+      setRetryingGeneration(false);
+      reloadQuestionAndReviewStates();
+    }
+  }, [questionId, reloadQuestionAndReviewStates]);
+
+  // AI 生成题目的实时进度
+  const generationProgress = useAIProgress(questionId, question?.status === 'GENERATING');
+
   if (!isClient || isLoading || (isLoggedIn && loading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -129,19 +157,48 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
         </div>
 
         {question.status === 'GENERATING' && (
-          <div className="text-center py-16">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-4 text-gray-500 dark:text-gray-400">AI 正在生成题目，请稍候...</p>
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">生成完成后将自动显示</p>
-          </div>
+          <AIProgressDisplay
+            title="AI 正在生成题目"
+            description="生成完成后将自动显示"
+            progress={generationProgress}
+            variant="blue"
+          />
         )}
 
         {question.status === 'FAILED' && (
-          <div className="text-center py-12">
-            <p className="text-red-500 dark:text-red-400">题目生成失败</p>
-            <Link href="/practice" className="text-sm text-blue-500 mt-2 inline-block">
-              返回题目列表重试
-            </Link>
+          <div className="p-6 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800 text-center">
+            <p className="text-red-600 dark:text-red-300 font-medium">题目生成失败</p>
+            <p className="mt-1 text-sm text-red-500 dark:text-red-400">
+              AI 生成过程中遇到了错误，你可以直接在此重试。
+            </p>
+            {retryGenerationError && (
+              <p className="mt-2 text-sm text-red-500 dark:text-red-400">{retryGenerationError}</p>
+            )}
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <Link
+                href="/practice"
+                className="px-5 py-2.5 text-sm font-semibold rounded-xl transition-all bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                返回题目列表
+              </Link>
+              <button
+                onClick={handleRetryGeneration}
+                disabled={retryingGeneration}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {retryingGeneration ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    重试中...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    重新生成
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 

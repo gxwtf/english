@@ -87,4 +87,7 @@ class AIRequestQueue {
   }
 }
 
-export const aiQueue = new AIRequestQueue();
+export const aiQueue = new AIRequestQueue(
+  // 本地单卡模型容易因并发过高返回 503，可通过 AI_QUEUE_CONCURRENCY 调低（如设为 1）
+  Number(process.env.AI_QUEUE_CONCURRENCY) > 0 ? Number(process.env.AI_QUEUE_CONCURRENCY) : 3
+);

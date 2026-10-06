@@ -7,6 +7,7 @@ import { Meaning } from '@/types/dict';
 import { normalizeMeanings } from '@/lib/meanings';
 import { callOpenAI, parseThinkingContent } from '@/lib/openai';
 import { aiQueue } from '@/lib/ai-queue';
+import { startAIProgress, setAIProgress, getAIProgress } from '@/lib/ai-progress';
 import { extractJSONFromAIContent, embedGenerationOptions, extractGenerationOptions } from './shared-utils';
 import { recordReviewFromQuestion } from '@/actions/review';
 import { query as queryDict } from '@/lib/dict/query';
@@ -365,6 +366,12 @@ export async function gradeFillBlankAnswerBatch(
   questionId: string,
   answers: Record<number, string>
 ): Promise<GradeResult[]> {
+  const progressKey = `grade-${questionId}`;
+  // 仅在没有进行中的进度时初始化，避免重复触发批改时把进度重置回起点
+  const existingProgress = getAIProgress(progressKey);
+  if (!existingProgress || existingProgress.done) {
+    startAIProgress(progressKey, '正在准备批改...', 3);
+  }
   return new Promise((resolve, reject) => {
     aiQueue.addTask(`grade-${questionId}`, async () => {
       try {
@@ -411,7 +418,16 @@ async function doGradeFillBlankAnswerBatch(
   // 获取题目类型，用于区分不同题型的批改逻辑
   const questionType = q.questionType as string;
 
+  const progressKey = `grade-${questionId}`;
+  setAIProgress(progressKey, { percent: 5, stage: '正在读取题目...', total: questions.length, current: 0 });
+
   for (let i = 0; i < questions.length; i++) {
+    setAIProgress(progressKey, {
+      percent: Math.round((i / Math.max(1, questions.length)) * 85) + 5,
+      stage: `AI 正在批改第 ${i + 1}/${questions.length} 题...`,
+      current: i + 1,
+      total: questions.length,
+    });
     const question = questions[i];
     const userAnswer = answers[i]?.trim() || '';
     const isCorrect = userAnswer === question.answer;
@@ -505,6 +521,8 @@ async function doGradeFillBlankAnswerBatch(
     });
   }
 
+  setAIProgress(progressKey, { percent: 92, stage: '正在保存批改结果...' });
+
   try {
     await saveGradingResult(questionId, results);
   } catch (e) {
@@ -518,12 +536,14 @@ async function doGradeFillBlankAnswerBatch(
     } catch (e) {
       console.error('更新题目状态为已作答失败:', e);
     }
+    setAIProgress(progressKey, { percent: 100, stage: '批改完成', done: true });
   } else {
     try {
       await markQuestionAsGradingFailed(questionId);
     } catch (e) {
       console.error('更新题目状态为批改失败失败:', e);
     }
+    setAIProgress(progressKey, { percent: 100, stage: '批改失败', done: true });
   }
 
   return results;
@@ -538,6 +558,12 @@ export async function gradeTranslateAnswerBatch(
   questionId: string,
   answers: Record<number, string>
 ): Promise<GradeResult[]> {
+  const progressKey = `grade-${questionId}`;
+  // 仅在没有进行中的进度时初始化，避免重复触发批改时把进度重置回起点
+  const existingProgress = getAIProgress(progressKey);
+  if (!existingProgress || existingProgress.done) {
+    startAIProgress(progressKey, '正在准备批改...', 3);
+  }
   return new Promise((resolve, reject) => {
     aiQueue.addTask(`grade-${questionId}`, async () => {
       try {
@@ -588,7 +614,17 @@ async function doGradeTranslateAnswerBatch(
 
   let gradingSuccess = true;
 
-  for (const question of questions) {
+  const progressKey = `grade-${questionId}`;
+  setAIProgress(progressKey, { percent: 5, stage: '正在读取题目...', total: questions.length, current: 0 });
+
+  for (let qi = 0; qi < questions.length; qi++) {
+    const question = questions[qi];
+    setAIProgress(progressKey, {
+      percent: Math.round((qi / Math.max(1, questions.length)) * 85) + 5,
+      stage: `AI 正在批改第 ${qi + 1}/${questions.length} 题...`,
+      current: qi + 1,
+      total: questions.length,
+    });
     const userAnswer = answers[question.id]?.trim() || '';
     const isAbandoned = !userAnswer;
 
@@ -679,6 +715,7 @@ async function doGradeTranslateAnswerBatch(
   }
 
   // Save grading results to DB so they can be loaded later without re-grading
+  setAIProgress(progressKey, { percent: 92, stage: '正在保存批改结果...' });
   try {
     await saveGradingResult(questionId, results);
   } catch (e) {
@@ -693,12 +730,14 @@ async function doGradeTranslateAnswerBatch(
     } catch (e) {
       console.error('更新题目状态为已作答失败:', e);
     }
+    setAIProgress(progressKey, { percent: 100, stage: '批改完成', done: true });
   } else {
     try {
       await markQuestionAsGradingFailed(questionId);
     } catch (e) {
       console.error('更新题目状态为批改失败失败:', e);
     }
+    setAIProgress(progressKey, { percent: 100, stage: '批改失败', done: true });
   }
 
   return results;
