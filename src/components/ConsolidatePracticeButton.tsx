@@ -123,7 +123,11 @@ export function ConsolidatePracticeButton({ wordIds, relatedWordEntries, disable
             cardCount,
             options.useSpacedRepetition
           );
-          const wordCardResult = await createWordCardQuestion(selectedIds, relatedWordEntries);
+          const wordCardResult = await createWordCardQuestion(selectedIds, relatedWordEntries, {
+            aiSentences: !!options.wordCard?.aiSentences,
+            // 巩固练习的单词可能来自多个单词本，无从确定来源，统一按「所有单词本」处理
+            sourceWordbookIds: null,
+          });
           // 跳转到单词卡片页面
           router.push(`/practice/${wordCardResult.id}`);
           return;
