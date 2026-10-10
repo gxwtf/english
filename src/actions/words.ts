@@ -399,6 +399,225 @@ export async function removeWordFromWordbooks(
   return { removed: result.count, wordDeleted: false };
 }
 
+// ===== 单词卡片「太简单了，从单词本删去」+ 撤回 =====
+
+/** 删除快照：客户端持有，撤回时传回以完整恢复（防止误触点错） */
+export interface WordRemovalSnapshot {
+  wordId: number;
+  /** 被移除的单词本 id 列表 */
+  wordbookIds: number[];
+  /** 以下字段仅当单词本身被连带删除时存在，用于撤回时完整重建 */
+  text?: string;
+  meanings?: unknown[];
+  relatedWords?: unknown;
+  relatedWordRows?: { wordText: string; relatedText: string; type: string }[];
+  tagIds?: number[];
+  reviewState?: {
+    repetitions: number;
+    ef: number;
+    interval: number;
+    errorCount: number;
+    totalReviews: number;
+    correctReviews: number;
+    lastReviewedAt: string | null;
+  } | null;
+}
+
+/**
+ * 从指定单词本移除单词（单词卡片「太简单了」按钮使用）。
+ * wordbookIds 传 null 表示从所有单词本移除。
+ * 若移除后单词不再属于任何单词本，会连带删除单词本身——
+ * 删除前把完整数据（释义/关联词/标签/复习状态）打包进快照返回，
+ * 供客户端一键撤回。
+ */
+export async function removeWordFromWordbookForCard(
+  wordId: number,
+  wordbookIds: number[] | null
+): Promise<{ removed: number; wordDeleted: boolean; snapshot: WordRemovalSnapshot }> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const word = await prisma.word.findFirst({
+    where: { id: wordId, userId: user.userId },
+    include: { wordTags: { select: { tagId: true } } },
+  });
+  if (!word) throw new Error('单词不存在');
+
+  // 目标单词本：null = 从所有单词本移除；否则取交集（仅限自己的单词本）
+  let targetIds: number[];
+  if (wordbookIds == null) {
+    const all = await prisma.wordbookWord.findMany({
+      where: { wordId },
+      select: { wordbookId: true },
+    });
+    targetIds = all.map((r) => r.wordbookId);
+  } else {
+    const valid = Array.from(
+      new Set((wordbookIds ?? []).map(Number).filter((id) => Number.isInteger(id)))
+    );
+    const owned = await prisma.wordbook.findMany({
+      where: { id: { in: valid }, userId: user.userId },
+      select: { id: true },
+    });
+    targetIds = owned.map((b) => b.id);
+  }
+
+  if (targetIds.length === 0) {
+    return { removed: 0, wordDeleted: false, snapshot: { wordId, wordbookIds: [] } };
+  }
+
+  // 移除后是否不再属于任何单词本（需要连带删除单词本身）
+  const remainingAfter = await prisma.wordbookWord.count({
+    where: { wordId, wordbookId: { notIn: targetIds } },
+  });
+
+  let snapshot: WordRemovalSnapshot = { wordId, wordbookIds: targetIds };
+  if (remainingAfter === 0) {
+    const reviewState = await prisma.wordReviewState.findUnique({
+      where: { userId_wordId: { userId: user.userId, wordId } },
+    });
+    // deleteWords 只会删除 wordText 方向的关联词行，快照也只记录这些
+    const relatedRows = await prisma.relatedWord.findMany({
+      where: { userId: user.userId, wordText: word.text },
+      select: { wordText: true, relatedText: true, type: true },
+    });
+    snapshot = {
+      wordId,
+      wordbookIds: targetIds,
+      text: word.text,
+      meanings: word.meanings as unknown[],
+      relatedWords: word.relatedWords ?? undefined,
+      relatedWordRows: relatedRows,
+      tagIds: word.wordTags.map((wt) => wt.tagId),
+      reviewState: reviewState
+        ? {
+            repetitions: reviewState.repetitions,
+            ef: reviewState.ef,
+            interval: reviewState.interval,
+            errorCount: reviewState.errorCount,
+            totalReviews: reviewState.totalReviews,
+            correctReviews: reviewState.correctReviews,
+            lastReviewedAt: reviewState.lastReviewedAt?.toISOString() ?? null,
+          }
+        : null,
+    };
+  }
+
+  const result = await prisma.wordbookWord.deleteMany({
+    where: { wordId, wordbookId: { in: targetIds } },
+  });
+  await prisma.wordbook.updateMany({
+    where: { id: { in: targetIds }, userId: user.userId },
+    data: { updatedAt: new Date() },
+  });
+
+  if (remainingAfter === 0) {
+    await deleteWords([wordId]);
+    return { removed: result.count, wordDeleted: true, snapshot };
+  }
+
+  return { removed: result.count, wordDeleted: false, snapshot };
+}
+
+/**
+ * 撤回「太简单了」的删除：恢复单词本关联；
+ * 若单词本身被删除过，则连同释义、关联词、标签、复习状态一起重建。
+ * 返回（可能新建的）wordId，供前端更新映射。
+ */
+export async function undoRemoveWordFromWordbook(
+  snapshot: WordRemovalSnapshot
+): Promise<{ wordId: number }> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+  if (!snapshot?.wordbookIds?.length) return { wordId: snapshot?.wordId ?? 0 };
+
+  let wordId = snapshot.wordId;
+
+  // 单词本身被删除的情况：优先复用已再次存在的同名单词，否则完整重建
+  if (snapshot.text != null) {
+    const existing = await prisma.word.findFirst({
+      where: { userId: user.userId, text: snapshot.text },
+    });
+    if (existing) {
+      wordId = existing.id;
+    } else {
+      const created = await prisma.word.create({
+        data: {
+          userId: user.userId,
+          text: snapshot.text,
+          meanings: (snapshot.meanings ?? []) as any,
+          relatedWords: (snapshot.relatedWords ?? undefined) as any,
+        },
+      });
+      wordId = created.id;
+
+      if (snapshot.tagIds?.length) {
+        const tags = await prisma.tag.findMany({
+          where: { id: { in: snapshot.tagIds } },
+          select: { id: true },
+        });
+        if (tags.length > 0) {
+          await prisma.wordTag.createMany({
+            data: tags.map((t) => ({ wordId, tagId: t.id })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      if (snapshot.reviewState) {
+        try {
+          await prisma.wordReviewState.create({
+            data: {
+              userId: user.userId,
+              wordId,
+              repetitions: snapshot.reviewState.repetitions,
+              ef: snapshot.reviewState.ef,
+              interval: snapshot.reviewState.interval,
+              errorCount: snapshot.reviewState.errorCount,
+              totalReviews: snapshot.reviewState.totalReviews,
+              correctReviews: snapshot.reviewState.correctReviews,
+              lastReviewedAt: snapshot.reviewState.lastReviewedAt
+                ? new Date(snapshot.reviewState.lastReviewedAt)
+                : null,
+            },
+          });
+        } catch {
+          // 已存在同一条复习状态时忽略
+        }
+      }
+
+      if (snapshot.relatedWordRows?.length) {
+        await prisma.relatedWord.createMany({
+          data: snapshot.relatedWordRows.map((r) => ({
+            userId: user.userId,
+            wordText: r.wordText,
+            relatedText: r.relatedText,
+            type: r.type,
+          })),
+        });
+      }
+    }
+  }
+
+  // 恢复单词本关联（仅限自己的单词本）
+  const owned = await prisma.wordbook.findMany({
+    where: { id: { in: snapshot.wordbookIds }, userId: user.userId },
+    select: { id: true },
+  });
+  if (owned.length > 0) {
+    await prisma.wordbookWord.createMany({
+      data: owned.map((b) => ({ wordbookId: b.id, wordId })),
+      skipDuplicates: true,
+    });
+    await prisma.wordbook.updateMany({
+      where: { id: { in: owned.map((b) => b.id) }, userId: user.userId },
+      data: { updatedAt: new Date() },
+    });
+  }
+
+  return { wordId };
+}
+
 // DELETE /api/words -> deleteWords
 export async function deleteWords(ids: number[]) {
   const user = await getAuthUser();

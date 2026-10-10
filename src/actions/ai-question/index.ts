@@ -34,8 +34,13 @@ export {
 } from './pdf';
 export {
   createWordCardQuestion,
+  generateWordCardSentencesWithQuestion,
+  markWordCardSentencesFailed,
+  retryWordCardSentences,
   type WordCardItem,
   type WordCardQuestion,
+  type WordCardSentenceStatus,
+  type CreateWordCardOptions,
 } from './word-card';
 export { retryQuestionsAndGenerate } from './batch-retry';
 export {

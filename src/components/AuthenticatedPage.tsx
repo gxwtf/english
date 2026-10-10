@@ -81,20 +81,6 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
   const [transferring, setTransferring] = useState(false);
   const router = useRouter();
 
-  const relatedWordsCount = useMemo(() => {
-    const selectedWords = words.filter(w => selectedWordIds.includes(w.id));
-    const selectedTexts = new Set(selectedWords.map(w => w.text.toLowerCase()));
-    const relatedTexts = new Set<string>();
-    for (const word of selectedWords) {
-      for (const rw of word.relatedWords || []) {
-        if (!selectedTexts.has(rw.text.toLowerCase())) {
-          relatedTexts.add(rw.text.toLowerCase());
-        }
-      }
-    }
-    return relatedTexts.size;
-  }, [words, selectedWordIds]);
-
   // 从服务器加载单词和标签配置
   const loadData = async () => {
     try {
@@ -350,6 +336,28 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
     return filtered;
   }, [words, searchTerm, filterTags, filterLogic, sortBy, allTagConfigs]);
 
+  // 生效的复习词池：手动选中的单词；未选中时默认为筛选后的全部单词（省略"全选"步骤）
+  const effectiveWords = useMemo(
+    () =>
+      selectedWordIds.length > 0
+        ? words.filter(w => selectedWordIds.includes(w.id))
+        : filteredAndSortedWords,
+    [words, selectedWordIds, filteredAndSortedWords]
+  );
+
+  const relatedWordsCount = useMemo(() => {
+    const selectedTexts = new Set(effectiveWords.map(w => w.text.toLowerCase()));
+    const relatedTexts = new Set<string>();
+    for (const word of effectiveWords) {
+      for (const rw of word.relatedWords || []) {
+        if (!selectedTexts.has(rw.text.toLowerCase())) {
+          relatedTexts.add(rw.text.toLowerCase());
+        }
+      }
+    }
+    return relatedTexts.size;
+  }, [effectiveWords]);
+
   // 分页计算
   const totalPages = Math.max(1, Math.ceil(filteredAndSortedWords.length / pageSize));
   // 当总数减少导致当前页越界时，回退到最后一页（派生值，避免与“回到第一页”的副作用冲突）
@@ -438,7 +446,8 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
   }, [filteredAndSortedWords, selectedWordIds.length]);
 
   const handleAIGenerate = () => {
-    if (selectedWordIds.length === 0) return;
+    // 未选中单词时默认复习筛选后的全部单词，无需先手动全选
+    if (filteredAndSortedWords.length === 0) return;
     setShowAISelector(true);
   };
 
@@ -463,8 +472,8 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
       setExportingWords(false);
     }
   };
-  // 单词卡片直接生成（不需要 AI）
-  const handleCreateWordCard = async (selectedWords: Word[], includeRelatedWords?: boolean, useSpacedRepetition?: boolean, cardCount?: number) => {
+  // 单词卡片直接生成（不需要 AI）；AI 例句由卡片页后台逐词补全
+  const handleCreateWordCard = async (selectedWords: Word[], includeRelatedWords?: boolean, useSpacedRepetition?: boolean, cardCount?: number, aiSentences?: boolean) => {
     try {
       const neededCount = Math.max(
         1,
@@ -473,7 +482,11 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
       const { wordIds, relatedWordEntries } = await selectWordsForQuestion(
         selectedWords, neededCount, includeRelatedWords, useSpacedRepetition
       );
-      const result = await createWordCardQuestion(wordIds, relatedWordEntries);
+      const result = await createWordCardQuestion(wordIds, relatedWordEntries, {
+        aiSentences: !!aiSentences,
+        // 来源单词本："所有单词"视图（wordbookId 为 undefined）时为全部单词本
+        sourceWordbookIds: wordbookId != null ? [wordbookId] : null,
+      });
       router.push(`/practice/${result.id}`);
     } catch (error) {
       console.error('创建单词卡片异常:', error);
@@ -483,8 +496,10 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
   const handleSelectQuestionType = async (options: QuestionGenerationOptions) => {
     setShowAISelector(false);
 
-    // 获取选中单词的完整信息
-    const selectedWords = words.filter(w => selectedWordIds.includes(w.id));
+    // 获取生效的单词池（选中单词；未选中时为筛选后的全部单词）
+    const selectedWords = selectedWordIds.length > 0
+      ? words.filter(w => selectedWordIds.includes(w.id))
+      : filteredAndSortedWords;
 
     // 单词卡片直接生成，不需要 AI
     if (options.type === 'word-card') {
@@ -492,7 +507,8 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
         selectedWords,
         options.includeRelatedWords,
         options.useSpacedRepetition,
-        options.wordCard?.n
+        options.wordCard?.n,
+        options.wordCard?.aiSentences
       );
       return;
     }
@@ -706,7 +722,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
         {/* 工具栏 */}
         <WordToolbar
           selectedWordIds={selectedWordIds}
-          allWordIds={words.map(w => w.id)}
+          allWordIds={filteredAndSortedWords.map(w => w.id)}
           sortBy={sortBy}
           filterTags={filterTags}
           filterLogic={filterLogic}
@@ -854,8 +870,9 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
         isOpen={showAISelector}
         onClose={() => setShowAISelector(false)}
         onGenerate={handleSelectQuestionType}
-        maxWords={selectedWordIds.length}
+        maxWords={effectiveWords.length}
         relatedWordsCount={relatedWordsCount}
+        selectionHint={selectedWordIds.length === 0 ? `未选择单词，将复习当前筛选后的全部 ${filteredAndSortedWords.length} 个单词` : null}
       />
 
       {/* 复制/移动到其它单词本弹窗 */}

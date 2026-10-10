@@ -12,6 +12,7 @@ import type { FillBlankOptions, TranslateOptions, MeaningSelectOptions, Definiti
 const STORAGE_KEY_INCLUDE_RELATED = 'ai-question-include-related';
 const STORAGE_KEY_ALLOW_FORM_CHANGE = 'ai-question-allow-form-change';
 const STORAGE_KEY_USE_SPACED_REPETITION = 'ai-question-use-spaced-repetition';
+const STORAGE_KEY_WORD_CARD_AI_SENTENCES = 'ai-question-word-card-ai-sentences';
 
 export type QuestionGenerationOptions = {
   type: QuestionType;
@@ -34,6 +35,8 @@ interface AIQuestionTypeSelectorProps {
   onGenerate: (options: QuestionGenerationOptions) => void;
   maxWords?: number;
   relatedWordsCount?: number;
+  /** 未手动选词时的提示（例如"未选择单词，将复习筛选后的全部 N 个单词"） */
+  selectionHint?: string | null;
 }
 
 const questionTypes = [
@@ -81,7 +84,7 @@ const questionTypes = [
   },
 ];
 
-export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, relatedWordsCount }: AIQuestionTypeSelectorProps) => {
+export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, relatedWordsCount, selectionHint }: AIQuestionTypeSelectorProps) => {
   const [selectedType, setSelectedType] = useState<QuestionType | null>(null);
   const [questionN, setQuestionN] = useState<number | ''>(5);
   const [questionM, setQuestionM] = useState<number | ''>(0);
@@ -110,6 +113,12 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     const stored = localStorage.getItem(STORAGE_KEY_USE_SPACED_REPETITION);
     return stored !== null ? stored === 'true' : true;
   });
+  const [wordCardAiSentences, setWordCardAiSentences] = useState<boolean>(() => {
+    // 单词卡片默认开启"AI 生成例句"（生成后写回词库缓存，之后秒出）
+    if (typeof window === 'undefined') return true;
+    const stored = localStorage.getItem(STORAGE_KEY_WORD_CARD_AI_SENTENCES);
+    return stored !== null ? stored === 'true' : true;
+  });
 
   // Persist checkbox values to localStorage
   useEffect(() => {
@@ -124,6 +133,10 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     if (typeof window === 'undefined') return;
     localStorage.setItem(STORAGE_KEY_USE_SPACED_REPETITION, String(useSpacedRepetition));
   }, [useSpacedRepetition]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEY_WORD_CARD_AI_SENTENCES, String(wordCardAiSentences));
+  }, [wordCardAiSentences]);
 
   // 当可用单词池变化时，自动将各题型的题目数量调整到合法范围
   useEffect(() => {
@@ -257,7 +270,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     } else if (selectedType === 'word-select-translate') {
       options.wordSelectTranslate = { n: typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 5, m: typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0 };
     } else if (selectedType === 'word-card') {
-      options.wordCard = { n: typeof wordCardN === 'number' ? wordCardN : effectiveMaxWords };
+      options.wordCard = { n: typeof wordCardN === 'number' ? wordCardN : effectiveMaxWords, aiSentences: wordCardAiSentences };
     }
     onGenerate(options);
   };
@@ -292,6 +305,11 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
             <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
               选项设置
             </h4>
+            {selectionHint && (
+              <p className="mb-3 px-3 py-2 text-xs rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                {selectionHint}
+              </p>
+            )}
             <label className="flex items-center gap-3 cursor-pointer select-none">
               <Checkbox
                 id="use-spaced-repetition"
@@ -686,9 +704,23 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 {useSpacedRepetition ? '（按遗忘曲线加权抽取）' : '（等概率随机抽取）'}
                 {includeRelatedWords && effectiveRelatedCount > 0 && '，并可能随机加入关联词'}
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                单词卡片直接生成，无需 AI 处理。点击卡片翻转查看释义，并可标记「会 / 不会」。
-              </p>
+              <label className="flex items-start gap-3 cursor-pointer select-none mt-3">
+                <Checkbox
+                  id="word-card-ai-sentences"
+                  checked={wordCardAiSentences}
+                  onCheckedChange={(checked) => setWordCardAiSentences(!!checked)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                  AI 生成例句
+                  <span className="px-1.5 py-0.5 ml-1.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-violet-600 rounded-full shadow-sm">
+                    NEW
+                  </span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    — 根据熟词生义为每个释义生成一句英文例句；卡片立即生成，例句逐词补充并缓存到词库，下次免生成
+                  </span>
+                </span>
+              </label>
             </div>
           )}
 

@@ -186,7 +186,7 @@ export function HomePageContent() {
         return;
       }
 
-      // 单词卡片直接生成，不需要 AI
+      // 单词卡片直接生成，不需要 AI；AI 例句由卡片页后台逐词补全
       if (options.type === 'word-card') {
         const cardCount = Math.max(
           1,
@@ -198,7 +198,11 @@ export function HomePageContent() {
           options.includeRelatedWords,
           options.useSpacedRepetition
         );
-        const wordCardResult = await createWordCardQuestion(wordIds, relatedWordEntries);
+        const wordCardResult = await createWordCardQuestion(wordIds, relatedWordEntries, {
+          aiSentences: !!options.wordCard?.aiSentences,
+          // 来源单词本：一键复习范围（custom 为指定单词本，all 为全部单词本）
+          sourceWordbookIds: scopeWordbookIds ?? null,
+        });
         router.push(`/practice/${wordCardResult.id}`);
         return;
       }

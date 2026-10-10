@@ -337,11 +337,12 @@ export const WordToolbar = ({
             variant="outline"
             size="sm"
             onClick={onAIGenerate}
-            disabled={!canBatchOperate}
+            disabled={allWordIds.length === 0}
+            title={canBatchOperate ? 'AI 复习选中的单词' : '未选择单词，将复习当前筛选后的全部单词'}
             className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
           >
             <Sparkles className="h-4 w-4 mr-2" />
-            <span className="hidden lg:inline">AI 复习</span>
+            <span className="hidden lg:inline">{canBatchOperate ? 'AI 复习' : 'AI 复习全部'}</span>
           </Button>
 
           <div className="relative">
@@ -641,7 +642,7 @@ export const WordToolbar = ({
             variant="outline"
             size="sm"
             onClick={onAIGenerate}
-            disabled={!canBatchOperate}
+            disabled={allWordIds.length === 0}
             className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             aria-label="AI 复习"
           >

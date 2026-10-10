@@ -6,6 +6,8 @@ import {
   generateMeaningSelectEnWithQuestion,
   generateDefinitionFillBlankWithQuestion,
   generateWordSelectTranslateWithQuestion,
+  generateWordCardSentencesWithQuestion,
+  markWordCardSentencesFailed,
   markQuestionAsFailed,
 } from '@/actions/ai-question';
 import { getAuthUser } from '@/actions/auth';
@@ -104,7 +106,9 @@ export async function POST(request: NextRequest) {
         break;
       }
       case 'word-card': {
-        // word-card 不需要 AI 生成
+        // 卡片本身已生成（GENERATED），此处仅后台补全 AI 例句；
+        // 失败只影响例句，不应把整道卡片题标记为 FAILED
+        await generateWordCardSentencesWithQuestion(questionId);
         break;
       }
       default: {
@@ -114,7 +118,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[ai-generate] 生成失败:', error);
     try {
-      await markQuestionAsFailed(questionId);
+      if (questionType === 'word-card') {
+        await markWordCardSentencesFailed(questionId);
+      } else {
+        await markQuestionAsFailed(questionId);
+      }
     } catch {
       // ignore
     }
