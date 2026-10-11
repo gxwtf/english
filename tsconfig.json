@@ -42,6 +42,12 @@
   ],
   "exclude": [
     "node_modules",
-    "temp"
+    "temp",
+    ".next/cache",
+    ".next/dev/cache",
+    ".next/dev/server",
+    ".next/dev/static",
+    ".next/dev/trace",
+    "src/dict"
   ]
 }
