@@ -93,9 +93,27 @@ At the end, give me:
 - 常用命令：
   - `pnpm install` 或 `pnpm i` — 安装依赖
   - `pnpm dev` — 启动本地开发服务器
-  - `pnpm build` — 构建生产版本
+  - `pnpm build` — 构建生产版本（**必须走 webpack，见下**）
   - `pnpm start` — 启动生产服务
 - 服务器上的 systemd 服务名称为 **gxenglish.service**。
+
+### CRITICAL：构建必须使用 webpack，禁止用 Turbopack
+
+`package.json` 里的 build 脚本是 **`next build --webpack`**，**不要**改回默认的 `next build`（Turbopack）。
+
+原因：Next.js 16.3.5 的 Turbopack 会对 `paddleocr-service/venv` 内指向项目外的符号链接直接 panic，导致构建整体失败：
+
+```
+FATAL: An unexpected Turbopack error occurred.
+Caused by: Symlink [project]/paddleocr-service/venv/bin/python is invalid,
+it points out of the filesystem root
+```
+
+`paddleocr-service/venv` 由 `setup.sh` 用 `python3 -m venv` 创建、被 `.gitignore` 忽略，其中的 `bin/python -> python3 -> /usr/bin/python3`
+必然指向项目外，所以这个 panic 在本机环境下无法通过调整 venv 规避（改相对链接、提前设置 `PADDLEOCR_DIR` 均实测无效，Turbopack 仍会报同一错误）。
+
+**失败的典型后果**：构建在写入 `BUILD_ID` 之前就中止，`.next/` 里没有生产产物，`pnpm start` 报
+`Could not find a production build in the '.next' directory`，systemd 服务随即反复重启直至 failed。
 
 ## 更新 docs & dev
 
