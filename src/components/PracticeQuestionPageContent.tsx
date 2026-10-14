@@ -305,8 +305,8 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
               </div>
             )}
 
-            {/* 巩固练习按钮 - 仅在题目已作答时显示 */}
-            {question.status === 'ANSWERED' && question.wordIds.length > 0 && (
+            {/* 巩固练习按钮 - 已作答的题目，以及单词卡片（无需批改，进入即可巩固） */}
+            {(question.status === 'ANSWERED' || question.questionType === 'word-card') && question.wordIds.length > 0 && (
               <ConsolidatePracticeButton
                 wordIds={question.wordIds}
                 relatedWordEntries={question.relatedWordEntries as any[] || []}
