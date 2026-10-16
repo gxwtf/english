@@ -31,6 +31,9 @@ interface WordModalProps {
   allTagConfigs: Record<WordTag, TagConfig>;
   onTagsUpdate?: (newTagConfigs: Record<WordTag, TagConfig>) => void;
   onWordAdded?: () => void;
+  // 当前单词本 ID（在“所有单词”视图下为 undefined）。
+  // 透传给拍照识词与批量添加，保证新增的单词关联进当前单词本。
+  wordbookId?: number;
   zIndex?: number;
 }
 
@@ -46,7 +49,7 @@ function mergeMeaningsWithSaved(dictMeanings: Meaning[], savedMeanings: Meaning[
   return [...dictMeanings, ...extras];
 }
 
-export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [], queryWord, allTagConfigs, onTagsUpdate, onWordAdded, zIndex = 50 }: WordModalProps) => {
+export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [], queryWord, allTagConfigs, onTagsUpdate, onWordAdded, wordbookId, zIndex = 50 }: WordModalProps) => {
   const [word, setWord] = useState('');
   const [dictionaryData, setDictionaryData] = useState<DictionaryEntry | null>(null);
   // 保存原始词典数据，用于"恢复默认释义"
@@ -792,6 +795,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
           onTagsUpdate={onTagsUpdate}
           allWords={allWords}
           onWordAdded={onWordAdded}
+          wordbookId={wordbookId}
         />
       )}
 
@@ -804,6 +808,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
           onTagsUpdate={onTagsUpdate}
           allWords={allWords}
           onWordAdded={onWordAdded}
+          wordbookId={wordbookId}
         />
       )}
     </>

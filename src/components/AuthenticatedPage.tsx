@@ -863,6 +863,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
         allTagConfigs={allTagConfigs}
         onTagsUpdate={handleTagsUpdate}
         onWordAdded={loadData}
+        wordbookId={wordbookId}
       />
 
       {/* AI 出题类型选择器 */}

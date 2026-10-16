@@ -32,6 +32,9 @@ interface BatchAddWordProps {
   onTagsUpdate?: (newTagConfigs: Record<WordTag, TagConfig>) => void;
   allWords?: Word[];
   onWordAdded?: () => void;
+  // 当前单词本 ID（在“所有单词”视图下为 undefined）。
+  // 必须透传给 saveWord，否则单词只会建到用户词库、不会关联进当前单词本。
+  wordbookId?: number;
 }
 
 type WordStatus = 'pending' | 'processing' | 'success' | 'failed' | 'skipped';
@@ -52,6 +55,7 @@ export const BatchAddWord = ({
   onTagsUpdate,
   allWords = [],
   onWordAdded,
+  wordbookId,
 }: BatchAddWordProps) => {
   const [inputText, setInputText] = useState('');
   const [skipDef, setSkipDef] = useState(false);
@@ -130,6 +134,7 @@ export const BatchAddWord = ({
         meanings,
         tags: selectedTags,
         relatedWords: [],
+        wordbookId,
       });
 
       return { status: 'success', meanings };
@@ -242,7 +247,7 @@ export const BatchAddWord = ({
     relatedWords?: RelatedWord[];
   }) => {
     try {
-      await saveWordAction(wordData);
+      await saveWordAction({ ...wordData, wordbookId });
 
       if (editingWordIndex !== null) {
         setItems((prev) => {
@@ -578,6 +583,7 @@ export const BatchAddWord = ({
           allTagConfigs={allTagConfigs}
           onTagsUpdate={onTagsUpdate}
           onWordAdded={onWordAdded}
+          wordbookId={wordbookId}
         />
       )}
     </>
