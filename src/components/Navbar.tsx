@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, FileQuestion, HelpCircle, LogOut, User, Edit, Settings, Home } from 'lucide-react';
+import { BookOpen, FileQuestion, HelpCircle, LogOut, User, Settings, Home } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NavbarProps {
-  currentPage: 'home' | 'wordbook' | 'practice' | 'writing' | 'settings' | 'admin';
+  currentPage: 'home' | 'wordbook' | 'practice' | 'settings' | 'admin';
 }
 
 const NAV_LINK_CLASSES = 'flex items-center space-x-1 @min-[560px]:space-x-1.5 sm:space-x-2 px-1.5 @min-[560px]:px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors shrink-0 whitespace-nowrap';
@@ -49,18 +49,6 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
             >
               <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="hidden @min-[560px]:inline">单词本</span>
-            </Link>
-
-            <Link
-              href="/writing"
-              className={`${NAV_LINK_CLASSES} ${
-                currentPage === 'writing'
-                  ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300'
-                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-            >
-              <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span className="hidden @min-[640px]:inline">作文积累</span>
             </Link>
 
             <Link
