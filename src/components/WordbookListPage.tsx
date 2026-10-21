@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Layers,
   Download,
+  AlertCircle,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
@@ -22,6 +23,7 @@ import {
   createWordbook,
   renameWordbook,
   deleteWordbook,
+  previewDeleteWordbook,
 } from '@/actions/wordbooks';
 import { loadSystemWordbooks } from '@/actions/system-wordbooks';
 import { Button } from '@/components/ui/button';
@@ -69,6 +71,22 @@ export const WordbookListPage = () => {
 
   const [deleting, setDeleting] = useState<Wordbook | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
+  // 删除前先算出会删掉 / 保留多少单词（提示用户用）
+  const [deletePreview, setDeletePreview] = useState<{ exclusive: number; shared: number } | null>(
+    null,
+  );
+
+  const openDelete = async (book: Wordbook) => {
+    setDeleting(book);
+    setDeletePreview(null);
+    try {
+      const preview = await previewDeleteWordbook(book.id);
+      setDeletePreview({ exclusive: preview.exclusive, shared: preview.shared });
+    } catch (error) {
+      console.error('统计单词本内容失败:', error);
+      setDeletePreview(null);
+    }
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -135,6 +153,7 @@ export const WordbookListPage = () => {
     try {
       await deleteWordbook(deleting.id);
       setDeleting(null);
+      setDeletePreview(null);
       await loadData();
     } catch (error) {
       console.error('删除单词本失败:', error);
@@ -254,7 +273,7 @@ export const WordbookListPage = () => {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           variant="destructive"
-                          onClick={() => setDeleting(book)}
+                          onClick={() => openDelete(book)}
                         >
                           <Trash2 className="h-4 w-4" />
                           <span>删除</span>
@@ -368,18 +387,63 @@ export const WordbookListPage = () => {
       </Dialog>
 
       {/* 删除确认弹窗 */}
-      <Dialog open={!!deleting} onOpenChange={(open) => !open && !deletingBusy && setDeleting(null)}>
+      <Dialog
+        open={!!deleting}
+        onOpenChange={(open) => {
+          if (!open && !deletingBusy) {
+            setDeleting(null);
+            setDeletePreview(null);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>删除单词本</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-600 dark:text-gray-400 py-2">
-            确定要删除「{deleting?.name}」吗？仅属于该单词本的单词将被一并删除且不可恢复；被其他单词本共享的单词会保留。
-          </p>
+          <div className="py-2 space-y-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              确定要删除「{deleting?.name}」吗？
+            </p>
+
+            {deletePreview === null ? (
+              <p className="text-xs text-gray-500 dark:text-gray-400">正在统计本内单词...</p>
+            ) : deletePreview.exclusive === 0 && deletePreview.shared === 0 ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                该单词本是空的，删除不影响任何单词。
+              </p>
+            ) : (
+              <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-800 dark:text-amber-300 space-y-1">
+                    {deletePreview.exclusive > 0 && (
+                      <p>
+                        仅属于该本的 <strong>{deletePreview.exclusive}</strong> 个单词将被
+                        <strong>一并删除且不可恢复</strong>。
+                      </p>
+                    )}
+                    {deletePreview.shared > 0 && (
+                      <p>
+                        另有 <strong>{deletePreview.shared}</strong> 个单词同时存在于其他单词本，只解除关联、不会丢失。
+                      </p>
+                    )}
+                    {deletePreview.exclusive > 0 && (
+                      <p className="text-xs">
+                        如果这些单词还想保留，请先取消删除，进入本内把它们移动到其他单词本。
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setDeleting(null)}
+              onClick={() => {
+                setDeleting(null);
+                setDeletePreview(null);
+              }}
               disabled={deletingBusy}
             >
               取消

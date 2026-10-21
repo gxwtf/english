@@ -130,6 +130,44 @@ export async function renameWordbook(id: number, name: string): Promise<Wordbook
   return buildWordbookSummary(updated);
 }
 
+/**
+ * 统计删除某个单词本会删掉多少词、保留多少词。
+ * 供删除确认弹窗提示用户使用（避免用户不知道「一并删除」会影响多少单词）。
+ */
+export async function previewDeleteWordbook(
+  id: number,
+): Promise<{ exclusive: number; shared: number; name: string }> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('未登录');
+
+  const wordbook = await prisma.wordbook.findFirst({
+    where: { id, userId: user.userId },
+    select: { id: true, name: true },
+  });
+  if (!wordbook) throw new Error('单词本不存在');
+
+  const links = await prisma.wordbookWord.findMany({
+    where: { wordbookId: id },
+    select: { wordId: true },
+  });
+  const wordIds = links.map((link) => link.wordId);
+  if (wordIds.length === 0) {
+    return { exclusive: 0, shared: 0, name: wordbook.name };
+  }
+
+  const sharedLinks = await prisma.wordbookWord.findMany({
+    where: { wordId: { in: wordIds }, wordbookId: { not: id } },
+    select: { wordId: true },
+  });
+  const sharedIds = new Set(sharedLinks.map((link) => link.wordId));
+
+  return {
+    exclusive: wordIds.filter((wid) => !sharedIds.has(wid)).length,
+    shared: sharedIds.size,
+    name: wordbook.name,
+  };
+}
+
 // 删除单词本
 // 仅属于该单词本的单词会被一并删除；被其他单词本共享的单词只解除关联并保留
 export async function deleteWordbook(id: number): Promise<{ success: boolean; deletedWords: number }> {
