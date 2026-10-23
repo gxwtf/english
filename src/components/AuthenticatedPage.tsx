@@ -473,7 +473,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
     }
   };
   // 单词卡片直接生成（不需要 AI）；AI 例句由卡片页后台逐词补全
-  const handleCreateWordCard = async (selectedWords: Word[], includeRelatedWords?: boolean, useSpacedRepetition?: boolean, cardCount?: number, aiSentences?: boolean) => {
+  const handleCreateWordCard = async (selectedWords: Word[], includeRelatedWords?: boolean, useSpacedRepetition?: boolean, cardCount?: number, aiSentences?: boolean, sentencesCollapsed?: boolean) => {
     try {
       const neededCount = Math.max(
         1,
@@ -484,6 +484,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
       );
       const result = await createWordCardQuestion(wordIds, relatedWordEntries, {
         aiSentences: !!aiSentences,
+        sentencesCollapsed: !!sentencesCollapsed,
         // 来源单词本："所有单词"视图（wordbookId 为 undefined）时为全部单词本
         sourceWordbookIds: wordbookId != null ? [wordbookId] : null,
       });
@@ -508,7 +509,8 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
         options.includeRelatedWords,
         options.useSpacedRepetition,
         options.wordCard?.n,
-        options.wordCard?.aiSentences
+        options.wordCard?.aiSentences,
+        options.wordCard?.sentencesCollapsed
       );
       return;
     }

@@ -31,6 +31,8 @@ export interface WordCardQuestion {
   aiSentencesStatus?: WordCardSentenceStatus;
   /** 例句生成失败的单词数量（done 状态下可能有值） */
   aiSentencesFailedCount?: number;
+  /** 点击查看例句：背面默认只显示释义，点「查看例句」才切换为例句视图（旧题目无此字段） */
+  sentencesCollapsed?: boolean;
   /** 出题来源单词本；null 表示全部单词本（"所有单词"视图或全范围复习） */
   sourceWordbookIds?: number[] | null;
 }
@@ -38,6 +40,8 @@ export interface WordCardQuestion {
 export interface CreateWordCardOptions {
   /** 开启 AI 例句：卡片立即生成，例句由后台逐词补全 */
   aiSentences?: boolean;
+  /** 点击查看例句：释义与例句不在同一视图显示（仅在 aiSentences 为真时生效） */
+  sentencesCollapsed?: boolean;
   /** 出题来源单词本；null 表示全部单词本 */
   sourceWordbookIds?: number[] | null;
 }
@@ -136,6 +140,8 @@ export async function createWordCardQuestion(
     ...(options?.aiSentences
       ? { aiSentencesStatus: needsSentenceGeneration ? ('generating' as const) : ('done' as const) }
       : {}),
+    // 「点击查看例句」只在有 AI 例句时才有意义
+    ...(options?.aiSentences && options?.sentencesCollapsed ? { sentencesCollapsed: true } : {}),
     sourceWordbookIds: options?.sourceWordbookIds ?? null,
   };
 

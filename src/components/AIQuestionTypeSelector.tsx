@@ -13,6 +13,7 @@ const STORAGE_KEY_INCLUDE_RELATED = 'ai-question-include-related';
 const STORAGE_KEY_ALLOW_FORM_CHANGE = 'ai-question-allow-form-change';
 const STORAGE_KEY_USE_SPACED_REPETITION = 'ai-question-use-spaced-repetition';
 const STORAGE_KEY_WORD_CARD_AI_SENTENCES = 'ai-question-word-card-ai-sentences';
+const STORAGE_KEY_WORD_CARD_COLLAPSED_SENTENCES = 'ai-question-word-card-collapsed-sentences';
 
 export type QuestionGenerationOptions = {
   type: QuestionType;
@@ -119,6 +120,12 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     const stored = localStorage.getItem(STORAGE_KEY_WORD_CARD_AI_SENTENCES);
     return stored !== null ? stored === 'true' : true;
   });
+  const [wordCardCollapsedSentences, setWordCardCollapsedSentences] = useState<boolean>(() => {
+    // 「点击查看例句」默认关闭：保持原行为（释义 + 例句同屏），需要自测熟词生义时再勾选
+    if (typeof window === 'undefined') return false;
+    const stored = localStorage.getItem(STORAGE_KEY_WORD_CARD_COLLAPSED_SENTENCES);
+    return stored === 'true';
+  });
 
   // Persist checkbox values to localStorage
   useEffect(() => {
@@ -137,6 +144,10 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     if (typeof window === 'undefined') return;
     localStorage.setItem(STORAGE_KEY_WORD_CARD_AI_SENTENCES, String(wordCardAiSentences));
   }, [wordCardAiSentences]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEY_WORD_CARD_COLLAPSED_SENTENCES, String(wordCardCollapsedSentences));
+  }, [wordCardCollapsedSentences]);
 
   // 当可用单词池变化时，自动将各题型的题目数量调整到合法范围
   useEffect(() => {
@@ -270,7 +281,12 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
     } else if (selectedType === 'word-select-translate') {
       options.wordSelectTranslate = { n: typeof wordSelectTranslateN === 'number' ? wordSelectTranslateN : 5, m: typeof wordSelectTranslateM === 'number' ? wordSelectTranslateM : 0 };
     } else if (selectedType === 'word-card') {
-      options.wordCard = { n: typeof wordCardN === 'number' ? wordCardN : effectiveMaxWords, aiSentences: wordCardAiSentences };
+      options.wordCard = {
+        n: typeof wordCardN === 'number' ? wordCardN : effectiveMaxWords,
+        aiSentences: wordCardAiSentences,
+        // 没有 AI 例句时「点击查看例句」无意义，不写入选项
+        sentencesCollapsed: wordCardAiSentences && wordCardCollapsedSentences,
+      };
     }
     onGenerate(options);
   };
@@ -718,6 +734,28 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   </span>
                   <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     — 根据熟词生义为每个释义生成一句英文例句；卡片立即生成，例句逐词补充并缓存到词库，下次免生成
+                  </span>
+                </span>
+              </label>
+              <label
+                className={`flex items-start gap-3 select-none mt-3 ${
+                  wordCardAiSentences ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                }`}
+              >
+                <Checkbox
+                  id="word-card-collapsed-sentences"
+                  checked={wordCardCollapsedSentences}
+                  onCheckedChange={(checked) => setWordCardCollapsedSentences(!!checked)}
+                  disabled={!wordCardAiSentences}
+                  className="mt-0.5"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  点击查看例句
+                  <span className="px-1.5 py-0.5 ml-1.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-violet-600 rounded-full shadow-sm">
+                    NEW
+                  </span>
+                  <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    — 翻转后先只看释义，点「查看例句」才切换为例句；释义与例句不会同时出现，方便自测熟词生义（需开启上方「AI 生成例句」）
                   </span>
                 </span>
               </label>

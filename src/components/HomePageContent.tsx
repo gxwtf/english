@@ -200,6 +200,7 @@ export function HomePageContent() {
         );
         const wordCardResult = await createWordCardQuestion(wordIds, relatedWordEntries, {
           aiSentences: !!options.wordCard?.aiSentences,
+          sentencesCollapsed: !!options.wordCard?.sentencesCollapsed,
           // 来源单词本：一键复习范围（custom 为指定单词本，all 为全部单词本）
           sourceWordbookIds: scopeWordbookIds ?? null,
         });
