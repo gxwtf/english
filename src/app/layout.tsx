@@ -124,6 +124,23 @@ export default function RootLayout({
         <meta name="msapplication-tap-highlight" content="no" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
         <link rel="mask-icon" href="/icon-512.png" color="#a31f24" />
+        {/*
+          百度统计（hm.js）。按百度官方要求放在 </head> 之前，一处安装全站生效。
+          根布局渲染本应用全部路由，加这一次即可覆盖整个英语站（english.gxwtf.cn）。
+          这是本项目专属的站点 ID，与主站 / 古诗文 / 题库的 ID 都不同。
+        */}
+        <script
+          id="baidu-tongji"
+          dangerouslySetInnerHTML={{
+            __html: `var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?04aa0ee9b4dc3f3c07531934d922bffb";
+  var s = document.getElementsByTagName("script")[0];
+  s.parentNode.insertBefore(hm, s);
+})();`,
+          }}
+        />
       </head>
       <body className="antialiased flex flex-col min-h-screen">
         <AuthProvider>
