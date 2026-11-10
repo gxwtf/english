@@ -274,6 +274,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
                 cards={question.questionContent.cards as any[]}
                 aiSentencesStatus={question.questionContent.aiSentencesStatus as any}
                 aiSentencesFailedCount={question.questionContent.aiSentencesFailedCount as number | undefined}
+                sentencesCollapsed={question.questionContent.sentencesCollapsed as boolean | undefined}
                 sourceWordbookIds={question.questionContent.sourceWordbookIds as number[] | null | undefined}
                 status={question.status}
                 onSubmitted={handleSubmitted}

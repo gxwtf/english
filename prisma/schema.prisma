@@ -188,6 +188,11 @@ enum QuestionStatus {
   GRADING_FAILED
 }
 
+/// 作文积累（已从本项目迁出，独立为「作文积累本」项目 https://writing.gxwtf.cn）
+///
+/// 说明：作文积累功能与前端代码已于 2026-10 移除，数据也已迁移到独立项目；
+/// 这里保留模型定义，仅用于兼容历史数据库表，避免产生破坏性迁移。
+/// 在确认历史数据不再需要之前，请勿删除对应的数据表。
 model WritingEntry {
   id        Int      @id @default(autoincrement())
   userId    Int

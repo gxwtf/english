@@ -7,7 +7,7 @@
 - 每个用户可以添加一个词库，给词库里的每一个单词打一个 tag，表示自己对这个单词掌握不足的知识点。（比如一词多义、形式变形等）
 - 根据用户的词库生成一些题目(利用AI)和游戏，比如选词填空、完型填空、翻译等等。
 
-目前仅限于背单词，未来可能会添加阅读、作文训练等功能。
+目前专注于背单词与 AI 出题；作文积累功能已独立为「作文积累本」项目（https://writing.gxwtf.cn）。
 
 # 本地运行方法
 
@@ -30,80 +30,15 @@ cd paddleocr-service && ./setup.sh
 pnpm build && pnpm start
 ```
 
-# API 接口
 
-## 作文积累查询 API
+## 接口说明
 
-| 地址 | 功能 |
-| :-: | :-: |
-| `GET /api/writing-entries?userId=XXX` | 查询指定用户的作文积累本内容 |
+「作文积累本」已从本项目独立为单独项目，原先的 `GET /api/writing-entries` 接口随之迁出：
 
-### 认证机制
+- 生产地址：<https://writing.gxwtf.cn>
+- 开发文档：<https://dev.gxwtf.cn/#/writing/>
 
-本 API 采用 **Bearer API Key 认证**，确保只有持有正确 API Key 的服务才能访问。
-
-#### 认证方式
-
-请求必须包含 `Authorization: Bearer <API_KEY>` header：
-
-```bash
-curl -X GET "http://localhost:3003/api/writing-entries?userId=2443" \
-  -H "Authorization: Bearer your-secret-api-key-change-this-in-production-abc123xyz789"
-```
-
-#### 环境变量配置
-
-在 `.env` 文件中配置 API Key：
-
-```bash
-# API 认证密钥（用于作文积累查询 API）
-SECRET_API_KEY="your-secret-api-key-change-this-in-production-abc123xyz789"
-```
-
-**安全警告**：
-- ⚠️ 生产环境必须设置强密码作为 API Key
-- ⚠️ API Key 不得泄露或上传到公开仓库
-- ⚠️ 定期更换 API Key 以提高安全性
-- ⚠️ 使用 HTTPS 传输 API Key（生产环境）
-
-#### 参数说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| userId | Integer | 是 | 用户 ID（正整数） |
-
-### 返回数据格式
-
-```json
-{
-  "success": true,
-  "userId": 2443,
-  "userName": "testuser",
-  "count": 3,
-  "entries": [
-    {
-      "id": 1,
-      "content": "Knowledge is power.",
-      "note": "知识就是力量",
-      "tags": ["重点"],
-      "createdAt": "2026-07-10T10:30:00.000Z",
-      "updatedAt": "2026-07-10T10:30:00.000Z"
-    }
-  ],
-  "timestamp": "2026-07-10T12:00:00.000Z"
-}
-```
-
-### 错误响应
-
-```json
-{
-  "success": false,
-  "error": "认证失败",
-  "message": "请提供正确的 API Key（Authorization: Bearer <API_KEY>）",
-  "timestamp": "2026-07-10T12:00:00.000Z"
-}
-```
+> 本项目现在只包含「单词本」与「题目列表」两大功能；如需作文积累数据，请访问新项目。
 
 ## SSO 认证原理（前端应用）
 
@@ -154,34 +89,8 @@ SECRET_API_KEY="your-secret-api-key-change-this-in-production-abc123xyz789"
 3. **安全性高**：即使 cookie 被窃取，也无法获取用户明文信息
 4. **无需服务端存储**：加密数据存储在客户端，减少服务端负担
 
-### API 认证 vs 前端认证
+### 认证方式
 
-本项目采用**双重认证机制**：
+本项目前端应用使用 **广学统一认证系统**（`account.gxwtf.cn`）SSO + iron-session 加密 Cookie 进行身份认证。
+作文积累 API 迁出后，本项目不再提供对外的 Bearer API Key 接口。
 
-| 认证方式 | 适用场景 | 认证原理 | 安全特点 |
-|---------|---------|---------|---------|
-| **iron-session Cookie** | 前端浏览器访问 | 加密 session 存储 | 防篡改，加密保护 |
-| **Bearer API Key** | 服务间 API 调用 | API Key 验证 | 简单，高效，防滥用 |
-
-**API Key 认证优势**：
-- ✅ 无需 Cookie 共享，适合跨项目调用
-- ✅ 防止滥用和隐私泄露
-- ✅ 简单易用，便于服务间集成
-- ✅ 可随时更换 API Key 提高安全性
-
-### API 测试示例
-
-```bash
-# 1. 使用 API Key 认证（推荐）
-curl -X GET "http://localhost:3003/api/writing-entries?userId=2443" \
-  -H "Authorization: Bearer your-secret-api-key-change-this-in-production-abc123xyz789"
-
-# 2. 错误示例（缺少 API Key）
-curl -X GET "http://localhost:3003/api/writing-entries?userId=2443"
-# 返回：{"success":false,"error":"认证失败",...}
-
-# 3. 错误示例（缺少 userId）
-curl -X GET "http://localhost:3003/api/writing-entries" \
-  -H "Authorization: Bearer your-secret-api-key-change-this-in-production-abc123xyz789"
-# 返回：{"success":false,"error":"缺少参数",...}
-```

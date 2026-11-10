@@ -703,9 +703,9 @@ export async function saveTagConfigs(tagConfigs: Record<string, { name: string; 
   return result;
 }
 
-export async function countTagUsage(tagName: string): Promise<{ wordCount: number; writingCount: number }> {
+export async function countTagUsage(tagName: string): Promise<{ wordCount: number }> {
   const user = await getAuthUser();
-  if (!user) return { wordCount: 0, writingCount: 0 };
+  if (!user) return { wordCount: 0 };
 
   const wordCount = await prisma.wordTag.count({
     where: {
@@ -714,14 +714,7 @@ export async function countTagUsage(tagName: string): Promise<{ wordCount: numbe
     }
   });
 
-  const writingCount = await prisma.writingEntryTag.count({
-    where: {
-      tag: { name: tagName },
-      writingEntry: { userId: user.userId }
-    }
-  });
-
-  return { wordCount, writingCount };
+  return { wordCount };
 }
 
 export async function deleteTag(tagName: string): Promise<{ success: boolean }> {

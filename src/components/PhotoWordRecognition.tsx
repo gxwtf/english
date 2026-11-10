@@ -27,6 +27,9 @@ interface PhotoWordRecognitionProps {
   onTagsUpdate?: (newTagConfigs: Record<WordTag, TagConfig>) => void;
   allWords?: Word[];
   onWordAdded?: () => void;
+  // 当前单词本 ID（在“所有单词”视图下为 undefined）。
+  // 必须透传给 saveWord，否则单词只会建到用户词库、不会关联进当前单词本。
+  wordbookId?: number;
 }
 
 export const PhotoWordRecognition = ({
@@ -37,6 +40,7 @@ export const PhotoWordRecognition = ({
   onTagsUpdate,
   allWords = [],
   onWordAdded,
+  wordbookId,
 }: PhotoWordRecognitionProps) => {
   const [step, setStep] = useState<'idle' | 'preview' | 'recognizing' | 'results'>('idle');
   const [imageData, setImageData] = useState<string | null>(null);
@@ -252,7 +256,7 @@ export const PhotoWordRecognition = ({
     relatedWords?: RelatedWord[];
   }) => {
     try {
-      await saveWordAction(wordData);
+      await saveWordAction({ ...wordData, wordbookId });
 
       if (editingWordIndex !== null) {
         setRecognizedWords(prev => prev.filter((_, i) => i !== editingWordIndex));
@@ -291,6 +295,7 @@ export const PhotoWordRecognition = ({
           meanings: meaningsToAdd,
           tags: selectedTags,
           relatedWords: [],
+          wordbookId,
         });
       } catch (err) {
         console.error(`保存单词 ${word.text} 失败:`, err);
@@ -606,6 +611,7 @@ export const PhotoWordRecognition = ({
           allTagConfigs={allTagConfigs}
           onTagsUpdate={onTagsUpdate}
           onWordAdded={onWordAdded}
+          wordbookId={wordbookId}
         />
       )}
     </>

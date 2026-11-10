@@ -27,7 +27,7 @@ export const TagEditModal = ({ isOpen, onClose, onTagsUpdate, currentTags }: Tag
   const [showColorSelector, setShowColorSelector] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingTag, setDeletingTag] = useState<WordTag | null>(null);
-  const [tagUsage, setTagUsage] = useState<{ wordCount: number; writingCount: number } | null>(null);
+  const [tagUsage, setTagUsage] = useState<{ wordCount: number } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const handleAddTag = () => {
@@ -210,7 +210,7 @@ export const TagEditModal = ({ isOpen, onClose, onTagsUpdate, currentTags }: Tag
               确定要删除标签「{deletingTag ? currentTags[deletingTag]?.name : ''}」吗？
             </DialogDescription>
           </DialogHeader>
-          {tagUsage && (tagUsage.wordCount > 0 || tagUsage.writingCount > 0) && (
+          {tagUsage && tagUsage.wordCount > 0 && (
             <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 mb-4">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
@@ -219,9 +219,6 @@ export const TagEditModal = ({ isOpen, onClose, onTagsUpdate, currentTags }: Tag
                   <ul className="space-y-0.5">
                     {tagUsage.wordCount > 0 && (
                       <li>• {tagUsage.wordCount} 个单词</li>
-                    )}
-                    {tagUsage.writingCount > 0 && (
-                      <li>• {tagUsage.writingCount} 个作文积累</li>
                     )}
                   </ul>
                   <p className="mt-2 text-xs">删除后将自动从相关内容中移除该标签</p>

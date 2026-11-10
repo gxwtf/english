@@ -30,4 +30,7 @@ export interface WordCardOptions {
   // 开启 AI 例句：根据熟词生义为每个释义生成一句英文例句。
   // 卡片立即生成，例句由后台逐词补全（前端渐进展示），生成后写回词库缓存。
   aiSentences?: boolean;
+  // 点击查看例句：开启后卡片背面默认只显示释义，点「查看例句」才切换为例句视图，
+  // 释义与例句不会同时出现（方便自测熟词生义）。仅在 aiSentences 为真时生效。
+  sentencesCollapsed?: boolean;
 }

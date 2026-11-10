@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useMemo, useEffect, type ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, RotateCcw, Check, X, Trash2, Undo2, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, Check, X, Trash2, Undo2, Loader2, Eye, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { WordCardItem, WordCardSentenceStatus } from '@/actions/ai-question/word-card';
 import { recordWordCardReview } from '@/actions/review';
@@ -36,6 +36,8 @@ interface WordCardAnswerProps {
   aiSentencesStatus?: WordCardSentenceStatus;
   /** 例句生成失败的单词数量 */
   aiSentencesFailedCount?: number;
+  /** 点击查看例句：背面默认只显示释义，点「查看例句」才切换为例句视图（释义与例句不同时显示） */
+  sentencesCollapsed?: boolean;
   /** 出题来源单词本；undefined 表示旧题目。null 表示全部单词本 */
   sourceWordbookIds?: number[] | null;
 }
@@ -61,6 +63,15 @@ function mergeMeaningsByType(meanings: Meaning[]): { type: string; content: stri
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** 例句与释义按序号一一对应，用 ①②③ 标出顺序（超过 20 条退回普通数字） */
+const SENTENCE_INDEX_LABELS = [
+  '①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩',
+  '⑪', '⑫', '⑬', '⑭', '⑮', '⑯', '⑰', '⑱', '⑲', '⑳',
+];
+function sentenceIndexLabel(index: number): string {
+  return SENTENCE_INDEX_LABELS[index] ?? `${index + 1}.`;
 }
 
 /** 在例句中高亮目标单词（含常见屈折形式） */
@@ -95,6 +106,7 @@ export function WordCardAnswer({
   onSubmitted,
   aiSentencesStatus,
   aiSentencesFailedCount,
+  sentencesCollapsed,
   sourceWordbookIds,
 }: WordCardAnswerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -104,6 +116,8 @@ export function WordCardAnswer({
   const [cardStates, setCardStates] = useState<Record<number, WordCardState>>({});
   const [saving, setSaving] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  // 「点击查看例句」模式下，当前卡片是否切换到了例句视图（false = 只显示释义）
+  const [showSentences, setShowSentences] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
@@ -268,6 +282,8 @@ export function WordCardAnswer({
   const switchToCard = useCallback((nextIndex: number) => {
     setSuppressFlipAnimation(true);
     setIsFlipped(false);
+    // 换卡时回到「只看释义」，避免下一张卡片直接显示上一张的例句视图
+    setShowSentences(false);
     setCurrentIndex(nextIndex);
   }, []);
 
@@ -444,48 +460,107 @@ export function WordCardAnswer({
             <RotateCcw className="w-5 h-5 lg:w-6 lg:h-6 opacity-50 mt-2" />
           </div>
 
-          {/* 反面 - 释义 + 例句 */}
+          {/* 反面 - 释义 / 例句（内容区独立滚动，底部按钮固定，长释义/长例句不会被裁掉） */}
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl shadow-lg bg-gradient-to-br from-brand-crimson to-brand-deep-red text-white p-4 lg:p-8 overflow-auto"
+            className="absolute inset-0 flex flex-col rounded-2xl shadow-lg bg-gradient-to-br from-brand-crimson to-brand-deep-red text-white overflow-hidden"
             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           >
-            <div className="text-2xl lg:text-4xl font-bold mb-3 lg:mb-5">{currentCard.word}</div>
-            {sentencesEnabled ? (
-              <div className="w-full space-y-2 lg:space-y-3 text-center">
-                {meaningList.map((m, idx) => (
-                  <div key={idx} className="text-sm lg:text-lg leading-relaxed">
-                    <div>
-                      <span className="font-semibold opacity-90">{m.type}</span>
-                      <span className="opacity-80"> {m.content}</span>
-                    </div>
-                    {m.sentence ? (
-                      <p className="mt-0.5 text-xs lg:text-base italic opacity-90 break-words">
-                        {renderHighlightedSentence(m.sentence, currentCard.word)}
-                      </p>
-                    ) : aiStatus === 'generating' && !currentCard.sentenceFailed ? (
-                      <p className="mt-0.5 text-xs lg:text-sm opacity-60 flex items-center justify-center gap-1">
-                        <Loader2 className="h-3 w-3 animate-spin" /> 例句生成中…
-                      </p>
-                    ) : null}
+            <div className="flex-1 min-h-0 w-full overflow-y-auto">
+              <div className="min-h-full flex flex-col items-center justify-center px-4 lg:px-8 py-4 lg:py-6">
+                <div className="text-2xl lg:text-4xl font-bold mb-3 lg:mb-5">{currentCard.word}</div>
+                {sentencesEnabled && sentencesCollapsed ? (
+                  // 「点击查看例句」：释义视图与例句视图互斥，二者不会同时显示
+                  <div className="w-full space-y-2 lg:space-y-3 text-center">
+                    {showSentences ? (
+                      meaningList.length > 0 ? (
+                        meaningList.map((m, idx) => (
+                          <div key={idx} className="text-sm lg:text-lg leading-relaxed">
+                            <p className="italic opacity-95 break-words">
+                              <span className="not-italic font-semibold opacity-80 mr-1">
+                                {sentenceIndexLabel(idx)}
+                              </span>
+                              {m.sentence ? (
+                                renderHighlightedSentence(m.sentence, currentCard.word)
+                              ) : aiStatus === 'generating' && !currentCard.sentenceFailed ? (
+                                <span className="not-italic opacity-60 inline-flex items-center gap-1">
+                                  <Loader2 className="h-3 w-3 animate-spin" /> 例句生成中…
+                                </span>
+                              ) : (
+                                <span className="not-italic opacity-60">暂无例句</span>
+                              )}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-base lg:text-xl opacity-75">暂无例句</div>
+                      )
+                    ) : meaningList.length > 0 ? (
+                      meaningList.map((m, idx) => (
+                        <div key={idx} className="text-sm lg:text-lg leading-relaxed">
+                          <span className="text-xs align-top opacity-70 mr-1">{sentenceIndexLabel(idx)}</span>
+                          <span className="font-semibold opacity-90">{m.type}</span>
+                          <span className="opacity-80"> {m.content}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-base lg:text-xl opacity-75">暂无释义</div>
+                    )}
                   </div>
-                ))}
-                {meaningList.length === 0 && (
+                ) : sentencesEnabled ? (
+                  <div className="w-full space-y-2 lg:space-y-3 text-center">
+                    {meaningList.map((m, idx) => (
+                      <div key={idx} className="text-sm lg:text-lg leading-relaxed">
+                        <div>
+                          <span className="font-semibold opacity-90">{m.type}</span>
+                          <span className="opacity-80"> {m.content}</span>
+                        </div>
+                        {m.sentence ? (
+                          <p className="mt-0.5 text-xs lg:text-base italic opacity-90 break-words">
+                            {renderHighlightedSentence(m.sentence, currentCard.word)}
+                          </p>
+                        ) : aiStatus === 'generating' && !currentCard.sentenceFailed ? (
+                          <p className="mt-0.5 text-xs lg:text-sm opacity-60 flex items-center justify-center gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" /> 例句生成中…
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                    {meaningList.length === 0 && (
+                      <div className="text-base lg:text-xl opacity-75">暂无释义</div>
+                    )}
+                  </div>
+                ) : mergedMeanings.length > 0 ? (
+                  <div className="space-y-2 lg:space-y-3 text-center">
+                    {mergedMeanings.map((m, idx) => (
+                      <div key={idx} className="text-sm lg:text-xl leading-relaxed">
+                        <span className="font-semibold opacity-90">{m.type}</span>
+                        <span className="opacity-80"> {m.content}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
                   <div className="text-base lg:text-xl opacity-75">暂无释义</div>
                 )}
               </div>
-            ) : mergedMeanings.length > 0 ? (
-              <div className="space-y-2 lg:space-y-3 text-center">
-                {mergedMeanings.map((m, idx) => (
-                  <div key={idx} className="text-sm lg:text-xl leading-relaxed">
-                    <span className="font-semibold opacity-90">{m.type}</span>
-                    <span className="opacity-80"> {m.content}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-base lg:text-xl opacity-75">暂无释义</div>
-            )}
-            <RotateCcw className="w-5 h-5 lg:w-6 lg:h-6 opacity-50 mt-3 shrink-0" />
+            </div>
+            <div className="shrink-0 flex flex-col items-center gap-1.5 px-4 pb-2.5 lg:pb-3 pt-1">
+              {sentencesEnabled && sentencesCollapsed && (
+                <button
+                  type="button"
+                  aria-label={showSentences ? '返回释义' : '查看例句'}
+                  onClick={(e) => {
+                    // 阻止冒泡，避免触发卡片翻转
+                    e.stopPropagation();
+                    setShowSentences((prev) => !prev);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/10 px-3.5 py-1.5 text-xs lg:text-sm font-medium text-white hover:bg-white/20 transition-colors"
+                >
+                  {showSentences ? <BookOpen className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {showSentences ? '返回释义' : '查看例句'}
+                </button>
+              )}
+              <RotateCcw className="w-5 h-5 lg:w-6 lg:h-6 opacity-50" />
+            </div>
           </div>
         </div>
       </div>

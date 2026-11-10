@@ -35,6 +35,28 @@
 
 **注意：这是不可妥协的硬性规定。未完成 Chrome MCP 测试前，你不准告诉你任务已完成。**
 
+### 页面级回归测试（`scripts/e2e/`）
+
+仓库里有一组**真实浏览器 + 真实数据库**的端到端回归脚本，放在 `scripts/e2e/`（未被 git 跟踪，
+不随 `git pull` 更新）。它可以在没有 Chrome MCP 的环境下替代上面的人工浏览器测试：
+
+| 脚本 | 作用 |
+| --- | --- |
+| `batchadd.mjs` | 单词本详情页「添加单词 → 批量添加单词」全流程；断言单词**真的**关联进了这个单词本（查 `WordbookWord`），而不只是界面提示成功 |
+| `allwords.mjs` | 「所有单词」视图回归（无 `wordbookId` 时仍能正常添加） |
+| `explore.mjs` / `explore2.mjs` | 打印页面可见文本 / 按钮清单 + 截图；写新用例时先用它确认选择器 |
+
+```bash
+# 必须在仓库根目录运行（脚本读 .env 里的 DATABASE_URL）
+GX_IDENT='<测试账号>' GX_PASSWORD='<密码>' node scripts/e2e/batchadd.mjs grape,lemon,peach
+```
+
+- 浏览器默认 `/usr/bin/microsoft-edge`（`/usr/bin/chromium-browser` 只是 snap 壳，用不了），可用 `BROWSER_PATH` 覆盖。
+- **必须用测试账号**（如 `小广_2`）：脚本会真实写入单词本和单词，且不自动清理。
+- **改动「添加单词 / 单词本关联」相关逻辑后必须跑一次** `batchadd.mjs`。
+
+详细说明见开发文档 `gxenglish/testing.md`（《回归测试》）。
+
 ### 数据库高危操作必须二次确认（CRITICAL）
 
 由于项目使用了 Prisma + Postgres，任何可能导致**数据删除、数据不可逆变更或大规模数据修改**的操作，都必须先暂停并向我确认，**未经你的明确许可，不得执行**。

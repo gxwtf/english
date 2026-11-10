@@ -90,7 +90,7 @@ export function SettingsPageContent() {
       id: 'tags',
       icon: TagIcon,
       title: '标签管理',
-      description: '创建、编辑和组织标签，单词本和作文积累本共用',
+      description: '创建、编辑和组织标签，用于单词本中的单词分类',
       onClick: () => setShowTagEditModal(true),
     },
     ...(isAdmin
@@ -160,7 +160,7 @@ export function SettingsPageContent() {
         {/* 提示信息 */}
         <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <p className="text-sm text-blue-700 dark:text-blue-300">
-            💡 提示：标签系统在单词本和作文积累本之间共享，修改标签会影响两个功能。
+            💡 提示：标签系统用于单词本中的单词分类，修改标签会影响单词本视图。
           </p>
         </div>
       </div>
