@@ -471,6 +471,16 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                 )}
               </div>
 
+              {/* 词典未返回任何释义时给出明确提示，避免出现“列表一片空白” */}
+              {dictionaryData && dictionaryData.meaning.length === 0 && !loading && (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>
+                    词典中未找到「{dictionaryData.word || searchedWord}」的释义，请在下方手动添加释义。
+                  </span>
+                </div>
+              )}
+
               {/* 释义选择区域 */}
               {dictionaryData && dictionaryData.meaning.length > 0 && (
                 <div>
