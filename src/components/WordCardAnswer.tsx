@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, RotateCcw, Check, X, Trash2, Undo2, Loader2, Eye, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { WordPronunciation } from '@/components/WordPronunciation';
 import type { WordCardItem, WordCardSentenceStatus } from '@/actions/ai-question/word-card';
 import { recordWordCardReview } from '@/actions/review';
 import {
@@ -451,7 +452,13 @@ export function WordCardAnswer({
             }`}
             style={{ backfaceVisibility: 'hidden' }}
           >
-            <div className="text-4xl sm:text-6xl lg:text-7xl font-bold mb-4 break-all text-center px-2">{currentCard.word}</div>
+            <div className="text-4xl sm:text-6xl lg:text-7xl font-bold mb-3 break-all text-center px-2">{currentCard.word}</div>
+            <WordPronunciation
+              word={currentCard.word}
+              size="lg"
+              tone="onDark"
+              className="mb-3 lg:mb-4"
+            />
             {removedCards[currentCard.id] ? (
               <div className="text-sm lg:text-lg opacity-80">已从单词本删除（可撤回）</div>
             ) : (
@@ -467,7 +474,10 @@ export function WordCardAnswer({
           >
             <div className="flex-1 min-h-0 w-full overflow-y-auto">
               <div className="min-h-full flex flex-col items-center justify-center px-4 lg:px-8 py-4 lg:py-6">
-                <div className="text-2xl lg:text-4xl font-bold mb-3 lg:mb-5">{currentCard.word}</div>
+                <div className="flex flex-col items-center gap-2 mb-3 lg:mb-5">
+                  <div className="text-2xl lg:text-4xl font-bold">{currentCard.word}</div>
+                  <WordPronunciation word={currentCard.word} size="md" tone="onDark" />
+                </div>
                 {sentencesEnabled && sentencesCollapsed ? (
                   // 「点击查看例句」：释义视图与例句视图互斥，二者不会同时显示
                   <div className="w-full space-y-2 lg:space-y-3 text-center">

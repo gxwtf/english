@@ -9,6 +9,7 @@ export class DictCsv {
 
     // 对应 Python 代码中的列索引（假设 stardict.py 生成的标准 CSV 布局）
     private readonly COL_WORD = 0;
+    private readonly COL_PHONETIC = 1;
     private readonly COL_TRANSLATION = 3;
 
     constructor(csvPath: string) {
@@ -85,6 +86,8 @@ export class DictCsv {
         
         return {
             word: row[this.COL_WORD],
+            // 音标：ECdict 的 phonetic 列（例如 hello → hә'lәu）
+            pronunciation: row[this.COL_PHONETIC] || undefined,
             meaning: this.parseTranslationToMeanings(rawTranslation)
         };
     }

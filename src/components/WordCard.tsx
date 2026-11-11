@@ -7,6 +7,7 @@ import { COLOR_PRESETS } from '@/constants/word-tags';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { WordPronunciation } from '@/components/WordPronunciation';
 import {
   Dialog,
   DialogContent,
@@ -112,6 +113,7 @@ export const WordCard = ({
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1 break-words">
                 {word.text}
               </h3>
+              <WordPronunciation word={word.text} size="sm" className="mb-1" />
             </div>
 
             {!readOnly && (

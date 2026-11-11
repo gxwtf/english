@@ -25,6 +25,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { WordPronunciation } from '@/components/WordPronunciation';
 
 interface WordMeaningsDisplayProps {
   questionId: string;
@@ -342,6 +343,7 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
               )}
               :
             </span>
+            <WordPronunciation word={word.text} size="sm" className="mt-0.5 shrink-0" />
             <div className="flex flex-wrap gap-1 flex-1">
               {word.meanings.length > 0 ? (
                 word.meanings.map((meaning, mIndex) => (

@@ -119,6 +119,7 @@ export function query(word: string): DictionaryEntry | null {
     if (!result) return null;
     let ret: DictionaryEntry = {
         word: result.word,
+        pronunciation: result.pronunciation,
         meaning: []
     };
     const parenPlaceholder = (text: string): [string, string[]] => {

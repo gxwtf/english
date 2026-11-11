@@ -9,6 +9,7 @@ import { TagEditModal } from '@/components/TagEditModal';
 import { RelatedWordSelector } from '@/components/RelatedWordSelector';
 import { PhotoWordRecognition } from '@/components/PhotoWordRecognition';
 import { BatchAddWord } from '@/components/BatchAddWord';
+import { WordPronunciation } from '@/components/WordPronunciation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -465,10 +466,11 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                   {dictionaryData?.word || word.trim()}
                 </h3>
                 {dictionaryData?.pronunciation && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                     音标: {dictionaryData.pronunciation}
                   </p>
                 )}
+                <WordPronunciation word={dictionaryData?.word || word.trim()} size="md" />
               </div>
 
               {/* 词典未返回任何释义时给出明确提示，避免出现“列表一片空白” */}
