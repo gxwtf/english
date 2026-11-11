@@ -1,15 +1,17 @@
-// E2E regression for 单词发音（有道语音 API / 英音 + 美音）。
+// E2E regression for 单词发音（有道 API：英/美 音标 + 发音）。
 //
 // Covers:
-//  1. /api/pronunciation 接口：us / uk 返回 audio/mpeg 且内容不同；非法参数 400；查不到的词 502
-//  2. 「所有单词」列表：每个单词卡片同时显示「英音」「美音」，点击后真的播放且不会误触发选中
-//  3. 添加单词弹窗：词典预览处同样显示英音 / 美音
-//  4. 单词卡片（word-card）练习页：正面与反面都有英音 / 美音
+//  1. /api/pronunciation：us / uk 返回 audio/mpeg 且内容不同；非法参数 400；查不到的词 502
+//  2. /api/phonetics：hello 返回英/美音标；查不到的词音标为 null；非法参数 400
+//  3. 「所有单词」列表：每个单词显示「英 [音标] 🔊」「美 [音标] 🔊」，点击后真的播放且不会误触发选中
+//  4. 添加单词弹窗：同样显示英/美 + 音标
+//  5. 单词卡片（word-card）练习页：正面与反面都有英/美 + 音标
+//  6. 手机宽度（390px）下仍能看到两个入口
 //
 // Usage（仓库根目录）：
 //   node scripts/e2e/pronunciation.mjs                 # 默认测本地 http://localhost:3013
 //   E2E_BASE=https://english.gxwtf.cn node scripts/e2e/pronunciation.mjs
-// 凭据：GX_IDENT / GX_PASSWORD 或 scripts/e2e/creds.json。
+// 凭据：GX_IDENT / GX_PASSWORD 或 scripts/e2e/creds.json（SSO 失败时回退为本地签会话）。
 import { chromium } from 'playwright';
 import pg from 'pg';
 import dotenv from 'dotenv';
@@ -31,11 +33,15 @@ const norm = (t) => (t || '').replace(/\s+/g, ' ').trim();
 
 async function apiGet(path) {
   const res = await fetch(BASE + path);
+  const type = res.headers.get('content-type') || '';
+  if (type.includes('application/json')) {
+    return { status: res.status, type, json: await res.json() };
+  }
   const buf = Buffer.from(await res.arrayBuffer());
-  return { status: res.status, type: res.headers.get('content-type') || '', body: buf };
+  return { status: res.status, type, body: buf };
 }
 
-// ---------- PART 1: API ----------
+// ---------- PART 1: 发音接口 ----------
 console.log(`[e2e] base = ${BASE}`);
 const us = await apiGet('/api/pronunciation?word=hello&accent=us');
 const uk = await apiGet('/api/pronunciation?word=hello&accent=uk');
@@ -52,6 +58,17 @@ check(badWord.status === 400, 'API 非法 word 返回 400', `status=${badWord.st
 const unknownWord = await apiGet('/api/pronunciation?word=zzzqxjkwv&accent=us');
 check(unknownWord.status === 502, 'API 有道查不到的词返回 502（前端可提示）', `status=${unknownWord.status}`);
 
+// ---------- PART 1b: 音标接口 ----------
+const ph = await apiGet('/api/phonetics?word=hello');
+check(ph.status === 200, 'API 音标返回 200', `status=${ph.status}`);
+check(typeof ph.json?.uk === 'string' && ph.json.uk.length > 0, 'API 音标含英音音标', `uk=${ph.json?.uk}`);
+check(typeof ph.json?.us === 'string' && ph.json.us.length > 0, 'API 音标含美音音标', `us=${ph.json?.us}`);
+check(ph.json?.uk !== ph.json?.us, 'API 英音 / 美音音标不同（hello）', `uk=${ph.json?.uk} us=${ph.json?.us}`);
+const phNone = await apiGet('/api/phonetics?word=zzzqxjkwv');
+check(phNone.status === 200 && phNone.json?.uk === null && phNone.json?.us === null, 'API 查不到的词音标为 null', JSON.stringify(phNone.json));
+const phBad = await apiGet('/api/phonetics?word=' + encodeURIComponent('!!!'));
+check(phBad.status === 400, 'API 音标非法 word 返回 400', `status=${phBad.status}`);
+
 // ---------- PART 2: 登录 + 浏览器 ----------
 const { identifier, password } = creds();
 let userId;
@@ -63,7 +80,6 @@ try {
   console.log(`[e2e] user=${identifier} userId=${userId}（SSO 登录）`);
 } catch (error) {
   // 测试账号密码过期时，退化为「用本站 SECRET_COOKIE_PASSWORD 本地签一个会话 cookie」。
-  // iron-session 是无状态 cookie，与服务端同一密钥即可被识别，不需要走账号中心。
   console.log(`[e2e] SSO 登录失败（${error.message.slice(0, 80)}），改用本地签名会话`);
   const row = await q(
     `SELECT "userId","userName",admin,email,"realName" FROM "User" WHERE "userName"=$1 LIMIT 1`,
@@ -91,11 +107,31 @@ const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, 
 if (new URL(BASE).hostname === 'english.gxwtf.cn') {
   await ctx.addCookies(cookies.map((c) => ({ name: c.name, value: c.value, domain: c.host, path: '/', httpOnly: true, secure: true })));
 } else {
-  // 同一个 SECRET_COOKIE_PASSWORD 生成的会话，可直接搬到本地 dev（iron-session 值不绑定域名）
   await ctx.addCookies(cookies.map((c) => ({ name: c.name, value: c.value, url: BASE })));
 }
 const page = await ctx.newPage();
 page.on('pageerror', (e) => console.log('  [pageerror]', e.message.slice(0, 300)));
+
+/** 等待发音按钮组内「英」「美」两段音标都加载出来 */
+async function waitPhonetics(group, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs;
+  let values = { uk: '', us: '' };
+  while (Date.now() < deadline) {
+    values = await group.evaluate((el) => ({
+      uk: el.querySelector('[data-pronunciation-accent="uk"]')?.getAttribute('data-phonetic') || '',
+      us: el.querySelector('[data-pronunciation-accent="us"]')?.getAttribute('data-phonetic') || '',
+    }));
+    if (values.uk && values.us) break;
+    await page.waitForTimeout(250);
+  }
+  return values;
+}
+
+/** 校验一段「口音 + [音标] + 喇叭」的文本形态 */
+function looksStyled(text, label) {
+  const re = new RegExp(`${label}\\s*\\[[^\\]]+\\]`);
+  return re.test(text);
+}
 
 /** 等待某个发音按钮组内的 audio 真正拿到音频并开始播放 */
 async function waitAudioPlaying(audioLocator, label) {
@@ -123,21 +159,27 @@ async function waitAudioPlaying(audioLocator, label) {
 }
 
 try {
-  // ---------- PART 2: 「所有单词」列表 ----------
+  // ---------- PART 3: 「所有单词」列表 ----------
   await page.goto(`${BASE}/wordbooks/all`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   const firstGroup = page.locator('[data-pronunciation]').first();
   await firstGroup.waitFor({ timeout: 60000 });
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(1200);
   const groupCount = await page.locator('[data-pronunciation]').count();
   console.log(`[e2e] 单词列表发音按钮组数量：${groupCount}`);
   check(groupCount >= 1, '单词列表出现发音按钮组', `count=${groupCount}`);
+
+  const phoneticValues = await waitPhonetics(firstGroup);
+  console.log(`[e2e] 首个单词音标：uk=${phoneticValues.uk} us=${phoneticValues.us}`);
+  check(!!phoneticValues.uk && !!phoneticValues.us, '列表音标懒加载成功（英/美都有）', `uk=${phoneticValues.uk} us=${phoneticValues.us}`);
+
   const firstText = norm(await firstGroup.innerText());
-  console.log(`[e2e] 第一组按钮文本：「${firstText}」`);
-  check(firstText.includes('英音') && firstText.includes('美音'), '同一单词同时显示「英音」「美音」', `text=${firstText}`);
+  console.log(`[e2e] 第一组文本：「${firstText}」`);
+  check(looksStyled(firstText, '英'), '显示「英 [音标]」形态', `text=${firstText}`);
+  check(looksStyled(firstText, '美'), '显示「美 [音标]」形态', `text=${firstText}`);
   check(
     (await firstGroup.locator('[data-pronunciation-accent="uk"]').count()) === 1 &&
       (await firstGroup.locator('[data-pronunciation-accent="us"]').count()) === 1,
-    '英音 / 美音按钮各一个（data 属性可定位）',
+    '英 / 美 入口各一个（data 属性可定位）',
   );
 
   const wordText = await firstGroup.getAttribute('data-pronunciation');
@@ -169,7 +211,7 @@ try {
   const ukResp = responses.find((r) => r.url.includes('accent=uk'));
   check(!!ukResp && ukResp.status === 200, '英音请求 200', ukResp ? `status=${ukResp.status}` : 'no request');
 
-  // ---------- PART 3: 添加单词弹窗 ----------
+  // ---------- PART 4: 添加单词弹窗 ----------
   const addBtn = page.getByRole('button', { name: /添加单词/ }).first();
   await addBtn.click();
   const dialog = page.locator('[data-slot="dialog-content"]').filter({ hasText: '搜索单词' }).first();
@@ -178,12 +220,10 @@ try {
   await dialog.getByRole('button', { name: '查询' }).click();
   const dialogGroup = dialog.locator('[data-pronunciation]').first();
   await dialogGroup.waitFor({ timeout: 30000 });
+  const dialogPhonetics = await waitPhonetics(dialogGroup);
   const dialogText = norm(await dialogGroup.innerText());
-  console.log(`[e2e] 弹窗按钮文本：「${dialogText}」`);
-  check(dialogText.includes('英音') && dialogText.includes('美音'), '添加单词弹窗显示「英音」「美音」', `text=${dialogText}`);
-  // 词典查询是异步的：等音标（词典数据）真正出现，再判断发音按钮的位置不会被挤坏
-  await dialog.getByText(/音标/).first().waitFor({ timeout: 20000 }).catch(() => {});
-  check((await dialog.getByText(/音标/).count()) >= 1, '弹窗仍显示音标');
+  console.log(`[e2e] 弹窗文本：「${dialogText}」音标 uk=${dialogPhonetics.uk} us=${dialogPhonetics.us}`);
+  check(looksStyled(dialogText, '英') && looksStyled(dialogText, '美'), '添加单词弹窗显示英/美 + 音标', `text=${dialogText}`);
   await page.screenshot({ path: '/tmp/e2e-pronounce-modal.png', fullPage: false });
   await page.keyboard.press('Escape');
   await page
@@ -194,7 +234,7 @@ try {
     .catch(() => {});
   check((await page.locator('[data-slot="dialog-content"]').count()) === 0, '关闭弹窗（未保存任何单词）');
 
-  // ---------- PART 4: 单词卡片练习页 ----------
+  // ---------- PART 5: 单词卡片练习页 ----------
   const qRow = await q(
     `SELECT id FROM "QuestionQueue"
       WHERE "userId"=$1 AND "questionType"='word-card' AND status='GENERATED'
@@ -246,13 +286,13 @@ try {
     const frontGroup = page.locator('[data-pronunciation]').first();
     await frontGroup.waitFor({ timeout: 20000 });
     const frontText = norm(await frontGroup.innerText());
-    check(frontText.includes('英音') && frontText.includes('美音'), '单词卡片正面显示「英音」「美音」', `text=${frontText}`);
+    check(looksStyled(frontText, '英') && looksStyled(frontText, '美'), '单词卡片正面显示英/美 + 音标', `text=${frontText}`);
     await frontGroup.locator('[data-pronunciation-accent="uk"]').click();
     await waitAudioPlaying(frontGroup.locator('audio'), '卡片正面·英音');
     await page.screenshot({ path: '/tmp/e2e-pronounce-card-front.png', fullPage: false });
-    check(norm(await page.locator('[data-pronunciation]').first().innerText()).includes('英音'), '点击发音不会翻转卡片（仍在正面）');
+    check(norm(await page.locator('[data-pronunciation]').first().innerText()).includes('英'), '点击发音不会翻转卡片（仍在正面）');
 
-    // 翻转 → 反面也有发音按钮
+    // 翻转 → 反面也有发音入口
     await flipHint.click();
     await page.waitForTimeout(1000);
     const backFace = page.locator('div[style*="backface-visibility: hidden"][style*="rotateY(180deg)"]').first();
@@ -260,7 +300,7 @@ try {
     const backGroup = backFace.locator('[data-pronunciation]').first();
     await backGroup.waitFor({ timeout: 20000 }).catch(() => {});
     const backText = norm(await backGroup.innerText().catch(() => ''));
-    check(backText.includes('英音') && backText.includes('美音'), '单词卡片反面显示「英音」「美音」', `text=${backText}`);
+    check(looksStyled(backText, '英') && looksStyled(backText, '美'), '单词卡片反面显示英/美 + 音标', `text=${backText}`);
     await backGroup.locator('[data-pronunciation-accent="us"]').click().catch(() => {});
     await page.waitForTimeout(1200);
     await page.screenshot({ path: '/tmp/e2e-pronounce-card-back.png', fullPage: false });
@@ -268,15 +308,16 @@ try {
     console.log('[e2e] SKIP 单词卡片练习页（无法准备 word-card 题目）');
   }
 
-  // ---------- PART 5: 手机宽度 ----------
+  // ---------- PART 6: 手机宽度 ----------
   const mobile = await ctx.newPage();
   await mobile.setViewportSize({ width: 390, height: 844 });
   await mobile.goto(`${BASE}/wordbooks/all`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await mobile.locator('[data-pronunciation]').first().waitFor({ timeout: 60000 });
-  await mobile.waitForTimeout(1200);
+  const mobileGroup = mobile.locator('[data-pronunciation]').first();
+  await mobileGroup.waitFor({ timeout: 60000 });
+  await mobile.waitForTimeout(1500);
   await mobile.screenshot({ path: '/tmp/e2e-pronounce-mobile.png', fullPage: false });
-  const mobileText = norm(await mobile.locator('[data-pronunciation]').first().innerText());
-  check(mobileText.includes('英音') && mobileText.includes('美音'), '手机宽度下也显示「英音」「美音」', `text=${mobileText}`);
+  const mobileText = norm(await mobileGroup.innerText());
+  check(looksStyled(mobileText, '英') && looksStyled(mobileText, '美'), '手机宽度下也显示英/美 + 音标', `text=${mobileText}`);
 } finally {
   await browser.close();
   await pool.end();

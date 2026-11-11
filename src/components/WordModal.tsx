@@ -465,12 +465,11 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   {dictionaryData?.word || word.trim()}
                 </h3>
-                {dictionaryData?.pronunciation && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                    音标: {dictionaryData.pronunciation}
-                  </p>
-                )}
-                <WordPronunciation word={dictionaryData?.word || word.trim()} size="md" />
+                <WordPronunciation
+                  word={dictionaryData?.word || word.trim()}
+                  size="md"
+                  fallbackPhonetic={dictionaryData?.pronunciation}
+                />
               </div>
 
               {/* 词典未返回任何释义时给出明确提示，避免出现“列表一片空白” */}
