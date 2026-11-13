@@ -20,6 +20,8 @@ interface WordCardProps {
   word: Word;
   isSelected: boolean;
   onToggleSelect: (id: number) => void;
+  /** 是否显示勾选框并允许勾选；默认显示。单词本默认不显示，需先点「选择」 */
+  selectable?: boolean;
   onEdit?: (word: Word) => void;
   onDelete?: (id: number) => void;
   allTagConfigs: Record<WordTag, TagConfig>;
@@ -32,6 +34,7 @@ export const WordCard = ({
   word,
   isSelected,
   onToggleSelect,
+  selectable = true,
   onEdit,
   onDelete,
   allTagConfigs,
@@ -87,25 +90,28 @@ export const WordCard = ({
   return (
     <>
     <div
-      className={`p-3 sm:p-4 rounded-lg border transition-all cursor-pointer ${
+      className={`p-3 sm:p-4 rounded-lg border transition-all ${selectable ? 'cursor-pointer' : 'cursor-default'} ${
         isSelected
           ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700'
           : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-md'
       }`}
       onClick={(e) => {
+        if (!selectable) return;
         const target = e.target as HTMLElement;
         if (target.closest('[data-action-bar]') || target.closest('[data-tag-btn]')) return;
         onToggleSelect(word.id);
       }}
     >
       <div className="flex items-start gap-2 sm:gap-3">
-        <div onClick={(e) => e.stopPropagation()}>
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => onToggleSelect(word.id)}
-            className="mt-1 flex-shrink-0"
-          />
-        </div>
+        {selectable && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => onToggleSelect(word.id)}
+              className="mt-1 flex-shrink-0"
+            />
+          </div>
+        )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between mb-2 gap-2">

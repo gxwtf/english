@@ -70,10 +70,13 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
   const [loading, setLoading] = useState(true);
   const [exportingWords, setExportingWords] = useState(false);
   const [rangeSelectMode, setRangeSelectMode] = useState(false);
+  // 「选择」模式：默认关闭，页面不显示勾选框；点「选择」后才允许勾选与批量操作
+  const [selectMode, setSelectMode] = useState(false);
   const [pageSize, setPageSize] = useState<number>(20);
   const [currentPage, setCurrentPage] = useState(1);
   const rangeFirstEndpoint = useRef<number | null>(null);
   const rangeSelectModeRef = useRef(false);
+  const selectModeRef = useRef(false);
   const [wordReviewStates, setWordReviewStates] = useState<Map<number, { lastReviewedAt: Date | null; interval: number; errorCount: number }>>(new Map());
   const [allWordbooks, setAllWordbooks] = useState<Wordbook[]>([]);
   const [transferMode, setTransferMode] = useState<'copy' | 'move' | null>(null);
@@ -380,6 +383,8 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
 
   // 处理选择 — 使用 rangeSelectModeRef 以避免闭包陈旧
   const handleToggleSelect = useCallback((id: number) => {
+    // 不在选择模式时点击卡片不产生勾选
+    if (!selectModeRef.current) return;
     if (rangeSelectModeRef.current) {
       // 区间选择模式：记录端点
       const currentIndex = filteredAndSortedWords.findIndex(w => w.id === id);
@@ -427,10 +432,26 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
       setRangeSelectMode(false);
       rangeFirstEndpoint.current = null;
     } else {
+      selectModeRef.current = true;
+      setSelectMode(true);
       rangeSelectModeRef.current = true;
       setRangeSelectMode(true);
       rangeFirstEndpoint.current = null;
     }
+  }, []);
+
+  const handleEnterSelectMode = useCallback(() => {
+    selectModeRef.current = true;
+    setSelectMode(true);
+  }, []);
+
+  const handleExitSelectMode = useCallback(() => {
+    selectModeRef.current = false;
+    setSelectMode(false);
+    rangeSelectModeRef.current = false;
+    setRangeSelectMode(false);
+    rangeFirstEndpoint.current = null;
+    setSelectedWordIds([]);
   }, []);
 
   const handleToggleSelectAll = useCallback(() => {
@@ -731,6 +752,9 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
           searchTerm={searchTerm}
           allTagConfigs={allTagConfigs}
           rangeSelectMode={rangeSelectMode}
+          selectMode={selectMode}
+          onEnterSelectMode={handleEnterSelectMode}
+          onExitSelectMode={handleExitSelectMode}
           onToggleSelectAll={handleToggleSelectAll}
           onRangeSelectToggle={handleRangeSelectToggle}
           onSort={setSortBy}
@@ -824,6 +848,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
                     word={word}
                     isSelected={selectedWordIds.includes(word.id)}
                     onToggleSelect={handleToggleSelect}
+                    selectable={selectMode}
                     onEdit={(word) => {
                       setEditingWord(word);
                       setShowModal(true);
