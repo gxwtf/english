@@ -4,10 +4,12 @@
 流水线：
   1. 透视矫正：把拍歪的书页拉正
   2. HSV 高亮检测：找出荧光笔高亮区域
-  3. 红笔/黑笔标记检测：圈出、下划线也计入候选区域
-  4. 候选区域取整行切片，批量送 Unlimited-OCR-2（SGLang，OpenAI 兼容接口）识别
-  5. 行内墨迹投影切分单词 bbox（切分数量与词数不一致时按字符数等比分配）
-  6. 判定每个词是否落在高亮/标记区域内
+  3. 红笔标记检测：只保留扁长的圈/下划线，方形红色汉字批注会被剔除
+  4. 每个标记在局部 x 范围做墨迹投影定位它圈住的那一行（整页投影会被纸张弧度糊成一块）
+  5. 该行切横条送 Unlimited-OCR-2（SGLang，OpenAI 兼容接口）识别；模型对裁剪很敏感，
+     多档上下留白/横向窗口各识别一次
+  6. 行内墨迹投影分词：红圈取离圈中心最近的词（多次识别多数票），
+     高亮按词 bbox 与高亮 mask 的覆盖率筛词
 
 OCR 后端地址由环境变量 UNLIMITED_OCR_URL 指定，默认 http://127.0.0.1:8014。
 """
@@ -275,44 +277,27 @@ def enhance_color_document(img):
 def extract_highlight_mask(enhanced_img):
     hsv = cv2.cvtColor(enhanced_img, cv2.COLOR_BGR2HSV)
     masks = [
-        cv2.inRange(hsv, np.array([15, 40, 120]), np.array([45, 255, 255])),   # 黄
-        cv2.inRange(hsv, np.array([35, 40, 120]), np.array([85, 255, 255])),   # 绿
-        cv2.inRange(hsv, np.array([140, 30, 120]), np.array([180, 255, 255])), # 粉/紫
-        cv2.inRange(hsv, np.array([5, 40, 120]), np.array([20, 255, 255])),    # 橙
+        cv2.inRange(hsv, np.array([12, 60, 120]), np.array([40, 255, 255])),   # 黄
+        cv2.inRange(hsv, np.array([35, 60, 120]), np.array([85, 255, 255])),   # 绿
+        cv2.inRange(hsv, np.array([135, 50, 120]), np.array([168, 255, 255])), # 粉/紫
+        cv2.inRange(hsv, np.array([5, 60, 120]), np.array([18, 255, 255])),    # 橙
+        cv2.inRange(hsv, np.array([160, 35, 235]), np.array([180, 255, 255])), # 浅粉（V 很高）
     ]
     mask = masks[0]
     for m in masks[1:]:
         mask = cv2.bitwise_or(mask, m)
+
+    # 红笔是「标记」不是高亮，交给 detect_red_mark_rois 处理；
+    # 否则红笔批注（尤其是汉字）会被当成大片高亮，导致整行/整页单词误报。
+    # V<=235 避免把浅粉色荧光笔一起删掉。
+    red1 = cv2.inRange(hsv, np.array([0, 50, 100]), np.array([10, 255, 235]))
+    red2 = cv2.inRange(hsv, np.array([170, 50, 100]), np.array([180, 255, 235]))
+    mask[cv2.bitwise_or(red1, red2) > 0] = 0
+
+    # 手机照片里黑色文字的彩色边缘只有 1~2px，开运算去掉；荧光笔色块能留下来
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     return cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=1)
-
-
-def ink_mask(gray):
-    """文字墨迹 mask（自适应阈值，抗阴影）。"""
-    blur = cv2.GaussianBlur(gray, (3, 3), 0)
-    return cv2.adaptiveThreshold(
-        blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 15
-    )
-
-
-def estimate_line_height(ink):
-    """从整页行投影估计行高，用于过滤高亮块与补齐行切片。"""
-    rows = (ink > 0).sum(axis=1)
-    threshold = max(3, int(ink.shape[1] * 0.004))
-    heights = []
-    run = 0
-    for v in rows:
-        if v >= threshold:
-            run += 1
-        elif run:
-            if 5 <= run <= 120:
-                heights.append(run)
-            run = 0
-    if run and 5 <= run <= 120:
-        heights.append(run)
-    if not heights:
-        return 36.0
-    heights.sort()
-    return float(heights[len(heights) // 2])
 
 
 def filter_highlight_mask(mask, line_height):
@@ -383,163 +368,262 @@ def check_word_highlighted(mask, bbox):
 
 # ===== 红笔/黑笔标记检测 =====
 
-def detect_marks(img):
-    """检测红笔/黑笔的圈出、下划线，返回 [{'bbox': {...}, 'type': ...}]。"""
+
+
+
+
+
+
+# ===== 红笔标记 / 局部行 / 分词 =====
+
+def _red_mask(img):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    red1 = cv2.inRange(hsv, np.array([0, 50, 100]), np.array([10, 255, 255]))
-    red2 = cv2.inRange(hsv, np.array([170, 50, 100]), np.array([180, 255, 255]))
-    red_mask = cv2.bitwise_or(red1, red2)
-    black_mask = cv2.inRange(hsv, np.array([0, 0, 0]), np.array([180, 50, 80]))
+    # V<=235：排除浅粉色荧光笔（V 接近 255），只留红笔
+    red1 = cv2.inRange(hsv, np.array([0, 50, 100]), np.array([10, 255, 235]))
+    red2 = cv2.inRange(hsv, np.array([170, 50, 100]), np.array([180, 255, 235]))
+    return cv2.bitwise_or(red1, red2)
 
-    marks = []
-    for mask, color in [(red_mask, 'red'), (black_mask, 'black')]:
-        if cv2.countNonZero(mask) == 0:
+
+def _dark_mask(img):
+    """印刷文字的二值 mask（暗且低饱和），排除红笔与彩色高亮。"""
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    red = _red_mask(img)
+    dark = ((gray < 110) & (hsv[:, :, 1] < 120)).astype(np.uint8)
+    dark[red > 0] = 0
+    return dark
+
+
+def _ocr_source(img):
+    """OCR 用图：去掉荧光笔底色，但保留红笔。
+
+    把红笔一起擦白会破坏被圈单词的笔画（entitled 常被读成 connected/committed），
+    所以这里只清彩色高亮，红色（V<=235）保留。
+    """
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    colored = ((hsv[:, :, 1] > 40) & (hsv[:, :, 2] > 120)).astype(np.uint8)
+    colored[_red_mask(img) > 0] = 0
+    out = img.copy()
+    out[colored > 0] = 255
+    return out
+
+
+def detect_red_mark_rois(img):
+    """检测红笔圈出的单词。
+
+    手写红色批注（汉字）接近方形/竖长，圈或下划线是扁长条；用 ``h <= 0.55*w``
+    只保留覆盖印刷文字的水平长条，避免把批注当成标记（这是「识别太多」的主因）。
+    """
+    red = _red_mask(img)
+    if cv2.countNonZero(red) == 0:
+        return []
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(red, connectivity=8)
+    rois = []
+    for i in range(1, num):
+        x, y, w, h, area = stats[i]
+        if area < 300 or w < 80 or h < 18:
             continue
-        num, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
-        for i in range(1, num):
-            x, y, w, h, area = stats[i]
-            # 黑色 mask 包含所有文字：用面积/宽度过滤掉文字组件
-            if color == 'black':
-                if area < 300 or w < 80:
-                    continue
-            elif area < 200 or w < 60:
-                continue
-
-            bbox_area = w * h
-            fill_ratio = area / bbox_area if bbox_area > 0 else 0
-            aspect = w / h if h > 0 else 0
-
-            mark_type = None
-            if fill_ratio < 0.3 and h > 25:
-                mark_type = 'circle'
-            elif (fill_ratio > 0.8 and h < 10) or (h < 25 and aspect > 4 and fill_ratio < 0.3):
-                mark_type = 'underline'
-
-            if mark_type:
-                marks.append({
-                    'bbox': {'x0': int(x), 'y0': int(y), 'x1': int(x + w), 'y1': int(y + h)},
-                    'type': mark_type,
-                })
-    return marks
-
-
-def apply_marks(words, marks):
-    """把圈出/下划线标记落到具体单词上（原地修改 isHighlighted / highlightRatio）。"""
-    if not words or not marks:
-        return
-
-    circle_words = []
-    for mark in marks:
-        mb = mark['bbox']
-        for word in words:
-            wb = word['bbox']
-            if mark['type'] == 'circle':
-                ox0 = max(wb['x0'], mb['x0'])
-                ox1 = min(wb['x1'], mb['x1'])
-                oy0 = max(wb['y0'], mb['y0'])
-                oy1 = min(wb['y1'], mb['y1'])
-                if ox1 > ox0 and oy1 > oy0:
-                    overlap = (ox1 - ox0) * (oy1 - oy0)
-                    word_area = (wb['x1'] - wb['x0']) * (wb['y1'] - wb['y0'])
-                    if word_area > 0 and overlap / word_area > 0.3:
-                        word['isHighlighted'] = True
-                        word['highlightRatio'] = max(word.get('highlightRatio', 0), 0.9)
-                        circle_words.append(word)
-            else:  # underline：位于词的正下方，x 范围重叠
-                if (wb['x1'] > mb['x0'] and wb['x0'] < mb['x1'] and
-                        mb['y0'] >= wb['y0'] - 5 and mb['y0'] <= wb['y1'] + 20):
-                    ox = min(wb['x1'], mb['x1']) - max(wb['x0'], mb['x0'])
-                    word_w = wb['x1'] - wb['x0']
-                    if word_w > 0 and ox / word_w > 0.4:
-                        word['isHighlighted'] = True
-                        word['highlightRatio'] = max(word.get('highlightRatio', 0), 0.9)
-
-    # 圈画弧线可能被识别成字符前缀（如 "Cappreciate"）
-    dict_words = load_word_dict()
-    for word in circle_words:
-        text = word['text']
-        if text.lower() in dict_words:
+        if h > w * 0.55:
             continue
-        for strip_n in range(1, min(4, len(text))):
-            candidate = text[strip_n:].lower()
-            if len(candidate) >= 4 and candidate in dict_words:
-                word['text'] = text[strip_n:]
-                break
+        mask = (labels == i)
+        ys, xs = np.where(mask)
+        rois.append({
+            'kind': 'circle',
+            'bbox': {'x0': int(x), 'y0': int(y), 'x1': int(x + w), 'y1': int(y + h)},
+            # 用红像素分位数而不是 bbox：批注会把 bbox 撑宽/撑高
+            'ax0': int(np.percentile(xs, 2)),
+            'ax1': int(np.percentile(xs, 98)),
+            'mask': mask,
+        })
+    return rois
 
 
-def merge_highlighted_fragments(words):
-    """合并被拆开的高亮词碎片（如 "consider"+"at"+"i" → "consideration"）。"""
-    if len(words) < 2:
-        return words
+def _local_line_bands(dark, x0, x1, img_h, min_h=10, max_h=80):
+    """在局部 x 范围做水平墨迹投影，返回单行 band [(y0, y1), ...]。
 
-    dict_words = load_word_dict()
-    sorted_words = sorted(words, key=lambda w: (w['bbox']['y0'], w['bbox']['x0']))
+    整页投影会被纸张弧度/模糊糊成一大块，局部投影能稳定分出单行。
+    """
+    x0 = max(0, int(x0))
+    x1 = min(dark.shape[1], int(x1))
+    if x1 - x0 < 10:
+        return []
+    proj = dark[:, x0:x1].sum(axis=1)
+    thr = max(2, int((x1 - x0) * 0.05))
+    bands = []
+    start = None
+    for y in range(img_h):
+        on = proj[y] > thr
+        if on and start is None:
+            start = y
+        elif not on and start is not None:
+            if min_h <= y - start <= max_h:
+                bands.append((start, y))
+            start = None
+    if start is not None and min_h <= img_h - start <= max_h:
+        bands.append((start, img_h))
+    return bands
 
+
+def _pick_line_band(bands, y0, y1, mask=None):
+    """选被标记圈住的那一行。
+
+    优先看「该行里红笔横向覆盖的列数」：圈是横跨单词的扁长环，批注是窄块；
+    没有 mask 时退化为与标记 y 范围重叠最大。
+    """
+    best = None
+    best_score = None
+    for a, b in bands:
+        ov = min(b, y1) - max(a, y0)
+        if ov <= 0:
+            continue
+        if mask is not None:
+            width = int(mask[a:b].any(axis=0).sum())
+            score = (width, ov)
+        else:
+            score = (0, ov)
+        if best_score is None or score > best_score:
+            best_score = score
+            best = (a, b)
+    return best
+
+
+def _score_ocr_text(text):
+    """局部 OCR 结果打分：占位符/无英文 0 分，真实英文词越多分越高。"""
+    if not text or 'image[' in text or not re.search(r'[A-Za-z]{2,}', text):
+        return -1
+    score = 0
+    for tok in text.split():
+        core = tok.strip('.,;:!?\'"()[]{}“”‘’')
+        if re.fullmatch(r"[A-Za-z][A-Za-z'-]*", core or ''):
+            score += 1
+    return score
+
+
+def _segment_word_boxes(strip, gap_frac=0.20):
+    """单行 strip 的纵向投影分词，返回 [(x0, x1), ...]（先去下划线）。"""
+    sh, sw = strip.shape[:2]
+    if sh < 8 or sw < 8:
+        return []
+    gray = cv2.cvtColor(strip, cv2.COLOR_BGR2GRAY)
+    ink = (gray < 135).astype(np.uint8) * 255
+    # 长横线（下划线）会把整行连成一片，先按长横结构剔除
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (max(21, int(sw * 0.03)), 1))
+    ink = cv2.subtract(ink, cv2.morphologyEx(ink, cv2.MORPH_OPEN, k))
+    r0, r1 = int(sh * 0.10), int(sh * 0.80)
+    proj = (ink[r0:r1] > 0).sum(axis=0)
+    thr = max(1, int((r1 - r0) * 0.10))
+    cols = proj > thr
+    runs = []
+    start = None
+    for x, on in enumerate(cols):
+        if on and start is None:
+            start = x
+        elif not on and start is not None:
+            runs.append([start, x])
+            start = None
+    if start is not None:
+        runs.append([start, sw])
+    gap = max(3, int(sh * gap_frac))
     merged = []
-    i = 0
-    while i < len(sorted_words):
-        w = sorted_words[i]
-        if not w.get('isHighlighted'):
-            merged.append(w)
-            i += 1
-            continue
+    for r in runs:
+        if merged and r[0] - merged[-1][1] <= gap:
+            merged[-1][1] = r[1]
+        else:
+            merged.append(r)
+    return [r for r in merged if r[1] - r[0] >= max(4, sh * 0.15)]
 
-        group = [w]
-        j = i + 1
-        while j < len(sorted_words):
-            nxt = sorted_words[j]
-            y_overlap = (min(w['bbox']['y1'], nxt['bbox']['y1']) -
-                         max(w['bbox']['y0'], nxt['bbox']['y0']))
-            y_min_h = min(w['bbox']['y1'] - w['bbox']['y0'], nxt['bbox']['y1'] - nxt['bbox']['y0'])
-            if y_min_h <= 0 or y_overlap / y_min_h < 0.5:
-                break
-            gap = nxt['bbox']['x0'] - group[-1]['bbox']['x1']
-            avg_char_w = max((group[-1]['bbox']['x1'] - group[-1]['bbox']['x0']) /
-                             max(len(group[-1]['text']), 1), 5)
-            if gap > avg_char_w * 1.5 or gap < -avg_char_w * 2:
-                break
-            if not nxt.get('isHighlighted'):
-                break
-            group.append(nxt)
-            j += 1
 
-        if len(group) > 1:
-            merged_text = ''.join(g['text'] for g in group)
-            merged_lower = merged_text.lower()
-            final_text = None
-            if merged_lower in dict_words:
-                final_text = merged_text
-            else:
-                for dw in dict_words:
-                    if (len(merged_lower) >= 6 and dw.startswith(merged_lower) and
-                            len(merged_lower) / len(dw) >= 0.7):
-                        final_text = dw
-                        break
-            if final_text:
-                merged.append({
-                    'text': final_text,
-                    'bbox': {
-                        'x0': group[0]['bbox']['x0'],
-                        'y0': min(g['bbox']['y0'] for g in group),
-                        'x1': group[-1]['bbox']['x1'],
-                        'y1': max(g['bbox']['y1'] for g in group),
-                    },
-                    'confidence': group[0].get('confidence', 0),
-                    'isHighlighted': True,
-                    'highlightRatio': max(g.get('highlightRatio', 0) for g in group),
-                })
-                i = j
-                continue
+def _strip_token(tok):
+    return tok.strip('.,;:!?\'"()[]{}“”‘’')
 
-        merged.append(w)
-        i += 1
 
-    return merged
+def _clean_circled_prefix(text):
+    """圈的弧线偶尔被识别成前缀字母（如 Cappreciate → appreciate）。"""
+    if len(text) < 5:
+        return text
+    dict_words = load_word_dict()
+    if text.lower() in dict_words:
+        return text
+    for n in range(1, min(4, len(text) - 2)):
+        cand = text[n:]
+        if len(cand) >= 4 and cand.lower() in dict_words:
+            return cand
+    return text
+
+
+def _pick_token(tokens, segs, center_x, strip_w):
+    """在 OCR 词序列中选出落在标记中心附近的词。"""
+    if not tokens:
+        return None
+    if segs and len(segs) == len(tokens):
+        seg = min(segs, key=lambda r: abs((r[0] + r[1]) / 2 - center_x))
+        return tokens[segs.index(seg)]
+    if segs:
+        seg = min(segs, key=lambda r: abs((r[0] + r[1]) / 2 - center_x))
+        seg_c = (seg[0] + seg[1]) / 2
+    else:
+        seg_c = center_x
+    total = sum(len(t) + 1 for t in tokens)
+    if total <= 0:
+        return tokens[0]
+    best_tok = tokens[0]
+    best_d = None
+    pos = 0
+    for tok in tokens:
+        c = (pos + len(tok) / 2) / total * strip_w
+        d = abs(c - seg_c)
+        if best_d is None or d < best_d:
+            best_d = d
+            best_tok = tok
+        pos += len(tok) + 1
+    return best_tok
+
+
+def _tokens_in_range(tokens, segs, rx0, rx1, strip_w):
+    """返回落在 [rx0, rx1] 内的 token（高亮块可能覆盖多个词）。"""
+    out = []
+    if not tokens:
+        return out
+    if segs and len(segs) == len(tokens):
+        for tok, (a, b) in zip(tokens, segs):
+            if min(b, rx1) - max(a, rx0) > 0.3 * max(b - a, 1):
+                out.append((tok, (a, b)))
+        return out
+    total = sum(len(t) + 1 for t in tokens)
+    if total <= 0:
+        return out
+    pos = 0
+    for tok in tokens:
+        a = pos / total * strip_w
+        b = (pos + len(tok)) / total * strip_w
+        if min(b, rx1) - max(a, rx0) > 0:
+            out.append((tok, (a, b)))
+        pos += len(tok) + 1
+    return out
+
+
+def _ocr_strip(clean, y0, y1, x0, x1):
+    """裁一条横条并识别；返回 crop/tokens/偏移，失败返回 None。"""
+    y0, y1 = max(0, int(y0)), min(clean.shape[0], int(y1))
+    x0, x1 = max(0, int(x0)), min(clean.shape[1], int(x1))
+    if y1 - y0 < 8 or x1 - x0 < 8:
+        return None
+    crop = clean[y0:y1, x0:x1]
+    padded = cv2.copyMakeBorder(crop, 16, 16, 16, 16,
+                                cv2.BORDER_CONSTANT, value=(255, 255, 255))
+    blocks = _ocr_blocks(padded)
+    text = ' '.join(b['text'] for b in blocks if b.get('text')).strip()
+    tokens = split_stuck_words(text).split() if text else []
+    return {'crop': crop, 'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1,
+            'text': text, 'tokens': tokens}
+
+
 
 
 # ===== Unlimited-OCR-2 客户端 =====
 
 _BLOCK_RE = re.compile(r'<BLOCK>(.*?)<FORK>(.*?)(?=<BLOCK>|<PAGE>|$)', re.S)
+_BBOX_RE = re.compile(r'\[(-?\d+),\s*(-?\d+),\s*(-?\d+),\s*(-?\d+)\]')
 _TAG_RE = re.compile(r'<[^>]+>')
 
 
@@ -579,12 +663,12 @@ def _clean_page_text(page):
     return _collapse_repeats(' '.join(parts).strip())
 
 
-def _ocr_one(img):
-    """把一张整行切片发给 Unlimited-OCR-2，返回识别文本。
+def _ocr_blocks(img):
+    """识别一张局部切片，返回 [{'text': str, 'bbox': {...}}]（bbox 为切片内像素坐标）。
 
-    实测多图（<PAGE><image> 重复）在 base 模式下会漏页/串页，因此每张切片单独请求；
-    并发由 ocr_images 控制。
+    实测多图（<PAGE><image> 重复）在 base 模式下会漏页/串页，因此每张切片单独请求。
     """
+    h, w = img.shape[:2]
     content = [
         {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{_encode_jpeg_b64(img)}'}},
         {'type': 'text', 'text': '<PAGE><image>Multi page parsing.'},
@@ -596,8 +680,7 @@ def _ocr_one(img):
         'max_tokens': OCR_MAX_TOKENS_PER_IMAGE,
         'temperature': 0,
         'skip_special_tokens': False,
-        # 切片是很扁的整行图；gundam 动态切图会在这里触发退化重复，
-        # 必须用 base 模式（每张切片一个全局视图）。
+        # 切片很小，gundam 动态切图会触发退化重复，必须用 base 模式
         'images_config': {'crop_mode': False},
         'stream': True,
         'stream_options': {'include_usage': True},
@@ -633,220 +716,74 @@ def _ocr_one(img):
                 chunks.append(delta)
 
     raw = ''.join(chunks)
-    text = _clean_page_text(raw)
-    logging.info('[ocr] 1 crop, %d chars, %.2fs', len(text), time.time() - t0)
-    return text
-
-
-def ocr_images(images):
-    """并发识别多张整行切片，返回与输入顺序一致的文本列表。"""
-    if not images:
-        return []
-    workers = min(OCR_PARALLEL, len(images))
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        return list(pool.map(_ocr_one, images))
-
-
-# ===== 行切片与分词 =====
-
-def _column_runs(ink, y0, y1, gap):
-    """返回 [y0:y1] 行带内连续墨迹列的区间（gap 以上视为断开）。"""
-    cols = (ink[y0:y1] > 0).sum(axis=0)
-    idx = np.where(cols > 0)[0]
-    if len(idx) == 0:
-        return []
-    runs = []
-    start = prev = int(idx[0])
-    for c in idx[1:]:
-        c = int(c)
-        if c - prev > gap:
-            runs.append((start, prev))
-            start = c
-        prev = c
-    runs.append((start, prev))
-    return runs
-
-
-def _line_extent(ink, y0, y1, anchor_x0, anchor_x1, line_height):
-    """在行带内找出候选词所在的那一段连续文本（避开页边页码/另一栏）。"""
-    runs = _column_runs(ink, y0, y1, max(int(line_height * 2), 24))
-    if not runs:
-        return None
-    chosen = None
-    for r in runs:
-        if r[1] >= anchor_x0 and r[0] <= anchor_x1:
-            chosen = r
-            break
-    if chosen is None:
-        chosen = min(runs, key=lambda r: min(abs(r[0] - anchor_x0), abs(r[1] - anchor_x1)))
-    x0 = max(0, chosen[0] - 6)
-    x1 = min(ink.shape[1], chosen[1] + 7)
-    if x1 - x0 < 8:
-        return None
-    return x0, x1
-
-
-def _text_rows(ink, y0, y1, x0, x1):
-    strip = ink[y0:y1, x0:x1]
-    rows = (strip > 0).sum(axis=1)
-    threshold = max(2, int(strip.shape[1] * 0.02))
-    ys = np.where(rows >= threshold)[0]
-    if len(ys) == 0:
-        ys = np.where(rows > 0)[0]
-    if len(ys) == 0:
-        return y0, y1
-    return y0 + int(ys[0]), y0 + int(ys[-1]) + 1
-
-
-def detect_text_lines(ink, line_height):
-    """把整页墨迹按行投影切成文本行 [(y0, y1), ...]。"""
-    rows = (ink > 0).sum(axis=1)
-    threshold = max(3, int(ink.shape[1] * 0.004))
-    runs = []
-    start = None
-    for y, v in enumerate(rows):
-        if v >= threshold and start is None:
-            start = y
-        elif v < threshold and start is not None:
-            runs.append([start, y])
-            start = None
-    if start is not None:
-        runs.append([start, len(rows)])
-
-    # 先丢掉高度过小的噪声游程（阴影/压缩噪点），否则它会成为桥梁把相邻两行黏在一起
-    min_run = max(3, int(line_height * 0.25))
-    runs = [r for r in runs if r[1] - r[0] >= min_run]
-
-    merged = []
-    for r in runs:
-        # 同一行内被字间空隙断开的极小间隙可以合并，行距必须保持独立
-        if merged and r[0] - merged[-1][1] <= max(2, int(line_height * 0.2)):
-            merged[-1][1] = r[1]
+    blocks = []
+    for m in _BLOCK_RE.finditer(raw):
+        text = _TAG_RE.sub(' ', m.group(2))
+        text = _collapse_repeats(re.sub(r'\s+', ' ', text).strip())
+        if not text:
+            continue
+        bb = _BBOX_RE.search(m.group(1))
+        if bb:
+            # 模型坐标是在 1024x1024 画布上按轴拉伸的
+            x0, y0, x1, y1 = [int(v) for v in bb.groups()]
+            bbox = {
+                'x0': x0 * w / 1024.0, 'y0': y0 * h / 1024.0,
+                'x1': (x1 + 1) * w / 1024.0, 'y1': (y1 + 1) * h / 1024.0,
+            }
         else:
-            merged.append(r)
-    return [(a, b) for a, b in merged if b - a >= min_run]
+            bbox = {'x0': 0.0, 'y0': 0.0, 'x1': float(w), 'y1': float(h)}
+        blocks.append({'text': text, 'bbox': bbox})
 
+    if not blocks:
+        text = _clean_page_text(raw)
+        if text:
+            blocks.append({'text': text, 'bbox': {'x0': 0.0, 'y0': 0.0, 'x1': float(w), 'y1': float(h)}})
 
-def _pick_line(lines, y0, y1):
-    """给高亮块/标记找所属文本行：优先取重叠最大的一行，否则取它上方最近的一行。"""
-    if not lines:
-        return None
-    best = None
-    best_overlap = 0
-    for ly0, ly1 in lines:
-        overlap = min(ly1, y1) - max(ly0, y0)
-        if overlap > best_overlap:
-            best_overlap = overlap
-            best = (ly0, ly1)
-    if best is not None:
-        return best
-    above = [l for l in lines if l[1] <= y0 + 2]
-    if above:
-        return max(above, key=lambda l: l[1])
-    return min(lines, key=lambda l: abs(l[0] - y0))
+    logging.info('[ocr] 1 crop, %d block(s), %.2fs', len(blocks), time.time() - t0)
+    return blocks
 
 
 
-def _word_segments(ink, x0, x1, y0, y1, line_height):
-    """行内按词间空隙切出词 bbox（仅用于切分数与识别词数一致时）。"""
-    strip = ink[y0:y1, x0:x1]
-    cols = (strip > 0).sum(axis=0)
-    idx = np.where(cols > 0)[0]
-    if len(idx) == 0:
-        return []
-    gap = max(int(line_height * 0.30), 6)
-    segments = []
-    start = prev = int(idx[0])
-    for c in idx[1:]:
-        c = int(c)
-        if c - prev > gap:
-            segments.append((x0 + start, x0 + prev + 1))
-            start = c
-        prev = c
-    segments.append((x0 + start, x0 + prev + 1))
-    return segments
+
+# ===== 候选区域切片与分词 =====
 
 
-def _token_boxes(ink, band, tokens, line_height):
-    x0, x1 = band['x0'], band['x1']
-    y0, y1 = band['y0'], band['y1']
-    ty0, ty1 = _text_rows(ink, y0, y1, x0, x1)
-    if ty1 - ty0 < 4:
-        ty0, ty1 = y0, y1
-
-    segments = _word_segments(ink, x0, x1, ty0, ty1, line_height)
-    if len(segments) == len(tokens):
-        return [{'x0': s[0], 'y0': ty0, 'x1': s[1], 'y1': ty1} for s in segments]
-
-    # 退化：按字符数等比分配（与旧 PaddleOCR 流程一致）
-    total = sum(len(t) + 1 for t in tokens)
-    if total <= 0:
-        return []
-    boxes = []
-    current = x0
-    for i, token in enumerate(tokens):
-        if i == len(tokens) - 1:
-            end = x1
-        else:
-            end = current + int((x1 - x0) * (len(token) + 1) / total)
-        boxes.append({'x0': current, 'y0': ty0, 'x1': max(end, current + 1), 'y1': ty1})
-        current = end
-    return boxes
 
 
-def build_bands(mask, marks, ink, line_height):
-    """把高亮块/标记转换成整行切片区域，并合并同一行上的重复区域。"""
-    h, w = ink.shape[:2]
-    lines = detect_text_lines(ink, line_height)
-    candidates = []
 
-    for (bx0, by0, bx1, by1) in component_boxes(mask):
-        line = _pick_line(lines, by0, by1)
-        if line is None:
-            continue
-        candidates.append({'line': line, 'ax0': bx0, 'ax1': bx1})
 
-    for mark in marks:
-        mb = mark['bbox']
-        line = _pick_line(lines, mb['y0'], mb['y1'])
-        if line is None:
-            continue
-        candidates.append({'line': line, 'ax0': mb['x0'], 'ax1': mb['x1']})
 
-    bands = []
-    for c in candidates:
-        ly0, ly1 = c['line']
-        y0 = max(0, ly0 - int(line_height * 0.15))
-        y1 = min(h, ly1 + int(line_height * 0.25))
-        if y1 - y0 < 6:
-            continue
-        extent = _line_extent(ink, y0, y1, c['ax0'], c['ax1'], line_height)
-        if extent is None:
-            continue
-        bands.append({'y0': y0, 'y1': y1, 'x0': extent[0], 'x1': extent[1]})
 
-    # 同一行（y 相同、x 段相同/相邻）的切片合并，避免同一行重复 OCR
-    merged = []
-    for b in sorted(bands, key=lambda b: (b['y0'], b['x0'])):
-        for m in merged:
-            y_overlap = min(m['y1'], b['y1']) - max(m['y0'], b['y0'])
-            y_min = min(m['y1'] - m['y0'], b['y1'] - b['y0'])
-            x_gap = max(m['x0'], b['x0']) - min(m['x1'], b['x1'])
-            if y_min > 0 and y_overlap / y_min > 0.5 and x_gap <= max(int(line_height * 2), 24):
-                m['y0'] = min(m['y0'], b['y0'])
-                m['y1'] = max(m['y1'], b['y1'])
-                m['x0'] = min(m['x0'], b['x0'])
-                m['x1'] = max(m['x1'], b['x1'])
+def _dedupe_words(words):
+    """同一行可能被多个标记切片重复识别，按 bbox+文本去重。"""
+    kept = []
+    for word in words:
+        dup = False
+        for exist in kept:
+            if exist['text'].lower() != word['text'].lower():
+                continue
+            a, b = exist['bbox'], word['bbox']
+            inter = (min(a['x1'], b['x1']) - max(a['x0'], b['x0'])) * \
+                    (min(a['y1'], b['y1']) - max(a['y0'], b['y0']))
+            if inter <= 0:
+                continue
+            area_a = (a['x1'] - a['x0']) * (a['y1'] - a['y0'])
+            area_b = (b['x1'] - b['x0']) * (b['y1'] - b['y0'])
+            union = area_a + area_b - inter
+            if union > 0 and inter / union > 0.35:
+                dup = True
+                exist['isHighlighted'] = exist['isHighlighted'] or word['isHighlighted']
+                exist['highlightRatio'] = max(exist['highlightRatio'], word['highlightRatio'])
                 break
-        else:
-            merged.append(dict(b))
-    return merged
+        if not dup:
+            kept.append(word)
+    return kept
 
 
 # ===== 主流程 =====
 
 def ocr_and_detect(image_bytes):
-    """透视变换 → 高亮/标记检测 → 整行切片 → Unlimited-OCR-2 → 高亮判定。"""
+    """透视变换 → 高亮/红黑标记检测 → 标记局部切片 → Unlimited-OCR-2 → 高亮判定。"""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
@@ -865,76 +802,131 @@ def ocr_and_detect(image_bytes):
     warped_img, _ = auto_transform(img)
     t_transform = time.time() - t0
 
-    # 2. 去高亮图（用于识别） + 墨迹投影（用于行/词定位）
+    # 2. 识别用图（去荧光底色、保留红笔）；分词用图（红笔也擦掉）
     t0 = time.time()
+    ocr_img = _ocr_source(warped_img)
     clean_img = remove_highlights_for_ocr(warped_img)
-    gray = cv2.cvtColor(clean_img, cv2.COLOR_BGR2GRAY)
-    ink = ink_mask(gray)
-    line_height = estimate_line_height(ink)
     t_enhance = time.time() - t0
 
-    # 3. 高亮检测 + 红黑标记检测 + 构建行切片
+    # 3. 高亮 + 红笔标记检测
     t0 = time.time()
+    page_h, page_w = warped_img.shape[:2]
+    pseudo_line_h = max(20.0, min(page_h, page_w) * 0.035)
     enhanced_img = enhance_color_document(warped_img)
-    highlight_mask = filter_highlight_mask(extract_highlight_mask(enhanced_img), line_height)
-    marks = detect_marks(warped_img)
-    bands = build_bands(highlight_mask, marks, ink, line_height)
+    highlight_mask = filter_highlight_mask(
+        extract_highlight_mask(enhanced_img), pseudo_line_h
+    )
+    dark = _dark_mask(warped_img)
     t_mask = time.time() - t0
 
-    # 下划线在识别图里会被读成连字符（history → hi-story），先擦掉；
-    # 圈出不能擦，圈内是单词本身。
-    for mark in marks:
-        if mark['type'] != 'underline':
-            continue
-        mb = mark['bbox']
-        clean_img[
-            max(0, mb['y0'] - 1):min(clean_img.shape[0], mb['y1'] + 2),
-            max(0, mb['x0'] - 1):min(clean_img.shape[1], mb['x1'] + 2),
-        ] = 255
+    # 4. 候选区域：荧光高亮块 + 红笔圈出的词（批注已按形状过滤）
+    rois = [
+        {'kind': 'highlight', 'bbox': {'x0': b[0], 'y0': b[1], 'x1': b[2], 'y1': b[3]}}
+        for b in component_boxes(highlight_mask, min_area=200)
+    ]
+    rois.extend(detect_red_mark_rois(warped_img))
 
     all_words = []
-    if bands:
-        # 4. 整行切片批量识别
-        # 切片过扁（文字贴边）时模型会输出占位符，必须留白边
-        pad_y = max(20, int(line_height * 0.7))
-        pad_x = 12
-        t0 = time.time()
-        crops = [
-            cv2.copyMakeBorder(
-                clean_img[b['y0']:b['y1'], b['x0']:b['x1']],
-                pad_y, pad_y, pad_x, pad_x,
-                cv2.BORDER_CONSTANT, value=(255, 255, 255),
-            )
-            for b in bands
-        ]
-        texts = ocr_images(crops)
-        t_ocr = time.time() - t0
+    t0 = time.time()
+    for roi in rois:
+        b = roi['bbox']
+        bx0, by0, bx1, by1 = b['x0'], b['y0'], b['x1'], b['y1']
+        # 红笔用红像素分位数（去掉批注撑出来的范围），高亮直接用 bbox
+        ax0 = roi.get('ax0', bx0)
+        ax1 = roi.get('ax1', bx1)
+        aw = max(1, ax1 - ax0)
+        center_x = (ax0 + ax1) / 2.0
 
-        # 5. 行内分词 + 高亮判定
-        for band, text in zip(bands, texts):
-            if not text:
+        # 找行带的 x 窗口要比 OCR 窗口更宽：圈住词的红笔会遮住该词墨迹，
+        # 窗口太窄时那一行投影会断掉、找不到行。
+        bands = _local_line_bands(
+            dark, max(0, ax0 - aw * 2.5), min(page_w, ax1 + aw * 2.5), page_h
+        )
+        band = _pick_line_band(bands, by0, by1, roi.get('mask'))
+        if band is None:
+            continue
+        ly0, ly1 = band
+        # 模型对纵向留白/横向上下文都很敏感；多试几档再投票。
+        # 上留白多于下留白：补回行首升部，又不把下一行带进来。
+        y_pads = [(16, 8)] if roi['kind'] == 'highlight' else \
+            [(16, 8), (17, 5), (14, 8)]
+        win1 = (max(0, int(ax0 - aw)), min(page_w, int(ax1 + aw)))
+        if roi['kind'] == 'highlight':
+            x_ranges = [win1]
+        else:
+            x_ranges = [
+                (max(0, int(ax0 - aw * 2)), min(page_w, int(ax1 + aw * 2))),
+                win1,
+                (0, page_w),
+            ]
+
+        cands = []
+        for top, bot in y_pads:
+            yy0, yy1 = max(0, ly0 - top), min(page_h, ly1 + bot)
+            for vx0, vx1 in x_ranges:
+                res = _ocr_strip(ocr_img, yy0, yy1, vx0, vx1)
+                if res is None:
+                    continue
+                score = _score_ocr_text(res['text'])
+                if score <= 0:
+                    continue
+                res['score'] = score
+                cands.append(res)
+        if not cands:
+            continue
+
+        if roi['kind'] == 'highlight':
+            best = max(cands, key=lambda r: r['score'])
+            segs = _segment_word_boxes(
+                clean_img[best['y0']:best['y1'], best['x0']:best['x1']])
+            strip_w = best['crop'].shape[1]
+            for tok, (sx0, sx1) in _tokens_in_range(
+                    best['tokens'], segs, 0, strip_w, strip_w):
+                wb = {'x0': int(best['x0'] + sx0), 'y0': int(best['y0']),
+                      'x1': int(best['x0'] + sx1), 'y1': int(best['y1'])}
+                if check_word_highlighted(highlight_mask, wb)[0]:
+                    text = _clean_circled_prefix(_strip_token(tok))
+                    if text and re.search(r'[A-Za-z]', text):
+                        all_words.append({
+                            'text': text, 'bbox': wb, 'confidence': 100.0,
+                            'isHighlighted': True, 'highlightRatio': 1.0,
+                        })
+            continue
+
+        # 红圈：每个候选各选一个词，多数票胜出（模型偶尔会把 entitled 读成 connected）
+        votes = {}
+        for res in cands:
+            segs = _segment_word_boxes(
+                clean_img[res['y0']:res['y1'], res['x0']:res['x1']])
+            strip_w = res['crop'].shape[1]
+            local_cx = center_x - res['x0']
+            tok = _pick_token(res['tokens'], segs, local_cx, strip_w)
+            if tok is None:
                 continue
-            tokens = split_stuck_words(text).split()
-            boxes = _token_boxes(ink, band, tokens, line_height)
-            for token, bbox in zip(tokens, boxes):
-                is_hl, ratio = check_word_highlighted(highlight_mask, bbox)
-                all_words.append({
-                    'text': token,
-                    'bbox': bbox,
-                    'confidence': 100.0,
-                    'isHighlighted': is_hl,
-                    'highlightRatio': ratio,
-                    '_line': (band['y0'], band['x0']),
-                })
-    else:
-        t_ocr = 0.0
+            text = _clean_circled_prefix(_strip_token(tok))
+            if not text or not re.search(r'[A-Za-z]', text):
+                continue
+            item = votes.get(text)
+            if item is None:
+                votes[text] = {'count': 1, 'score': res['score'], 'box': b}
+            else:
+                item['count'] += 1
+                item['score'] += res['score']
 
-    # 6. 标记落词 + 碎片合并
-    apply_marks(all_words, marks)
-    all_words = merge_highlighted_fragments(all_words)
+        if not votes:
+            continue
+        text = max(votes, key=lambda k: (votes[k]['count'], votes[k]['score']))
+        all_words.append({
+            'text': text, 'bbox': b, 'confidence': 100.0,
+            'isHighlighted': True, 'highlightRatio': 1.0,
+        })
+    t_ocr = time.time() - t0
 
-    # 7. 输出（按阅读顺序）
-    all_words.sort(key=lambda x: (x['_line'][0], x['bbox']['x0']))
+    # 5. 去重（同一区域可能同时被高亮和红圈命中）
+    all_words = _dedupe_words(all_words)
+
+    # 6. 输出（按阅读顺序）
+    all_words.sort(key=lambda x: (x['bbox']['y0'], x['bbox']['x0']))
     for word in all_words:
         for key in ('x0', 'y0', 'x1', 'y1'):
             word['bbox'][key] = int(word['bbox'][key])
@@ -942,20 +934,18 @@ def ocr_and_detect(image_bytes):
         word['confidence'] = float(word.get('confidence', 0))
 
     full_text_lines = []
-    current_line = None
+    current_y = None
     line_parts = []
     for word in all_words:
-        if current_line is not None and word['_line'] != current_line:
+        if current_y is not None and abs(word['bbox']['y0'] - current_y) > 8:
             full_text_lines.append(' '.join(line_parts))
             line_parts = []
-        current_line = word['_line']
-        line_parts.append(f'**{word["text"]}**' if word['isHighlighted'] else word['text'])
+        current_y = word['bbox']['y0']
+        line_parts.append(word['text'])
     if line_parts:
         full_text_lines.append(' '.join(line_parts))
 
     highlighted = [w for w in all_words if w['isHighlighted']]
-    for word in all_words:
-        word.pop('_line', None)
 
     return {
         'words': all_words,
