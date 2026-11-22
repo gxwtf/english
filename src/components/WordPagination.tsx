@@ -51,8 +51,8 @@ export const WordPagination = ({
   const pageNumbers = getPageNumbers(currentPage, totalPages);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-border">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>每页</span>
         <Select value={String(pageSize)} onValueChange={(value) => onPageSizeChange(Number(value))}>
           <SelectTrigger size="sm" className="w-[76px]">

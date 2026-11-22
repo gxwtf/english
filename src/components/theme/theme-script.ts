@@ -27,7 +27,7 @@ export const DARK_QUERY = '(prefers-color-scheme: dark)';
  */
 export const THEME_COLORS: Record<ResolvedTheme, string> = {
   light: '#ffffff',
-  dark: '#14100f',
+  dark: '#000000',
 } as const;
 
 /**

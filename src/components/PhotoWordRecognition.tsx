@@ -324,14 +324,14 @@ export const PhotoWordRecognition = ({
 
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
-          <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-amber-50 dark:bg-gray-700">
+          <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-border bg-amber-50 dark:bg-muted">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-crimson to-brand-orange">
                 <Highlighter className="h-5 w-5 text-brand-white" />
               </div>
               <div>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">拍照识别高亮单词</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">使用荧光笔高亮的单词将被自动识别</p>
+                <p className="text-xs text-muted-foreground">使用荧光笔高亮的单词将被自动识别</p>
               </div>
             </div>
             <Button variant="ghost" size="sm" onClick={handleClose} className="rounded-lg hover:bg-muted/50">
@@ -350,7 +350,7 @@ export const PhotoWordRecognition = ({
                   </div>
                   <div className="text-center space-y-2">
                     <p className="font-semibold text-gray-800 dark:text-gray-200">选择图片开始识别</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">上传用荧光笔高亮生词的图片，自动识别高亮单词</p>
+                    <p className="text-sm text-muted-foreground">上传用荧光笔高亮生词的图片，自动识别高亮单词</p>
                   </div>
                   <Button asChild className="rounded-xl bg-gradient-to-r from-brand-crimson to-brand-orange hover:from-brand-red hover:to-brand-orange active:scale-[0.98] px-8 py-6 text-white font-semibold transition-all cursor-pointer">
                     <label htmlFor="photo-word-upload" className="cursor-pointer">
@@ -372,7 +372,7 @@ export const PhotoWordRecognition = ({
                       className="w-full max-h-52 object-contain"
                     />
                     <div className="absolute top-2 right-2">
-                      <Button asChild variant="outline" size="sm" className="flex items-center gap-1 rounded-lg bg-white/90 dark:bg-gray-800/90 text-xs font-medium text-gray-600 dark:text-gray-300 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white dark:hover:bg-gray-800 cursor-pointer">
+                      <Button asChild variant="outline" size="sm" className="flex items-center gap-1 rounded-lg bg-card/90 text-xs font-medium text-muted-foreground shadow-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted cursor-pointer">
                         <label htmlFor="photo-word-upload" className="cursor-pointer">
                           <ImageIcon className="h-3.5 w-3.5" />
                           重选图片
@@ -394,7 +394,7 @@ export const PhotoWordRecognition = ({
                   )}
 
                   {/* 标签选择 */}
-                  <div className="p-3 rounded-xl bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-600">
+                  <div className="p-3 rounded-xl bg-card/50 border border-gray-200 dark:border-border">
                     <TagSelector
                       allTagConfigs={allTagConfigs}
                       selectedTags={selectedTags}
@@ -435,7 +435,7 @@ export const PhotoWordRecognition = ({
                   </div>
                   <div className="text-center space-y-1">
                     <p className="font-semibold text-gray-800 dark:text-gray-200">正在识别高亮单词...</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">透视矫正 → 光照增强 → OCR → 高亮检测</p>
+                    <p className="text-sm text-muted-foreground">透视矫正 → 光照增强 → OCR → 高亮检测</p>
                   </div>
                 </div>
               )}
@@ -460,7 +460,7 @@ export const PhotoWordRecognition = ({
                   </div>
 
                   {/* 标签选择 */}
-                  <div className="p-3 rounded-xl bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-600">
+                  <div className="p-3 rounded-xl bg-card/50 border border-gray-200 dark:border-border">
                     <TagSelector
                       allTagConfigs={allTagConfigs}
                       selectedTags={selectedTags}
@@ -488,12 +488,12 @@ export const PhotoWordRecognition = ({
                       </div>
 
                       {!showDetails ? (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                        <p className="text-xs text-muted-foreground line-clamp-2">
                           {aiThinking.split('\n')[0]}
                         </p>
                       ) : (
                         <div className="mt-3 pt-3 border-t border-amber-200/50 dark:border-amber-700/50">
-                          <div className="bg-white/80 dark:bg-gray-800/80 rounded-lg p-3 max-h-48 overflow-y-auto">
+                          <div className="bg-white/80 dark:bg-card/80 rounded-lg p-3 max-h-48 overflow-y-auto">
                             <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
                               {aiThinking}
                             </pre>
@@ -504,7 +504,7 @@ export const PhotoWordRecognition = ({
                   )}
 
                   {recognizedWords.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <div className="text-center py-8 text-muted-foreground">
                       没有识别到高亮单词
                     </div>
                   ) : (
@@ -515,7 +515,7 @@ export const PhotoWordRecognition = ({
                           return (
                             <div
                               key={index}
-                              className={`p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 ${
+                              className={`p-3 border rounded-lg bg-gray-50 dark:bg-muted dark:border-border ${
                                 editingWordIndex === index ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''
                               }`}
                             >
@@ -544,7 +544,7 @@ export const PhotoWordRecognition = ({
                               {word.meanings.length > 0 && (
                                 <div className="space-y-1">
                                   <div className="flex items-center justify-between">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">选择释义：</span>
+                                    <span className="text-xs text-muted-foreground">选择释义：</span>
                                     <Button
                                       variant="link"
                                       size="sm"
@@ -566,7 +566,7 @@ export const PhotoWordRecognition = ({
                                           className={`px-2 py-1 text-xs rounded border transition-colors cursor-pointer ${
                                             isSelected
                                               ? 'bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300'
-                                              : 'bg-white border-gray-300 text-gray-600 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-500'
+                                              : 'bg-white border-gray-300 text-muted-foreground dark:bg-secondary dark:border-border dark:text-gray-300 hover:bg-muted'
                                           }`}
                                         >
                                           {meaning.type} {meaning.content}
@@ -575,7 +575,7 @@ export const PhotoWordRecognition = ({
                                     })}
                                   </div>
                                   {isSelectedCount > 0 && (
-                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                    <p className="text-xs text-muted-foreground mt-1">
                                       已选择 {isSelectedCount} 个释义
                                     </p>
                                   )}

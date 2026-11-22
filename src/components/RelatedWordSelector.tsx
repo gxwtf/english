@@ -115,7 +115,7 @@ export const RelatedWordSelector = ({
         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
           关联单词
         </h4>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
+        <span className="text-xs text-muted-foreground">
           已选择 {selectedRelatedWords.length} 个
         </span>
       </div>
@@ -126,7 +126,7 @@ export const RelatedWordSelector = ({
           {selectedRelatedWords.map((related) => (
             <div
               key={related.text}
-              className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-md border border-gray-200 dark:border-gray-600"
+              className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-muted rounded-md border border-gray-200 dark:border-border"
             >
               <span className="text-sm font-medium text-gray-900 dark:text-white flex-1">
                 {related.text}
@@ -148,7 +148,7 @@ export const RelatedWordSelector = ({
               {/* 移除按钮 */}
               <button
                 onClick={() => handleRemoveRelated(related.text)}
-                className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400"
+                className="p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-muted-foreground hover:text-red-600 dark:text-muted-foreground dark:hover:text-red-400"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -164,7 +164,7 @@ export const RelatedWordSelector = ({
             输入关联单词
           </Label>
           {isVerifying && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">验证中...</span>
+            <span className="text-xs text-muted-foreground">验证中...</span>
           )}
         </div>
 
@@ -197,7 +197,7 @@ export const RelatedWordSelector = ({
           <p className="text-xs text-red-500 dark:text-red-400 mt-1">{verificationError}</p>
         )}
 
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           提示：按回车键或点击"添加"按钮添加单词，点击已添加的关联词可切换类型
         </p>
       </div>

@@ -242,7 +242,7 @@
   --color-gray-300: #d3cfcf;
   --color-gray-400: #b4b0b0;
   --color-gray-500: #9b9b9b;
-  --color-gray-600: #7d7a79;
+  --color-gray-600: #666160; /* 浅色下作次要正文时原 #7d7a79 压白底仅 4.26（AA 需 4.5），压深到 6.10 */
   --color-gray-700: #5f5b5a;
   --color-gray-800: #403c3b;
   --color-gray-900: #231815;
@@ -313,7 +313,9 @@
   --secondary: #f4f2f2;
   --secondary-foreground: #231815;
   --muted: #f4f2f2;
-  --muted-foreground: #7d7a79;
+  /* 次要文字：#7d7a79 压白底只有 4.26、压 bg-muted(#f4f2f2) 只有 3.82，都不够 AA；
+     压到 #666160 后白底 6.10 / bg-muted 5.47 / border 4.82，全部达标。 */
+  --muted-foreground: #666160;
   --accent: #f4f2f2;
   --accent-foreground: #231815;
   --destructive: #c22525;
@@ -384,8 +386,9 @@
 }
 
 /*
- * 深色模式 ——「暖墨」：以 VI 坚实黑 #231815 为底，压暗一层做页面底，
- * 卡片/弹层逐层提亮；正文用暖白 #f2eeec 而不是纯白，避免长时间阅读刺眼。
+ * 深色模式 ——「暖墨 · 纯黑打底」：页面底是 #000000（OLED 省电、边界干净），
+ * 卡片 / 弹层 / 次级底在纯黑之上逐层提亮（#121110 / #171514 / #1c1918），保持层次；
+ * 正文用暖白 #f2eeec 而不是纯白，避免长时间阅读刺眼。
  * 品牌红在深色下提亮一档，保证白字压在实心按钮上仍然成立。
  * 逐条口径见 docs/dark-mode.md §3。
  */
@@ -393,38 +396,38 @@
   /* 深色模式：原生控件 / 滚动条 / 日期选择器等跟随深色 */
   color-scheme: dark;
 
-  --background: #14100f;
+  --background: #000000;
   --foreground: #f2eeec;
-  --card: #1d1918;
+  --card: #121110;
   --card-foreground: #f2eeec;
-  --popover: #221d1c;
+  --popover: #171514;
   --popover-foreground: #f2eeec;
   --primary: #d0343a;
   --primary-foreground: #ffffff;
-  --secondary: #2a2422;
+  --secondary: #1c1918;
   --secondary-foreground: #f2eeec;
-  --muted: #262120;
-  /* 次要文字：实测压在 dark:bg-gray-800(#403c3b) 上 #a89f9c 只有 4.2，
-     抬到 #bdb5b1 后 ≈5.1，同时压在页面底 #14100f 上仍有 9.3，不会发白。 */
+  --muted: #191615;
+  /* 次要文字：实测压在 dark:bg-gray-800(#403c3b) 这种"抬起来的深灰面"上，
+     #a89f9c 只有 4.2；抬到 #bdb5b1 后 ≈5.1，压在纯黑页面底上 ≈12，不会发白。 */
   --muted-foreground: #bdb5b1;
-  --accent: #2a2422;
+  --accent: #1c1918;
   --accent-foreground: #f2eeec;
   --destructive: #e05252;
-  --border: rgb(242 238 236 / 11%);
-  --input: rgb(242 238 236 / 14%);
+  --border: rgb(255 255 255 / 12%);
+  --input: rgb(255 255 255 / 16%);
   --ring: #d0343a;
   --chart-1: #d0343a;
   --chart-2: #f0a35e;
   --chart-3: #64c886;
   --chart-4: #9b8fe0;
   --chart-5: #5aa9e6;
-  --sidebar: #191514;
+  --sidebar: #0a0908;
   --sidebar-foreground: #f2eeec;
   --sidebar-primary: #d0343a;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #2a2422;
+  --sidebar-accent: #1c1918;
   --sidebar-accent-foreground: #f2eeec;
-  --sidebar-border: rgb(242 238 236 / 9%);
+  --sidebar-border: rgb(255 255 255 / 10%);
   --sidebar-ring: #d0343a;
 
   /* ===== L1 品牌色（深色，提亮一档） ===== */

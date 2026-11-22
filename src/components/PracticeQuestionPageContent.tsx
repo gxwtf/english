@@ -113,8 +113,8 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
 
   if (!isClient || isLoading || (isLoggedIn && loading)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
+        <div className="text-muted-foreground">加载中...</div>
       </div>
     );
   }
@@ -125,7 +125,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-background">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <div className="text-center py-12">
             <p className="text-red-500 dark:text-red-400">{error}</p>
@@ -141,7 +141,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
   if (!question) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
       <Navbar currentPage="practice" />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mb-6">
@@ -177,7 +177,7 @@ export function PracticeQuestionPageContent({ params }: { params: Promise<{ ques
             <div className="mt-4 flex items-center justify-center gap-3">
               <Link
                 href="/practice"
-                className="px-5 py-2.5 text-sm font-semibold rounded-xl transition-all bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                className="px-5 py-2.5 text-sm font-semibold rounded-xl transition-all bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted"
               >
                 返回题目列表
               </Link>

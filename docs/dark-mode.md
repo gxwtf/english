@@ -37,19 +37,23 @@ L1 只服务于品牌与标签这两类「必须成对、但语义 token 表达�
 
 ### 3.1 L0 语义 token
 
-| token | 浅色 | 深色（暖墨） | 说明 |
+| token | 浅色 | 深色（暖墨 · 纯黑打底） | 说明 |
 | --- | --- | --- | --- |
-| `--background` | `#ffffff` | `#14100f` | 页面底；由坚实黑 `#231815` 压暗一档 |
-| `--foreground` | `#231815` | `#f2eeec` | 正文；暖白而非纯白，避免刺眼 |
-| `--card` | `#ffffff` | `#1d1918` | 卡片/面板，比页面底高一层 |
-| `--popover` | `#ffffff` | `#221d1c` | 弹层，再高一层 |
-| `--muted` | `#f4f2f2` | `#262120` | 次级底 / hover |
-| `--muted-foreground` | `#7d7a79` | `#a89f9c` | 次要文字 |
-| `--border` | `#e7e4e4` | `rgba(242,238,236,.11)` | 深色下用透明白，层次比实色稳 |
-| `--input` | `#e7e4e4` | `rgba(242,238,236,.14)` | |
+| `--background` | `#ffffff` | `#000000` | 页面底**纯黑**：OLED 省电、内容边界干净、不会出现"发灰的黑" |
+| `--foreground` | `#231815` | `#f2eeec` | 正文；暖白而非纯白，长时间阅读不刺眼（纯黑上 18.5:1） |
+| `--card` | `#ffffff` | `#121110` | 卡片/面板：纯黑之上第一层提亮（1.15:1 的微弱分界靠边框补足） |
+| `--popover` | `#ffffff` | `#171514` | 弹层，再高一层 |
+| `--muted` | `#f4f2f2` | `#191615` | 次级底 / hover |
+| `--secondary` | `#f4f2f2` | `#1c1918` | 次级按钮底 |
+| `--muted-foreground` | `#666160` | `#bdb5b1` | 次要文字；浅色原 `#7d7a79` 压白底仅 4.26 → 压深到 6.10（bg-muted 5.47 / border 4.82） |
+| `--border` | `#e7e4e4` | `rgba(255,255,255,.12)` | 深色下用透明白，层次比实色稳；纯黑上边框是主要分界线 |
+| `--input` | `#e7e4e4` | `rgba(255,255,255,.16)` | |
 | `--primary` | `#a31f24` | `#d0343a` | 实心按钮底；暗色提亮一档保证「白字压得住」 |
 | `--ring` | `#a31f24` | `#d0343a` | |
 | `--destructive` | `#c22525` | `#e05252` | 危险动作，暗色提亮 |
+
+> **为什么纯黑打底还要卡片提亮**：纯黑页面 + 纯黑卡片会丢掉层次（尤其弹层与页面同色时）。
+> 深色下"卡片/弹层比页面亮一档 + 边框"是唯一可靠的层次手段，`shadow-*` 在纯黑上几乎不可见。
 
 `:root { color-scheme: light }` / `.dark { color-scheme: dark }` **必须有**（滚动条、原生控件、自动填充底色）。
 
@@ -132,9 +136,9 @@ L1 只服务于品牌与标签这两类「必须成对、但语义 token 表达�
 
 ## 7. 验收
 
-### 7.1 静态自检 `pnpm check:theme`
+### 7.1 静态自检 `pnpm check:colors`（原 `check:theme`，已并入）
 
-`scripts/check-theme.mjs` 规则（违反即退出码 1）：
+`scripts/check-colors.mjs` 规则（违反即退出码 1）：
 
 1. `className` 里**禁止** `bg-white` / `text-black` / `border-black` / `border-1`；
 2. 任何原始色阶类（`bg-|text-|border-|from-|to-|via-|ring-|fill-|stroke-` + 18 个色系 + 50–950）
@@ -179,12 +183,12 @@ from-brand-crimson to-brand-deep-red + text-white → 保留；暗色由 L1 变�
 - [ ] `src/app/layout.tsx`：`suppressHydrationWarning` + 内联脚本 + Provider + `viewport.themeColor` 双条
 - [ ] `src/hooks/use-theme-color-sync.ts`（运行期同步 `<meta name=theme-color>`）
 - [ ] `src/constants/word-tags.tsx`：改变量引用
-- [ ] 组件层：L2 配对补齐（`pnpm check:theme` 清零）
+- [ ] 组件层：L2 配对补齐（`pnpm check:colors` 清零）
 - [ ] Navbar / 设置页接开关
-- [ ] `scripts/check-theme.mjs` + `scripts/e2e/theme.mjs` + `package.json` 脚本
+- [ ] `scripts/check-colors.mjs` + `scripts/e2e/theme.mjs` + `package.json` 脚本
 - [ ] 构建 → 预览端口截图验收 → `scripts/project.sh deploy <name>` → 线上截图复验
 
-## 7.1 实现中的两个取舍（2026-11-22 落地实测）
+## 7.1 实现中的取舍（2026-11-22 落地实测）
 
 1. **百度统计改为水合后加载**：原先 `<head>` 里内联 `getElementsByTagName("script")[0]` +
    `insertBefore(hm.js)`，会在**解析期**往 `<head>` 里插入一个 React 没渲染过的 `<script>`，
@@ -194,3 +198,27 @@ from-brand-crimson to-brand-deep-red + text-white → 保留；暗色由 L1 变�
 2. **窄屏导航**：Navbar 新增主题按钮后，390/375px 下已无横滑、主题按钮与「登出」都完整可见；
    **360px 及以下仍需横滑约 15px**（改造前是 20px）。再压缩就得动品牌字号或删导航项，
    取舍上保留现状，记为已知限制。
+
+3. **纯黑打底是第二版定的**：初版页面底是 `#14100f`（暖墨）。用户要求"深色就用纯黑"后改为
+   `#000000`，卡片/弹层/次级底在纯黑之上逐层提亮（`#121110` / `#171514` / `#191615` / `#1c1918`）。
+   纯黑上 `shadow-*` 不可见，**层次全靠"提亮一档 + 边框"**，所以 `--border` 用 12% 透明白而不是实色。
+   遗留观感：业务里的 `dark:bg-gray-800/900`（暖深灰 `#403c3b` / `#231815`）在纯黑上会呈现"浮起的暖灰卡片"，
+   属预期效果（与品牌红同属暖色系），未强行改成冷灰。
+
+## 7.2 `check:colors` 的六条规则（2026-11-22 起）
+
+脚本 `scripts/check-colors.mjs`（`pnpm check:colors`）**取自 `~/gxexercise/scripts/check-colors.mjs`**，
+按这两站的实际做了三处增强：
+
+| 规则 | 内容 | 相对 gxexercise |
+| --- | --- | --- |
+| `absolute-color` | 禁 `bg-white` / `text-black` / `border-black` / `border-1` | 同 |
+| `missing-dark` | 原始色阶必须有同属性、同修饰符的 `dark:` 配对 | **扩到全部 22 个色系**（这里它们都是品牌色） |
+| `hex-color` | className 禁裸 `#hex`（白名单：globals.css / PDF 导出 / sw、offline） | 同 |
+| `css-var-pair` | `:root` 与 `.dark` 变量集合必须一致 | **加 `color-scheme` 校验** |
+| `text-white` | `text-white` 必须压品牌/主色/600+ 饱和底 | 同（忽略 `dark:text-white`） |
+| `contrast` | 同串 `bg-*` + `text-*` 配对算 WCAG，**浅色与深色各算一遍**，正文 ≥ 4.5（大字 ≥ 3.0） | **新增，gxexercise 没有** |
+
+`contrast` 这条正是补上"浅色下灰字压浅灰底"这类长期没人发现的问题——本次用它揪出英语站 20 处、
+作文站 3 处，其中大部分是**改造前就有**的。逃生阀：行内 `// color-check: ignore`（`theme-check: ignore` 也认）。
+跨元素继承的场景静态分析看不到，由 `scripts/e2e/theme.mjs` 的运行期逐元素扫描兜底（**浅色与深色都扫**）。

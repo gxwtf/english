@@ -230,7 +230,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
           <summary className="cursor-pointer text-amber-600 dark:text-amber-400 font-medium">
             查看 AI 思考过程
           </summary>
-          <pre className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200 rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
+          <pre className="mt-2 p-3 bg-muted text-muted-foreground rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
             {thinking}
           </pre>
         </details>
@@ -254,7 +254,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
               return (
                 <div
                   key={question.id}
-                  className="p-4 rounded-lg border bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                  className="p-4 rounded-lg border bg-muted border-gray-300 dark:border-border"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -265,7 +265,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
                   <p className="text-sm text-gray-800 dark:text-gray-200 mb-2">{question.chinese}</p>
 
                   {question.keyWords && question.keyWords.length > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    <p className="text-xs text-muted-foreground mb-2">
                       必用单词：
                       <span className="inline-block px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full ml-1">
                         {question.keyWords.join(', ')}
@@ -274,8 +274,8 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
                   )}
 
                   <div className="mb-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">你的答案：</p>
-                    <p className="text-sm bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+                    <p className="text-xs text-muted-foreground mb-1">你的答案：</p>
+                    <p className="text-sm bg-card p-2 rounded border border-gray-200 dark:border-border">
                       {userAnswer || '(未作答)'}
                     </p>
                   </div>
@@ -288,7 +288,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
           <div className="flex gap-3">
             <Link
               href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted"
             >
               返回题目列表
             </Link>
@@ -314,7 +314,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
               return (
                 <div
                   key={question.id}
-                  className="p-4 rounded-lg border bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                  className="p-4 rounded-lg border bg-muted border-gray-300 dark:border-border"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -325,7 +325,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
                   <p className="text-sm text-gray-800 dark:text-gray-200 mb-2">{question.chinese}</p>
 
                   {question.keyWords && question.keyWords.length > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    <p className="text-xs text-muted-foreground mb-2">
                       必用单词：
                       <span className="inline-block px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full ml-1">
                         {question.keyWords.join(', ')}
@@ -334,8 +334,8 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
                   )}
 
                   <div className="mb-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">你的答案：</p>
-                    <p className="text-sm bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+                    <p className="text-xs text-muted-foreground mb-1">你的答案：</p>
+                    <p className="text-sm bg-card p-2 rounded border border-gray-200 dark:border-border">
                       {userAnswer || '(未作答)'}
                     </p>
                   </div>
@@ -355,7 +355,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
           <div className="flex gap-3">
             <Link
               href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted"
             >
               返回题目列表
             </Link>
@@ -440,15 +440,15 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
 
                     {/* 你的答案 */}
                     <div className="mb-2">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">你的答案：</p>
-                      <p className="text-sm bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+                      <p className="text-xs text-muted-foreground mb-1">你的答案：</p>
+                      <p className="text-sm bg-card p-2 rounded border border-gray-200 dark:border-border">
                         {answers[result.questionId] || (lastAnswer ? (lastAnswer[result.questionId] as string) : '') || '(未作答)'}
                       </p>
                     </div>
 
                     {/* 标准答案 */}
                     <div className="mb-2">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">标准答案：</p>
+                      <p className="text-xs text-muted-foreground mb-1">标准答案：</p>
                       <p className="text-sm text-green-600 dark:text-green-400">
                         {result.standardAnswer || question?.referenceAnswers}
                       </p>
@@ -456,9 +456,9 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
 
                     {/* 批改反馈 */}
                     {result.feedback && (
-                      <div className="mt-3 p-3 rounded-lg text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                      <div className="mt-3 p-3 rounded-lg text-sm bg-card border border-gray-200 dark:border-border">
                         <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">AI 点评：</p>
-                        <p className="text-gray-600 dark:text-gray-400">{result.feedback}</p>
+                        <p className="text-muted-foreground">{result.feedback}</p>
                       </div>
                     )}
                   </div>
@@ -482,7 +482,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
           <div className="flex gap-3">
             <Link
               href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted"
             >
               返回题目列表
             </Link>
@@ -490,7 +490,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
               <button
                 onClick={handleReset}
                 disabled={isResetting}
-                className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 dark:from-blue-600 dark:to-indigo-700 dark:hover:from-blue-500 dark:hover:to-indigo-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 dark:from-blue-600 dark:to-indigo-800 dark:hover:from-blue-500 dark:hover:to-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isResetting ? '重置中...' : '重新作答'}
               </button>
@@ -526,8 +526,8 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
                   key={question.id}
                   className={`p-4 rounded-lg border transition-all ${
                     isPreviouslyAnswered || isAnswered
-                      ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
-                      : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                      ? 'bg-muted border-gray-300 dark:border-border'
+                      : 'bg-card border-gray-200 dark:border-border'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
@@ -539,7 +539,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
                   <p className="text-sm text-gray-800 dark:text-gray-200 mb-2">{question.chinese}</p>
 
                   {question.keyWords && question.keyWords.length > 0 && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    <p className="text-xs text-muted-foreground mb-2">
                       必用单词：
                       <span className="inline-block px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full ml-1">
                         {question.keyWords.join(', ')}
@@ -556,7 +556,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
                     rows={3}
                     // 在批改过程中禁用输入框
                     disabled={isPreviouslyAnswered || submitting}
-                    className="w-full mt-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full mt-2 px-3 py-2 border border-gray-300 dark:border-border rounded-lg bg-card text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
               );
@@ -578,7 +578,7 @@ export function TranslateAnswer({ questionId, questions, thinking, lastAnswer, s
               }}
               // 在批改中不允许清空
               disabled={submitting}
-              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
             >
               清空重写
             </button>

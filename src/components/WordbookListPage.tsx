@@ -164,8 +164,8 @@ export const WordbookListPage = () => {
 
   if (!isClient || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
+        <div className="text-muted-foreground">加载中...</div>
       </div>
     );
   }
@@ -175,7 +175,7 @@ export const WordbookListPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
       <Navbar currentPage="wordbook" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
@@ -185,7 +185,7 @@ export const WordbookListPage = () => {
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               我的单词本
             </h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1 truncate">
+            <p className="text-sm sm:text-base text-muted-foreground mt-1 truncate">
               共 {wordbooks.length} 个单词本
             </p>
           </div>
@@ -201,7 +201,7 @@ export const WordbookListPage = () => {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-gray-500 dark:text-gray-400">
+          <div className="flex items-center justify-center py-20 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
             加载中...
           </div>
@@ -209,15 +209,15 @@ export const WordbookListPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div
               onClick={() => router.push('/wordbooks/all')}
-              className="group relative bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-5 cursor-pointer hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all flex items-center"
+              className="group relative bg-card rounded-xl border border-dashed border-gray-300 dark:border-border p-5 cursor-pointer hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all flex items-center"
             >
               <div className="flex items-center gap-3 min-w-0 w-full">
-                <div className="w-11 h-11 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
-                  <Layers className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                <div className="w-11 h-11 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <Layers className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h3 className="font-semibold text-gray-900 dark:text-white">所有单词</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     汇总全部单词
                   </p>
                 </div>
@@ -228,10 +228,10 @@ export const WordbookListPage = () => {
             {wordbooks.length === 0 && (
               <div
                 onClick={openCreate}
-                className="bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-5 cursor-pointer hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all flex flex-col items-center justify-center text-center min-h-[120px]"
+                className="bg-card rounded-xl border border-dashed border-gray-300 dark:border-border p-5 cursor-pointer hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all flex flex-col items-center justify-center text-center min-h-[120px]"
               >
-                <BookOpen className="h-8 w-8 text-gray-300 dark:text-gray-500 mb-2" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">还没有单词本，点击创建</p>
+                <BookOpen className="h-8 w-8 text-gray-300 dark:text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">还没有单词本，点击创建</p>
               </div>
             )}
 
@@ -239,7 +239,7 @@ export const WordbookListPage = () => {
               <div
                 key={book.id}
                 onClick={() => router.push(`/wordbooks/${book.id}`)}
-                className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 cursor-pointer hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all"
+                className="group relative bg-card rounded-xl border border-gray-200 dark:border-border p-5 cursor-pointer hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -250,7 +250,7 @@ export const WordbookListPage = () => {
                       <h3 className="font-semibold text-gray-900 dark:text-white truncate">
                         {book.name}
                       </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {book.wordCount} 个单词
                       </p>
                     </div>
@@ -260,7 +260,7 @@ export const WordbookListPage = () => {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
-                          className="p-1.5 rounded-md text-muted-foreground/70 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                          className="p-1.5 rounded-md text-muted-foreground/70 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-muted transition-colors"
                           aria-label="更多操作"
                         >
                           <MoreVertical className="h-4 w-4" />
@@ -288,20 +288,20 @@ export const WordbookListPage = () => {
                     {book.previewWords.map((w) => (
                       <span
                         key={w}
-                        className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200"
+                        className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
                       >
                         {w}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 dark:text-gray-400 mt-4 min-h-[26px]">
+                  <p className="text-xs text-muted-foreground mt-4 min-h-[26px]">
                     暂无单词
                   </p>
                 )}
 
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <span className="text-xs text-gray-400 dark:text-gray-400">
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-border">
+                  <span className="text-xs text-muted-foreground">
                     更新于 {formatDate(book.updatedAt)}
                   </span>
                   <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -337,7 +337,7 @@ export const WordbookListPage = () => {
             />
 
             {!editing && systemWordbooks.length > 0 && (
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+              <div className="rounded-lg border border-gray-200 dark:border-border p-3">
                 <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <Download className="h-4 w-4" />
                   导入系统单词本（可选）
@@ -359,7 +359,7 @@ export const WordbookListPage = () => {
                   </SelectContent>
                 </Select>
                 {selectedSystemId && (
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     创建后将复制该系统单词本的全部单词，你可以自由编辑，不会影响系统单词本。
                   </p>
                 )}
@@ -401,14 +401,14 @@ export const WordbookListPage = () => {
             <DialogTitle>删除单词本</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-3">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               确定要删除「{deleting?.name}」吗？
             </p>
 
             {deletePreview === null ? (
-              <p className="text-xs text-gray-500 dark:text-gray-400">正在统计本内单词...</p>
+              <p className="text-xs text-muted-foreground">正在统计本内单词...</p>
             ) : deletePreview.exclusive === 0 && deletePreview.shared === 0 ? (
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 该单词本是空的，删除不影响任何单词。
               </p>
             ) : (

@@ -93,7 +93,7 @@ export const WordCard = ({
       className={`p-3 sm:p-4 rounded-lg border transition-all ${selectable ? 'cursor-pointer' : 'cursor-default'} ${
         isSelected
           ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700'
-          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-md'
+          : 'bg-card border-gray-200 dark:border-border hover:shadow-md'
       }`}
       onClick={(e) => {
         if (!selectable) return;
@@ -128,7 +128,7 @@ export const WordCard = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => onEdit?.(word)}
-                  className="p-2 h-8 w-8 sm:h-9 sm:w-9 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="p-2 h-8 w-8 sm:h-9 sm:w-9 hover:bg-muted"
                 >
                   <Edit2 className="h-4 w-4" />
                 </Button>
@@ -137,7 +137,7 @@ export const WordCard = ({
                   variant="ghost"
                   size="sm"
                   onClick={handleDelete}
-                  className="p-2 h-8 w-8 sm:h-9 sm:w-9 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:text-gray-500 dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+                  className="p-2 h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-colors"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -161,14 +161,14 @@ export const WordCard = ({
                   </p>
                 ))
               ) : (
-                <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-400">暂无释义数据</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">暂无释义数据</p>
               )}
             </div>
 
           {/* 关联单词 */}
           {relatedWordsInfo.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2 border-t border-gray-200 dark:border-border">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
                 <Link2 className="h-3 w-3" />
                 <span className="hidden sm:inline">关联单词:</span>
                 <span className="sm:hidden">关联:</span>
@@ -181,7 +181,7 @@ export const WordCard = ({
                   title={getRelationTypeLabel(related.type)}
                 >
                   <span className="truncate">{related.text}</span>
-                  <span className="ml-1 text-gray-400 dark:text-gray-400 hidden sm:inline">
+                  <span className="ml-1 text-muted-foreground hidden sm:inline">
                     ({getRelationTypeLabel(related.type)})
                   </span>
                 </Badge>
@@ -228,7 +228,7 @@ export const WordCard = ({
 
           {/* 权重信息 */}
           {weights && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 border-t border-gray-200 dark:border-border text-xs text-muted-foreground">
               <span className="flex items-center gap-1" title="总权重 = 遗忘权重 × 错误权重">
                 <Scale className="h-3 w-3" />
                 <span>总</span>
@@ -256,7 +256,7 @@ export const WordCard = ({
         <DialogHeader>
           <DialogTitle>确认删除单词</DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-gray-600 dark:text-gray-400 py-2">
+        <p className="text-sm text-muted-foreground py-2">
           确定要删除单词「
           <span className="font-semibold text-gray-900 dark:text-white">{word.text}</span>
           」吗？该单词会<span className="font-semibold text-red-600 dark:text-red-400">从所有单词本中一并删除</span>

@@ -108,7 +108,7 @@ export function ReviewScopeModal({ isOpen, onClose }: ReviewScopeModalProps) {
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center py-10 text-gray-500 dark:text-gray-400">
+          <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" />
             加载中...
           </div>
@@ -132,9 +132,9 @@ export function ReviewScopeModal({ isOpen, onClose }: ReviewScopeModalProps) {
             </div>
 
             {mode === 'custom' && (
-              <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/60 dark:bg-gray-800/40">
+              <div className="rounded-lg border border-gray-200 dark:border-border p-4 bg-gray-50/60 dark:bg-card/40">
                 {wordbooks.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     还没有创建任何单词本
                   </p>
                 ) : (
@@ -148,7 +148,7 @@ export function ReviewScopeModal({ isOpen, onClose }: ReviewScopeModalProps) {
                           type="button"
                           onClick={handleSelectAll}
                           disabled={allSelected}
-                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:text-gray-400 disabled:no-underline dark:disabled:text-gray-500"
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:text-muted-foreground disabled:no-underline dark:disabled:text-muted-foreground"
                         >
                           全选
                         </button>
@@ -156,7 +156,7 @@ export function ReviewScopeModal({ isOpen, onClose }: ReviewScopeModalProps) {
                           type="button"
                           onClick={handleSelectNone}
                           disabled={selectedIds.length === 0}
-                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:text-gray-400 disabled:no-underline dark:disabled:text-gray-500"
+                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline disabled:text-muted-foreground disabled:no-underline dark:disabled:text-muted-foreground"
                         >
                           全不选
                         </button>
@@ -173,14 +173,14 @@ export function ReviewScopeModal({ isOpen, onClose }: ReviewScopeModalProps) {
                             className={`w-full flex items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
                               checked
                                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                                : 'border-gray-200 dark:border-border hover:border-gray-300 dark:hover:border-border'
                             }`}
                           >
                             <span
                               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
                                 checked
                                   ? 'border-blue-500 bg-blue-600 dark:border-blue-400 dark:bg-blue-500 text-white'
-                                  : 'border-gray-300 dark:border-gray-600'
+                                  : 'border-gray-300 dark:border-border'
                               }`}
                             >
                               {checked && <Check className="h-3.5 w-3.5" />}
@@ -188,7 +188,7 @@ export function ReviewScopeModal({ isOpen, onClose }: ReviewScopeModalProps) {
                             <span className="flex-1 min-w-0 truncate text-sm text-gray-900 dark:text-white">
                               {book.name}
                             </span>
-                            <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+                            <span className="text-xs text-muted-foreground shrink-0">
                               {book.wordCount} 词
                             </span>
                           </button>
@@ -244,14 +244,14 @@ function ScopeCard({ selected, onSelect, icon, title, description }: ScopeCardPr
       className={`w-full text-left rounded-lg border p-4 transition-all flex items-start gap-3 ${
         selected
           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-500 dark:ring-blue-400'
-          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+          : 'border-gray-200 dark:border-border hover:border-gray-300 dark:hover:border-border'
       }`}
     >
       <div
         className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
           selected
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200'
+            ? 'bg-blue-600 dark:bg-blue-500 text-white'
+            : 'bg-muted text-muted-foreground'
         }`}
       >
         {icon}
@@ -261,7 +261,7 @@ function ScopeCard({ selected, onSelect, icon, title, description }: ScopeCardPr
           <span className="text-sm font-medium text-gray-900 dark:text-white">{title}</span>
           {selected && <Check className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
         </div>
-        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{description}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
       </div>
     </button>
   );

@@ -234,7 +234,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
           <summary className="cursor-pointer text-amber-600 dark:text-amber-400 font-medium">
             查看 AI 思考过程
           </summary>
-          <pre className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200 rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
+          <pre className="mt-2 p-3 bg-muted text-muted-foreground rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
             {thinking}
           </pre>
         </details>
@@ -253,12 +253,12 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
             {questions.map((q, i) => {
               const userAnswer = lastAnswer ? (lastAnswer[i] as string) : '';
               return (
-                <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div key={i} className="p-4 bg-gray-50 dark:bg-card rounded-lg">
                   <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">第 {i + 1} 题</p>
                   <p className="text-sm text-gray-800 dark:text-gray-200 mb-2">{q.sentence}</p>
                   <div className="mb-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">你的答案：</p>
-                    <p className="text-sm bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+                    <p className="text-xs text-muted-foreground mb-1">你的答案：</p>
+                    <p className="text-sm bg-card p-2 rounded border border-gray-200 dark:border-border">
                       {userAnswer || '(未作答)'}
                     </p>
                   </div>
@@ -270,7 +270,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
           <div className="flex gap-3">
             <Link
               href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted"
             >
               返回题目列表
             </Link>
@@ -291,12 +291,12 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
             {questions.map((q, i) => {
               const userAnswer = lastAnswer ? (lastAnswer[i] as string) : '';
               return (
-                <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div key={i} className="p-4 bg-gray-50 dark:bg-card rounded-lg">
                   <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">第 {i + 1} 题</p>
                   <p className="text-sm text-gray-800 dark:text-gray-200 mb-2">{q.sentence}</p>
                   <div className="mb-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">你的答案：</p>
-                    <p className="text-sm bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
+                    <p className="text-xs text-muted-foreground mb-1">你的答案：</p>
+                    <p className="text-sm bg-card p-2 rounded border border-gray-200 dark:border-border">
                       {userAnswer || '(未作答)'}
                     </p>
                   </div>
@@ -308,7 +308,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
           <div className="flex gap-3">
             <Link
               href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted"
             >
               返回题目列表
             </Link>
@@ -345,15 +345,15 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
                   <p className="text-sm text-gray-800 dark:text-gray-200 mb-2">{q.sentence}</p>
                   
                   <div className="mb-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">你的答案：</p>
-                    <p className={`text-sm ${isCorrect ? 'text-green-600 dark:text-green-400' : userAnswer ? 'text-red-500 dark:text-red-400 line-through' : 'text-gray-400 dark:text-gray-500'}`}>
+                    <p className="text-xs text-muted-foreground mb-1">你的答案：</p>
+                    <p className={`text-sm ${isCorrect ? 'text-green-600 dark:text-green-400' : userAnswer ? 'text-red-500 dark:text-red-400 line-through' : 'text-muted-foreground'}`}>
                       {userAnswer || '(未回答)'}
                     </p>
                   </div>
 
                   {!isCorrect && (
                     <div className="mb-2">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">正确答案：</p>
+                      <p className="text-xs text-muted-foreground mb-1">正确答案：</p>
                       <p className="text-sm text-green-600 dark:text-green-400">
                         {q.answer}{q.originalWord && q.originalWord !== q.answer ? `（原词：${q.originalWord}）` : ''}
                       </p>
@@ -361,9 +361,9 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
                   )}
 
                   {result?.feedback && (
-                    <div className="mt-3 p-3 rounded-lg text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600">
+                    <div className="mt-3 p-3 rounded-lg text-sm bg-card border border-gray-200 dark:border-border">
                       <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">AI 点评：</p>
-                      <p className="text-gray-600 dark:text-gray-400">{result.feedback}</p>
+                      <p className="text-muted-foreground">{result.feedback}</p>
                     </div>
                   )}
                 </div>
@@ -384,7 +384,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
           <div className="flex gap-3">
             <Link
               href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted"
             >
               返回题目列表
             </Link>
@@ -393,7 +393,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
               disabled={isResetting}
               className={`flex-1 py-3 font-semibold rounded-xl transition-all shadow-md text-white disabled:opacity-50 disabled:cursor-not-allowed ${
                 currentStatus === 'ANSWERED'
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 dark:from-blue-600 dark:to-indigo-700 dark:hover:from-blue-500 dark:hover:to-indigo-600'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 dark:from-blue-600 dark:to-indigo-800 dark:hover:from-blue-500 dark:hover:to-indigo-700'
                   : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red'
               }`}
             >
@@ -427,7 +427,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
                 );
               })}
               {questions.some(q => q.originalWord) && (
-                <span className="text-xs text-gray-500 dark:text-gray-400 self-center ml-1">
+                <span className="text-xs text-muted-foreground self-center ml-1">
                   (部分题目可能需要填写单词的不同形式)
                 </span>
               )}
@@ -436,7 +436,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
 
           <div className="space-y-4">
             {questions.map((q, i) => (
-              <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div key={i} className="p-4 bg-gray-50 dark:bg-card rounded-lg">
                 <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">第 {i + 1} 题</p>
                 <BlankInput
                   sentence={q.sentence}
@@ -454,7 +454,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
             disabled={submitting}
             className={`w-full py-3 font-semibold rounded-xl transition-all shadow-md ${
               submitting
-                ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                ? 'bg-gray-300 dark:bg-secondary text-muted-foreground cursor-not-allowed'
                 : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white hover:shadow-lg'
             }`}
           >

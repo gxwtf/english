@@ -31,7 +31,7 @@ export function QuestionList({
   return (
     <div className="space-y-3">
       {queue.length === 0 && (
-        <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+        <div className="text-center py-12 text-muted-foreground">
           暂无题目记录
         </div>
       )}
@@ -41,7 +41,7 @@ export function QuestionList({
         const isSelected = selectedIds?.has(q.id) ?? false;
 
         return (
-          <div key={q.id} className={`border rounded-lg overflow-hidden ${isSelected ? 'border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+          <div key={q.id} className={`border rounded-lg overflow-hidden ${isSelected ? 'border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-border'}`}>
             <div className="flex items-center gap-2 px-4 py-3">
               {selectable && onToggleSelect && (
                 <Checkbox
@@ -77,7 +77,7 @@ export function QuestionList({
               {q.status === 'ANSWERED' && (
                 <Link
                   href={`/practice/${q.id}`}
-                  className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-muted text-gray-700 dark:text-gray-200 rounded-lg hover:bg-muted transition-colors"
                 >
                   查看作答 <Eye className="h-3 w-3" />
                 </Link>
@@ -174,7 +174,7 @@ export function QuestionDisplay({
         {/* New fill-blank format */}
         {isNewFillBlank && (
           <>
-            {instructions && <p className="text-sm text-gray-600 dark:text-gray-400">{instructions}</p>}
+            {instructions && <p className="text-sm text-muted-foreground">{instructions}</p>}
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">可选单词：</p>
               <div className="flex flex-wrap gap-2">
@@ -191,7 +191,7 @@ export function QuestionDisplay({
             {questions && Array.isArray(questions) && (
               <div className="space-y-4">
                 {questions!.map((q, i) => (
-                  <div key={i} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div key={i} className="p-3 bg-gray-50 dark:bg-card rounded-lg">
                     <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">第 {i + 1} 题</p>
                     {renderBlankSentence(q.sentence)}
                     <p className="text-xs text-green-600 dark:text-green-400 mt-2">
@@ -207,7 +207,7 @@ export function QuestionDisplay({
         {/* Old fill-blank format (backward compat) */}
         {!isNewFillBlank && passage && options && (
           <>
-            {instructions && <p className="text-sm text-gray-600 dark:text-gray-400">{instructions}</p>}
+            {instructions && <p className="text-sm text-muted-foreground">{instructions}</p>}
             {passage && <p className="text-sm leading-relaxed text-gray-800 dark:text-gray-200">{passage}</p>}
             <div className="space-y-3">
               {Object.entries(options).map(([num, opts]) => (
@@ -217,7 +217,7 @@ export function QuestionDisplay({
                     {opts.map((opt, i) => (
                       <div
                         key={i}
-                        className="text-sm px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300"
+                        className="text-sm px-3 py-2 border border-gray-200 dark:border-border rounded-lg text-gray-700 dark:text-gray-300"
                       >
                         {['A', 'B', 'C', 'D'][i]}. {opt}
                       </div>
@@ -273,7 +273,7 @@ export function renderTranslateQuestions(questions: unknown): React.ReactNode {
   const translateQs = questions.filter((q: any) => q.chinese !== undefined);
   if (translateQs.length === 0) return null;
   return (
-    <div className="space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+    <div className="space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-border">
       {translateQs.map((q: any, i: number) => (
         <div key={i} className="space-y-2">
           {q.type === 'cn_to_en' && (
@@ -282,7 +282,7 @@ export function renderTranslateQuestions(questions: unknown): React.ReactNode {
                 {q.chinese}
               </p>
               {q.hint && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">{q.hint}</p>
+                <p className="text-xs text-muted-foreground">{q.hint}</p>
               )}
               {q.referenceAnswers && (
                 <details className="text-xs">

@@ -223,10 +223,10 @@ export function PracticePageContent() {
 
   if (!isClient || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-muted-foreground mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">加载中...</p>
+          <p className="mt-4 text-muted-foreground">加载中...</p>
         </div>
       </div>
     );
@@ -238,10 +238,10 @@ export function PracticePageContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-muted-foreground mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">加载中...</p>
+          <p className="mt-4 text-muted-foreground">加载中...</p>
         </div>
       </div>
     );
@@ -250,7 +250,7 @@ export function PracticePageContent() {
   const selectableCount = queue.filter(q => ['GENERATED', 'ANSWERED', 'GRADING'].includes(q.status)).length;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
       <Navbar currentPage="practice" />
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
@@ -258,22 +258,22 @@ export function PracticePageContent() {
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             题目队列
           </h1>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
             共 {queue.length} 道题目
           </p>
         </div>
 
         {/* Export toolbar */}
         {selectableCount > 0 && (
-          <div className="mb-4 flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="mb-4 flex items-center gap-3 p-3 bg-card rounded-lg border border-gray-200 dark:border-border shadow-sm">
             <button
               onClick={handleSelectAll}
-              className="text-sm px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="text-sm px-3 py-1.5 text-muted-foreground hover:text-gray-900 dark:hover:text-white hover:bg-muted rounded-lg transition-colors"
             >
               {selectedIds.size === selectableCount && selectableCount > 0 ? '取消全选' : '全选'}
             </button>
 
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-muted-foreground">
               已选 {selectedIds.size} 题
             </span>
 

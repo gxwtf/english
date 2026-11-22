@@ -291,7 +291,7 @@ export const BatchAddWord = ({
   const editingWord = editingWordIndex !== null ? items[editingWordIndex] : null;
 
   const statusIcon: Record<WordStatus, React.ReactNode> = {
-    pending: <div className="h-4 w-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />,
+    pending: <div className="h-4 w-4 rounded-full border-2 border-gray-300 dark:border-border" />,
     processing: <Loader2 className="h-4 w-4 animate-spin text-blue-500 dark:text-blue-400" />,
     success: <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />,
     failed: <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />,
@@ -299,7 +299,7 @@ export const BatchAddWord = ({
   };
 
   const statusBg: Record<WordStatus, string> = {
-    pending: 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700',
+    pending: 'bg-card border-gray-200 dark:border-border',
     processing: 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-700',
     success: 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-700',
     failed: 'bg-red-50/50 dark:bg-red-900/10 border-red-200 dark:border-red-700',
@@ -311,7 +311,7 @@ export const BatchAddWord = ({
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden" showCloseButton={false}>
           {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-red-50 dark:bg-gray-700">
+          <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-border bg-red-50 dark:bg-muted">
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-crimson shrink-0">
                 <ListPlus className="h-5 w-5 text-brand-white" />
@@ -320,7 +320,7 @@ export const BatchAddWord = ({
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
                   批量添加单词
                 </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                <p className="text-xs text-muted-foreground truncate">
                   每行输入一个单词，自动查询并添加
                 </p>
               </div>
@@ -357,17 +357,17 @@ export const BatchAddWord = ({
                     className="min-h-48 font-mono"
                     disabled={isProcessing}
                   />
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     共 {parseWords(inputText).length} 个单词（重复单词将自动去重）
                   </p>
                 </div>
 
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 gap-3">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-muted/50 border border-gray-200 dark:border-border gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
                       跳过 def. 词性的释义
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       {skipDef
                         ? '将仅添加有明确词性（n./v./adj. 等）的释义'
                         : '默认添加单词的所有释义（包括 def.）'}
@@ -381,7 +381,7 @@ export const BatchAddWord = ({
                 </div>
 
                 {/* 标签选择 */}
-                <div className="p-3 rounded-xl bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-600">
+                <div className="p-3 rounded-xl bg-card/50 border border-gray-200 dark:border-border">
                   <TagSelector
                     allTagConfigs={allTagConfigs}
                     selectedTags={selectedTags}
@@ -402,11 +402,11 @@ export const BatchAddWord = ({
                       {isProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
                       {isProcessing ? '正在添加...' : '处理完成'}
                     </span>
-                    <span className="text-gray-500 dark:text-gray-400">
+                    <span className="text-muted-foreground">
                       {processedCount} / {totalCount}
                     </span>
                   </div>
-                  <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-brand-crimson transition-all duration-300"
                       style={{
@@ -468,7 +468,7 @@ export const BatchAddWord = ({
                               {item.text}
                             </span>
                             {item.selectedMeanings && item.selectedMeanings.length > 0 && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
+                              <span className="text-xs text-muted-foreground shrink-0">
                                 · {item.selectedMeanings.length} 个释义
                               </span>
                             )}
@@ -500,10 +500,10 @@ export const BatchAddWord = ({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between p-5 border-t border-gray-100 dark:border-gray-700 gap-3">
+          <div className="flex items-center justify-between p-5 border-t border-gray-100 dark:border-border gap-3">
             {!hasStarted ? (
               <>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="text-sm text-muted-foreground">
                   共 {parseWords(inputText).length} 个单词
                 </div>
                 <div className="flex gap-2">
@@ -522,7 +522,7 @@ export const BatchAddWord = ({
               </>
             ) : (
               <>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="text-sm text-muted-foreground">
                   {isProcessing ? '正在处理，请稍候...' : `完成: ${successCount}/${totalCount}`}
                 </div>
                 <div className="flex gap-2 flex-wrap justify-end">

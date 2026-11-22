@@ -298,8 +298,8 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
 
   if (loading) {
     return (
-      <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-        <p className="text-sm text-gray-500 dark:text-gray-400">加载单词释义中...</p>
+      <div className="p-4 bg-gray-50 dark:bg-card rounded-lg border border-gray-200 dark:border-border">
+        <p className="text-sm text-muted-foreground">加载单词释义中...</p>
       </div>
     );
   }
@@ -337,7 +337,7 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
             <span className="text-sm font-medium text-gray-900 dark:text-white min-w-[80px]">
               {word.text}
               {word.isRelatedWord && word.sourceWords && word.sourceWords.length > 0 && (
-                <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                <span className="text-xs text-muted-foreground ml-1">
                   ({word.sourceWords.join('、')}的关联词)
                 </span>
               )}
@@ -349,7 +349,7 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                 word.meanings.map((meaning, mIndex) => (
                   <span
                     key={mIndex}
-                    className="text-xs px-2 py-0.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded border border-gray-200 dark:border-gray-600"
+                    className="text-xs px-2 py-0.5 bg-card text-gray-700 dark:text-gray-200 rounded border border-gray-200 dark:border-border"
                   >
                     {meaning.type && (
                       <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">
@@ -360,7 +360,7 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                   </span>
                 ))
               ) : (
-                <span className="text-xs text-gray-400 dark:text-gray-500">暂无释义</span>
+                <span className="text-xs text-muted-foreground">暂无释义</span>
               )}
             </div>
             {word.wordId !== undefined ? (
@@ -472,15 +472,15 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
           </DialogHeader>
 
           {loadingBooks ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">正在加载单词本...</p>
+            <p className="text-sm text-muted-foreground">正在加载单词本...</p>
           ) : wordWordbooks.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-muted-foreground">
               该单词不属于任何单词本，可直接删除该单词。
             </p>
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="text-xs text-muted-foreground">
                   已选 {selectedBookIds.length} / {wordWordbooks.length}
                 </span>
                 <div className="flex gap-3">
@@ -494,14 +494,14 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                   <button
                     type="button"
                     onClick={deselectAllBooks}
-                    className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
+                    className="text-xs text-muted-foreground hover:underline"
                   >
                     全不选
                   </button>
                 </div>
               </div>
 
-              <div className="max-h-64 overflow-y-auto space-y-2 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+              <div className="max-h-64 overflow-y-auto space-y-2 rounded-md border border-gray-200 dark:border-border p-3">
                 {wordWordbooks.map(book => (
                   <label
                     key={book.id}
@@ -555,13 +555,13 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
           </DialogHeader>
 
           {loadingAddBooks ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">正在加载单词本...</p>
+            <p className="text-sm text-muted-foreground">正在加载单词本...</p>
           ) : addWordbooks.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">你还没有单词本，请先创建单词本。</p>
+            <p className="text-sm text-muted-foreground">你还没有单词本，请先创建单词本。</p>
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="text-xs text-muted-foreground">
                   已选 {selectedAddBookIds.length} / {addWordbooks.length}
                 </span>
                 <div className="flex gap-3">
@@ -575,14 +575,14 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                   <button
                     type="button"
                     onClick={deselectAllAddBooks}
-                    className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
+                    className="text-xs text-muted-foreground hover:underline"
                   >
                     全不选
                   </button>
                 </div>
               </div>
 
-              <div className="max-h-64 overflow-y-auto space-y-2 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+              <div className="max-h-64 overflow-y-auto space-y-2 rounded-md border border-gray-200 dark:border-border p-3">
                 {addWordbooks.map(book => (
                   <label
                     key={book.id}

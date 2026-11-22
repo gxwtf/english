@@ -223,7 +223,7 @@ export function WordPronunciation({
               ? 'text-brand-crimson dark:text-brand-red'
               : isFailed
                 ? 'text-red-600 dark:text-red-400'
-                : 'text-gray-600 hover:text-brand-crimson dark:text-gray-400 dark:hover:text-brand-red';
+                : 'text-muted-foreground hover:text-brand-crimson dark:text-muted-foreground dark:hover:text-brand-red';
 
         return (
           <button

@@ -17,7 +17,7 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
   const { userInfo, logout } = useAuth();
 
   return (
-    <nav className="pt-safe px-safe bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <nav className="pt-safe px-safe bg-background shadow-sm border-b border-gray-200 dark:border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="@container flex justify-between h-16">
           <div className="flex items-center shrink-0">
@@ -35,7 +35,7 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
               className={`${NAV_LINK_CLASSES} ${
                 currentPage === 'home'
                   ? 'bg-red-100 text-brand-crimson dark:bg-red-900 dark:text-red-300'
-                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                  : 'text-muted-foreground hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-muted'
               }`}
             >
               <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -47,7 +47,7 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
               className={`${NAV_LINK_CLASSES} ${
                 currentPage === 'wordbook'
                   ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                  : 'text-muted-foreground hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-muted'
               }`}
             >
               <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -59,7 +59,7 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
               className={`${NAV_LINK_CLASSES} ${
                 currentPage === 'practice'
                   ? 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-300'
-                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                  : 'text-muted-foreground hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-muted'
               }`}
             >
               <FileQuestion className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -71,7 +71,7 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
               target="_blank"
               rel="noopener noreferrer"
               title="使用文档"
-              className={`${NAV_LINK_CLASSES} text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800`}
+              className={`${NAV_LINK_CLASSES} text-muted-foreground hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-muted`}
             >
               <HelpCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="hidden @min-[640px]:inline">使用文档</span>
@@ -82,13 +82,13 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
 
             {/* 用户信息和登出 - 由于 SSR 限制，登出后需要刷新页面 */}
             {userInfo && (
-              <div className="flex items-center space-x-2 sm:space-x-4 pl-2 sm:pl-4 border-l border-gray-200 dark:border-gray-700 shrink-0">
+              <div className="flex items-center space-x-2 sm:space-x-4 pl-2 sm:pl-4 border-l border-gray-200 dark:border-border shrink-0">
                 <Link
                   href="/settings"
                   className={`${NAV_LINK_CLASSES} ${
                     currentPage === 'settings'
-                      ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100'
-                      : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
+                      ? 'bg-gray-100 text-gray-900 dark:bg-muted dark:text-gray-100'
+                      : 'text-muted-foreground hover:text-gray-900 dark:text-gray-300 dark:hover:text-white hover:bg-muted'
                   }`}
                 >
                   <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -106,7 +106,7 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
                       window.location.href = '/';
                     }
                   }}
-                  className="flex items-center space-x-1 px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-600 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors shrink-0 whitespace-nowrap"
+                  className="flex items-center space-x-1 px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-muted-foreground hover:text-red-600 dark:text-muted-foreground dark:hover:text-red-400 transition-colors shrink-0 whitespace-nowrap"
                 >
                   <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   <span className="hidden @min-[560px]:inline">登出</span>

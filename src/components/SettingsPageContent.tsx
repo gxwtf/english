@@ -59,10 +59,10 @@ export function SettingsPageContent() {
   // 加载中状态
   if (!isClient || isLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-background dark:to-card">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-muted-foreground mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">加载中...</p>
+          <p className="mt-4 text-muted-foreground">加载中...</p>
         </div>
       </div>
     );
@@ -116,7 +116,7 @@ export function SettingsPageContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
       <Navbar currentPage="settings" />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
@@ -128,7 +128,7 @@ export function SettingsPageContent() {
               设置
             </h1>
           </div>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+          <p className="text-sm sm:text-base text-muted-foreground">
             管理您的应用设置和偏好
           </p>
         </div>
@@ -141,7 +141,7 @@ export function SettingsPageContent() {
               <button
                 key={item.id}
                 onClick={item.onClick}
-                className="w-full bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6 text-left hover:shadow-md transition-all duration-200 group"
+                className="w-full bg-card rounded-lg shadow-sm border border-gray-200 dark:border-border p-4 sm:p-6 text-left hover:shadow-md transition-all duration-200 group"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900 dark:to-indigo-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
@@ -151,11 +151,11 @@ export function SettingsPageContent() {
                     <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-1">
                       {item.title}
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-muted-foreground">
                       {item.description}
                     </p>
                   </div>
-                  <div className="text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors">
+                  <div className="text-muted-foreground group-hover:text-muted-foreground dark:group-hover:text-gray-300 transition-colors">
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>

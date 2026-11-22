@@ -3,7 +3,7 @@ import { GxaccountLogin } from '@/components/GxaccountLogin';
 
 export const UnauthenticatedPage = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-background dark:to-card">
       <div className="flex flex-col items-center text-center p-8 max-w-4xl mx-auto">
         <div className="mb-8">
           <div className="relative w-32 h-32 mx-auto mb-6">
@@ -13,13 +13,13 @@ export const UnauthenticatedPage = () => {
           <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">
             广学英语
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
+          <p className="text-xl text-muted-foreground mb-8">
             智能、高效的英语单词记忆软件
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 w-full max-w-2xl">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+          <div className="bg-card p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
             <div className="flex items-center mb-4">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mr-4">
                 <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -28,12 +28,12 @@ export const UnauthenticatedPage = () => {
                 支持一词多义
               </h3>
             </div>
-            <p className="text-gray-600 dark:text-gray-300">
+            <p className="text-muted-foreground">
               深入掌握单词的多种含义和用法，提高阅读理解能力
             </p>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
+          <div className="bg-card p-6 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
             <div className="flex items-center mb-4">
               <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mr-4">
                 <Brain className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -42,7 +42,7 @@ export const UnauthenticatedPage = () => {
                 AI 复习
               </h3>
             </div>
-            <p className="text-gray-600 dark:text-gray-300">
+            <p className="text-muted-foreground">
               智能生成高考题型题目，针对性地提升应试能力
             </p>
           </div>
@@ -54,7 +54,7 @@ export const UnauthenticatedPage = () => {
             href="https://docs.gxwtf.cn/#/english/"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-6 py-3 rounded-lg flex items-center gap-2 transition-colors dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 dark:border-gray-600"
+            className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-6 py-3 rounded-lg flex items-center gap-2 transition-colors dark:bg-card dark:hover:bg-muted dark:text-gray-200 dark:border-border"
           >
             <FileText className="w-5 h-5" />
             查看文档

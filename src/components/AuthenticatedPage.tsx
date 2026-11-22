@@ -651,8 +651,8 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
   // 等待登录态校验完成，避免闪现未登录页面
   if (!isClient || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
+        <div className="text-muted-foreground">加载中...</div>
       </div>
     );
   }
@@ -665,14 +665,14 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
   // 加载中状态
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
+        <div className="text-muted-foreground">加载中...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
       {/* 导航栏 */}
       <Navbar currentPage="wordbook" />
 
@@ -681,7 +681,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
         <div className="mb-4 sm:mb-6">
           <Link
             href="/wordbooks"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-2 transition-colors"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-gray-700 dark:text-muted-foreground dark:hover:text-gray-200 mb-2 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             我的单词本
@@ -697,7 +697,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
                     <DropdownMenuTrigger asChild>
                       <button
                         aria-label="切换单词本"
-                        className="p-1.5 rounded-md text-muted-foreground/70 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        className="p-1.5 rounded-md text-muted-foreground/70 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-muted transition-colors"
                       >
                         <ChevronDown className="h-4 w-4" />
                       </button>
@@ -721,7 +721,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
                   </DropdownMenu>
                 )}
               </div>
-              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1 truncate">
+              <p className="text-sm sm:text-base text-muted-foreground mt-1 truncate">
                 共 {words.length} 个单词，{filteredAndSortedWords.length} 个符合条件
               </p>
             </div>
@@ -785,11 +785,11 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
         {/* 确认删除弹窗 */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 mx-3">
+            <div className="bg-card rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 mx-3">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 确认删除
               </h3>
-              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-sm sm:text-base text-muted-foreground mb-6">
                 确定要删除选中的 {selectedWordIds.length} 个单词吗？这些单词会
                 <span className="font-semibold text-red-600 dark:text-red-400">
                   从所有单词本中一并删除
@@ -799,7 +799,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
               <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="w-full sm:w-auto px-4 py-2 text-center text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors border border-gray-300 dark:border-gray-600 rounded-lg"
+                  className="w-full sm:w-auto px-4 py-2 text-center text-muted-foreground hover:text-gray-800 dark:hover:text-gray-200 transition-colors border border-gray-300 dark:border-border rounded-lg"
                 >
                   取消
                 </button>
@@ -817,7 +817,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
         {/* 单词列表 */}
         {filteredAndSortedWords.length === 0 ? (
           <div className="text-center py-12">
-            <div className="text-gray-400 dark:text-gray-400 mb-4">
+            <div className="text-muted-foreground mb-4">
               {words.length === 0 ? (
                 <p>还没有添加任何单词</p>
               ) : (

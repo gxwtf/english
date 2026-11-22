@@ -49,7 +49,7 @@ export const ColorSelector = ({ isOpen, onClose, onColorSelect, currentColorId }
               className={`relative h-16 rounded-lg border-2 transition-all duration-200 transform hover:scale-105 hover:shadow-lg ${
                 selectedColorId === color.id
                   ? 'ring-2 ring-offset-2 ring-primary border-primary'
-                  : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                  : 'border-gray-200 dark:border-border hover:border-gray-300 dark:hover:border-border'
               }`}
               onClick={() => handleColorSelect(color)}
             >
@@ -74,8 +74,8 @@ export const ColorSelector = ({ isOpen, onClose, onColorSelect, currentColorId }
         </div>
 
         {/* 当前选择 */}
-        <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">当前选择：</p>
+        <div className="mb-4 p-3 bg-gray-50 dark:bg-muted rounded-lg">
+          <p className="text-sm text-muted-foreground mb-2">当前选择：</p>
           <div className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${COLOR_PRESETS.find(c => c.id === selectedColorId)?.className || 'bg-muted'}`}>
               <div className="w-4 h-4 rounded-full bg-current opacity-80"></div>

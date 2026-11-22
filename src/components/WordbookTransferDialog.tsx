@@ -71,13 +71,13 @@ export function WordbookTransferDialog({
         </DialogHeader>
 
         {availableBooks.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             没有其它单词本可选，请先创建新的单词本。
           </p>
         ) : (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-muted-foreground">
                 已选 {selectedIds.length} / {availableBooks.length}
               </span>
               <div className="flex gap-3">
@@ -91,14 +91,14 @@ export function WordbookTransferDialog({
                 <button
                   type="button"
                   onClick={() => setSelectedIds([])}
-                  className="text-xs text-gray-500 dark:text-gray-400 hover:underline"
+                  className="text-xs text-muted-foreground hover:underline"
                 >
                   全不选
                 </button>
               </div>
             </div>
 
-            <div className="max-h-64 overflow-y-auto space-y-2 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+            <div className="max-h-64 overflow-y-auto space-y-2 rounded-md border border-gray-200 dark:border-border p-3">
               {availableBooks.map((book) => (
                 <label
                   key={book.id}

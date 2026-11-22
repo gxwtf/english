@@ -71,11 +71,11 @@ export const TagSelector = ({
                     ${
                       isSelected
                         ? colorPreset
-                          ? `${colorPreset.className} dark:bg-gray-800 dark:text-gray-300 ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-1 dark:ring-offset-gray-900 shadow-md`
-                          : 'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 border-blue-500 dark:border-blue-800 ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-1 dark:ring-offset-gray-900'
+                          ? `${colorPreset.className} dark:bg-card dark:text-gray-300 ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-1 dark:ring-offset-background shadow-md`
+                          : 'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 border-blue-500 dark:border-blue-800 ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-1 dark:ring-offset-background'
                         : colorPreset
-                          ? `${colorPreset.className} dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 hover:bg-opacity-80`
-                          : 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 hover:bg-opacity-80'
+                          ? `${colorPreset.className} dark:bg-muted dark:text-gray-200 dark:border-border hover:bg-opacity-80`
+                          : 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-muted dark:text-gray-200 dark:border-border hover:bg-opacity-80'
                     }
                     cursor-pointer transition-all hover:scale-105 hover:opacity-90 select-none
                   `}
@@ -87,7 +87,7 @@ export const TagSelector = ({
             })}
           </div>
         ) : (
-          <p className="text-xs text-gray-400 dark:text-gray-400 italic">
+          <p className="text-xs text-muted-foreground italic">
             暂无标签
             {onTagsUpdate && '，可点击"标签管理"添加'}
           </p>

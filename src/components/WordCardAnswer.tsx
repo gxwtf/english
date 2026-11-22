@@ -398,14 +398,14 @@ export function WordCardAnswer({
   return (
     <div className="space-y-6">
       {/* 卡片导航提示 */}
-      <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
         <span>卡片 {currentIndex + 1} / {cards.length}</span>
         <span className="text-xs">← 滑动或点击按钮切换 →</span>
       </div>
 
       {/* AI 例句生成进度 */}
       {sentencesEnabled && aiStatus === 'generating' && (
-        <p className="flex items-center justify-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+        <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
           AI 例句生成中{pendingSentenceCards > 0 ? `（剩余 ${pendingSentenceCards} 个单词）` : '…'}，生成后自动显示
         </p>
@@ -419,7 +419,7 @@ export function WordCardAnswer({
         </p>
       )}
       {sentencesEnabled && aiStatus === 'done' && aiFailedCount > 0 && (
-        <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-center text-xs text-muted-foreground">
           {aiFailedCount} 个单词的例句生成失败
         </p>
       )}
@@ -447,7 +447,7 @@ export function WordCardAnswer({
           <div
             className={`absolute inset-0 flex flex-col items-center justify-center rounded-2xl shadow-lg text-white p-6 transition-opacity ${
               removedCards[currentCard.id]
-                ? 'bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 opacity-70'
+                ? 'bg-gradient-to-br from-gray-400 to-gray-500 dark:from-secondary dark:to-muted opacity-70'
                 : 'bg-gradient-to-br from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-700'
             }`}
             style={{ backfaceVisibility: 'hidden' }}
@@ -578,7 +578,7 @@ export function WordCardAnswer({
       {/* 会 / 不会 标记 */}
       <div className="space-y-3">
         {currentCard.wordId == null && (
-          <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-center text-xs text-muted-foreground">
             关联词不在词库中，无法更新复习状态
           </p>
         )}
@@ -611,7 +611,7 @@ export function WordCardAnswer({
           </Button>
         </div>
         {marks[currentCard.id] && cardStates[currentCard.id] && (
-          <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-center text-xs text-muted-foreground">
             {marks[currentCard.id] === 'known' ? '已标记「会」' : '已标记「不会」'}
             {' · '}
             下次复习约 {(() => {
@@ -642,7 +642,7 @@ export function WordCardAnswer({
                 onClick={handleRemoveFromWordbook}
                 disabled={removing}
                 variant="ghost"
-                className="gap-1.5 py-2 h-auto text-xs sm:text-sm text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                className="gap-1.5 py-2 h-auto text-xs sm:text-sm text-muted-foreground hover:text-muted-foreground dark:hover:text-gray-300"
               >
                 {removing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 太简单了，{sourceWordbookIds == null ? '从所有单词本删去' : '从单词本删去'}
@@ -690,7 +690,7 @@ export function WordCardAnswer({
         <div className="flex gap-3">
           <a
             href="/practice"
-            className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+            className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted"
           >
             返回题目列表
           </a>

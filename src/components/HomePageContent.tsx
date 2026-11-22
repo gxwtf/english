@@ -296,8 +296,8 @@ export function HomePageContent() {
 
   if (!isClient || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
+        <div className="text-muted-foreground">加载中...</div>
       </div>
     );
   }
@@ -346,13 +346,13 @@ export function HomePageContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
       <Navbar currentPage="home" />
 
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {/* 问候 */}
         <div className="text-center mb-8">
-          <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500 tracking-wide">
+          <p className="text-xs sm:text-sm text-muted-foreground tracking-wide">
             {formatDate()}
           </p>
           <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
@@ -361,7 +361,7 @@ export function HomePageContent() {
         </div>
 
         {/* 主卡片：今日复习 */}
-        <div className="bg-white dark:bg-gray-800 rounded-3xl border border-red-100 dark:border-gray-700 shadow-sm p-6 sm:p-8">
+        <div className="bg-card rounded-3xl border border-red-100 dark:border-border shadow-sm p-6 sm:p-8">
           <div className="flex flex-col items-center text-center">
             {/* 进度环 */}
             <div className="relative w-28 h-28 sm:w-32 sm:h-32">
@@ -376,7 +376,7 @@ export function HomePageContent() {
                   r={RING_RADIUS}
                   fill="none"
                   strokeWidth="8"
-                  className="stroke-gray-100 dark:stroke-gray-700"
+                  className="stroke-gray-100 dark:stroke-border"
                 />
                 <circle
                   cx="50"
@@ -394,13 +394,13 @@ export function HomePageContent() {
                 <span className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white leading-none">
                   {loading ? '-' : learning}
                 </span>
-                <span className="mt-1 text-xs text-gray-400 dark:text-gray-400">
+                <span className="mt-1 text-xs text-muted-foreground">
                   待学习
                 </span>
               </div>
             </div>
 
-            <p className="mt-5 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-5 text-sm text-muted-foreground">
               {loading
                 ? '正在加载...'
                 : !hasWords
@@ -444,7 +444,7 @@ export function HomePageContent() {
           </div>
 
           {/* 统计条 */}
-          <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-2">
+          <div className="mt-8 pt-6 border-t border-gray-100 dark:border-border grid grid-cols-4 gap-2">
             {statItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -455,7 +455,7 @@ export function HomePageContent() {
                   <div className={`mt-2 text-lg sm:text-xl font-bold ${item.color}`}>
                     {loading ? '-' : item.value}
                   </div>
-                  <div className="mt-0.5 text-xs text-gray-400 dark:text-gray-400">
+                  <div className="mt-0.5 text-xs text-muted-foreground">
                     {item.label}
                   </div>
                 </div>
@@ -472,7 +472,7 @@ export function HomePageContent() {
             </h2>
             <Link
               href="/wordbooks"
-              className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 transition-colors"
+              className="text-xs text-muted-foreground hover:text-gray-700 dark:hover:text-gray-300 flex items-center gap-1 transition-colors"
             >
               查看全部
               <ArrowRight className="h-3 w-3" />
@@ -480,27 +480,27 @@ export function HomePageContent() {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center py-8 text-gray-400 dark:text-gray-500 text-sm">
+            <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
               加载中...
             </div>
           ) : wordbooks.length === 0 ? (
             <Link
               href="/wordbooks"
-              className="flex items-center justify-center gap-2 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 py-6 text-sm text-gray-400 dark:text-gray-400 hover:border-brand-crimson/40 transition-colors"
+              className="flex items-center justify-center gap-2 bg-card rounded-2xl border border-dashed border-gray-200 dark:border-border py-6 text-sm text-muted-foreground hover:border-brand-crimson/40 transition-colors"
             >
               <Plus className="h-4 w-4" />
               还没有单词本，去创建一个
             </Link>
           ) : (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm divide-y divide-gray-100 dark:divide-gray-700 overflow-hidden">
+            <div className="bg-card rounded-2xl border border-gray-100 dark:border-border shadow-sm divide-y divide-gray-100 dark:divide-border overflow-hidden">
               {wordbooks.slice(0, 4).map((book, index) => {
                 const color = BOOK_COLORS[index % BOOK_COLORS.length];
                 return (
                   <Link
                     key={book.id}
                     href={`/wordbooks/${book.id}`}
-                    className="group flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    className="group flex items-center gap-3 px-4 py-3.5 hover:bg-muted/50 transition-colors"
                   >
                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${color.bg}`}>
                       <BookOpen className={`h-4 w-4 ${color.text}`} />
@@ -508,10 +508,10 @@ export function HomePageContent() {
                     <span className="flex-1 min-w-0 font-medium text-gray-900 dark:text-white truncate">
                       {book.name}
                     </span>
-                    <span className="text-xs text-gray-400 dark:text-gray-400 shrink-0">
+                    <span className="text-xs text-muted-foreground shrink-0">
                       {book.wordCount} 词
                     </span>
-                    <ArrowRight className="h-4 w-4 text-gray-300 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-300 transition-colors shrink-0" />
+                    <ArrowRight className="h-4 w-4 text-gray-300 dark:text-muted-foreground group-hover:text-muted-foreground dark:group-hover:text-gray-300 transition-colors shrink-0" />
                   </Link>
                 );
               })}

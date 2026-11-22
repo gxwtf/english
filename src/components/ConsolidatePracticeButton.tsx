@@ -160,12 +160,12 @@ export function ConsolidatePracticeButton({ wordIds, relatedWordEntries, disable
 
   return (
     <>
-      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-border">
         <div className="mb-4">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
             想要继续练习这些单词？
           </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-muted-foreground">
             点击下方按钮，选择其他题型继续练习本次涉及的单词
           </p>
         </div>

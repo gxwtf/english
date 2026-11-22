@@ -200,8 +200,8 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
 
   if (!isClient || isLoading) {
     return (
-      <div className={embedded ? 'py-12 text-center' : 'min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900'}>
-        <div className="text-gray-500 dark:text-gray-400">加载中...</div>
+      <div className={embedded ? 'py-12 text-center' : 'min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background'}>
+        <div className="text-muted-foreground">加载中...</div>
       </div>
     );
   }
@@ -215,17 +215,17 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
     if (embedded) {
       return (
         <div className="py-12 text-center">
-          <Shield className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-500 mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">无权访问：需要管理员权限</p>
+          <Shield className="h-12 w-12 mx-auto text-gray-300 dark:text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">无权访问：需要管理员权限</p>
         </div>
       );
     }
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-background">
         <Navbar currentPage="admin" />
         <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <Shield className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-500 mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">无权访问：需要管理员权限</p>
+          <Shield className="h-12 w-12 mx-auto text-gray-300 dark:text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">无权访问：需要管理员权限</p>
         </div>
       </div>
     );
@@ -242,14 +242,14 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
                 系统单词本管理
               </h1>
             </div>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
               上传系统单词本后，用户可以在新建单词本时导入全部单词
             </p>
           </div>
         )}
 
         {/* 上传表单 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 mb-6">
+        <div className="bg-card rounded-xl border border-gray-200 dark:border-border p-5 mb-6">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
             <Upload className="h-4 w-4" />
             上传新的系统单词本
@@ -290,9 +290,9 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
               type="file"
               accept=".json,.txt,.csv,.tsv,application/json,text/plain"
               onChange={(e) => handleFileChange(e.target.files?.[0])}
-              className="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-crimson file:text-white hover:file:bg-brand-red cursor-pointer"
+              className="block w-full text-sm text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-crimson file:text-white hover:file:bg-brand-red cursor-pointer"
             />
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-2 text-xs text-muted-foreground">
               支持 JSON（数组，字段：text/word/english、phonetic/phoneticSymbol、chinese/meaning/translation）、
               CSV/TXT（每行 <code>单词,释义</code> 或 <code>单词&#9;释义</code>）
             </p>
@@ -319,7 +319,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
           )}
 
           {parsedWords.length > 0 && (
-            <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+            <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-muted/50 border border-gray-200 dark:border-border">
               <p className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                 <FileText className="h-4 w-4" />
                 已解析 {parsedWords.length} 个单词
@@ -329,7 +329,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
                 {previewList.map((w) => (
                   <span
                     key={w.text}
-                    className="text-xs px-2 py-0.5 rounded-full bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600"
+                    className="text-xs px-2 py-0.5 rounded-full bg-card text-muted-foreground border border-gray-200 dark:border-border"
                   >
                     {w.text}
                   </span>
@@ -378,19 +378,19 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
         </div>
 
         {/* 已有系统单词本 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+        <div className="bg-card rounded-xl border border-gray-200 dark:border-border p-5">
           <h2 className="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
             <BookOpen className="h-4 w-4" />
             已有系统单词本（{wordbooks.length}）
           </h2>
 
           {loading ? (
-            <div className="flex items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" />
               加载中...
             </div>
           ) : wordbooks.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400 py-6 text-center">
+            <p className="text-sm text-muted-foreground py-6 text-center">
               还没有系统单词本
             </p>
           ) : (
@@ -398,7 +398,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
               {wordbooks.map((book) => (
                 <div
                   key={book.id}
-                  className="p-4 rounded-lg border border-gray-200 dark:border-gray-700"
+                  className="p-4 rounded-lg border border-gray-200 dark:border-border"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -406,11 +406,11 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
                         {book.name}
                       </h3>
                       {book.description && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {book.description}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {book.wordCount} 个单词 · 更新于 {formatDate(book.updatedAt)}
                       </p>
                     </div>
@@ -433,7 +433,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
                       {book.previewWords.map((w) => (
                         <span
                           key={w}
-                          className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200"
+                          className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
                         >
                           {w}
                         </span>
@@ -453,7 +453,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
           <DialogHeader>
             <DialogTitle>删除系统单词本</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-600 dark:text-gray-400 py-2">
+          <p className="text-sm text-muted-foreground py-2">
             确定要删除「{deleting?.name}」吗？系统单词本及其全部单词将被永久删除，且不影响已导入到用户单词本中的副本。
           </p>
           <DialogFooter>
@@ -517,7 +517,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-background">
       <Navbar currentPage="admin" />
       {inner}
     </div>

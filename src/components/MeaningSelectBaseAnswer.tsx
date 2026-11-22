@@ -89,7 +89,7 @@ export function MeaningSelectBaseAnswer({
           <summary className="cursor-pointer text-amber-600 dark:text-amber-400 font-medium">
             查看 AI 思考过程
           </summary>
-          <pre className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200 rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
+          <pre className="mt-2 p-3 bg-muted text-muted-foreground rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
             {thinking}
           </pre>
         </details>
@@ -97,7 +97,7 @@ export function MeaningSelectBaseAnswer({
 
       <div className="space-y-4">
         {questions.map((q, i) => (
-          <div key={i} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div key={i} className="p-4 bg-gray-50 dark:bg-card rounded-lg">
             <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">第 {i + 1} 题</p>
 
             <div className="mb-4">
@@ -125,12 +125,12 @@ export function MeaningSelectBaseAnswer({
                   } else if (isSelected && !isCorrect) {
                     buttonClass += "border-red-500 dark:border-red-700 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300";
                   } else {
-                    buttonClass += "border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-200";
+                    buttonClass += "border-gray-200 dark:border-border bg-muted text-muted-foreground";
                   }
                 } else {
                   buttonClass += isSelected
                     ? "border-green-500 dark:border-green-700 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                    : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:border-green-300 dark:hover:border-green-700";
+                    : "border-gray-200 dark:border-border bg-card text-gray-700 dark:text-gray-200 hover:border-green-300 dark:hover:border-green-700";
                 }
 
                 return (
@@ -148,8 +148,8 @@ export function MeaningSelectBaseAnswer({
             </div>
 
             {isShowingResults && (
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">正确答案：</p>
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-border">
+                <p className="text-xs text-muted-foreground mb-1">正确答案：</p>
                 <p className={`text-sm ${answers[i]?.trim() ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>
                   {q.correctAnswer}
                 </p>
@@ -162,7 +162,7 @@ export function MeaningSelectBaseAnswer({
                     )}
                   </p>
                 ) : (
-                  <p className="text-xs mt-1 text-gray-500 dark:text-gray-400">未作答</p>
+                  <p className="text-xs mt-1 text-muted-foreground">未作答</p>
                 )}
               </div>
             )}
@@ -176,7 +176,7 @@ export function MeaningSelectBaseAnswer({
           disabled={submitting}
           className={`w-full py-3 font-semibold rounded-xl transition-all shadow-md ${
             submitting
-              ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+              ? 'bg-gray-300 dark:bg-secondary text-muted-foreground cursor-not-allowed'
               : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white hover:shadow-lg'
           }`}
         >
@@ -208,7 +208,7 @@ export function MeaningSelectBaseAnswer({
           <div className="flex gap-3">
             <a
               href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-muted text-gray-700 dark:text-gray-200 hover:bg-muted"
             >
               返回题目列表
             </a>
@@ -217,7 +217,7 @@ export function MeaningSelectBaseAnswer({
               disabled={isResetting}
               className={`flex-1 py-3 font-semibold rounded-xl transition-all shadow-md text-white disabled:opacity-50 disabled:cursor-not-allowed ${
                 status === 'ANSWERED'
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 dark:from-blue-600 dark:to-indigo-700 dark:hover:from-blue-500 dark:hover:to-indigo-600'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 dark:from-blue-600 dark:to-indigo-800 dark:hover:from-blue-500 dark:hover:to-indigo-700'
                   : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red'
               }`}
             >
