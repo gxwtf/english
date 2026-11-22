@@ -392,7 +392,7 @@ export function WordCardAnswer({
   }, [handleNextCard, handlePrevCard]);
 
   if (!currentCard) {
-    return <div className="text-center py-12 text-gray-500">暂无卡片数据</div>;
+    return <div className="text-center py-12 text-muted-foreground">暂无卡片数据</div>;
   }
 
   return (
@@ -447,8 +447,8 @@ export function WordCardAnswer({
           <div
             className={`absolute inset-0 flex flex-col items-center justify-center rounded-2xl shadow-lg text-white p-6 transition-opacity ${
               removedCards[currentCard.id]
-                ? 'bg-gradient-to-br from-gray-400 to-gray-500 opacity-70'
-                : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                ? 'bg-gradient-to-br from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 opacity-70'
+                : 'bg-gradient-to-br from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-700'
             }`}
             style={{ backfaceVisibility: 'hidden' }}
           >
@@ -563,7 +563,7 @@ export function WordCardAnswer({
                     e.stopPropagation();
                     setShowSentences((prev) => !prev);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/10 px-3.5 py-1.5 text-xs lg:text-sm font-medium text-white hover:bg-white/20 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-brand-white/40 bg-brand-white/10 px-3.5 py-1.5 text-xs lg:text-sm font-medium text-white hover:bg-brand-white/20 transition-colors"
                 >
                   {showSentences ? <BookOpen className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                   {showSentences ? '返回释义' : '查看例句'}
@@ -589,7 +589,7 @@ export function WordCardAnswer({
             variant="outline"
             className={`flex-1 max-w-[140px] gap-2 py-3 h-auto font-semibold rounded-xl border-2 ${
               marks[currentCard.id] === 'unknown'
-                ? 'border-red-500 bg-red-500 text-white hover:bg-red-600 hover:text-white'
+                ? 'border-red-500 bg-red-500 text-white hover:bg-red-600 hover:text-white dark:bg-red-600 dark:hover:bg-red-700'
                 : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20'
             }`}
           >
@@ -602,7 +602,7 @@ export function WordCardAnswer({
             variant="outline"
             className={`flex-1 max-w-[140px] gap-2 py-3 h-auto font-semibold rounded-xl border-2 ${
               marks[currentCard.id] === 'known'
-                ? 'border-green-500 bg-green-500 text-white hover:bg-green-600 hover:text-white'
+                ? 'border-green-500 bg-green-500 text-white hover:bg-green-600 hover:text-white dark:bg-green-600 dark:hover:bg-green-700'
                 : 'border-green-300 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900/20'
             }`}
           >
@@ -690,7 +690,7 @@ export function WordCardAnswer({
         <div className="flex gap-3">
           <a
             href="/practice"
-            className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+            className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
           >
             返回题目列表
           </a>

@@ -23,7 +23,7 @@ export const QuestionPanel = ({
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-500" />
+              <Sparkles className="h-5 w-5 text-purple-500 dark:text-purple-400" />
               AI 复习队列
             </DialogTitle>
             <Button variant="ghost" size="sm" onClick={onClose}>

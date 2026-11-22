@@ -57,10 +57,10 @@ export function QuestionList({
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {STATUS_LABELS[q.status]}
               </span>
-              <span className="text-xs text-gray-400 ml-auto">
+              <span className="text-xs text-muted-foreground/70 ml-auto">
                 {QUESTION_TYPE_LABELS[q.questionType]}
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-muted-foreground/70">
                 {new Date(q.updatedAt).toLocaleString('zh-CN')}
               </span>
 
@@ -77,7 +77,7 @@ export function QuestionList({
               {q.status === 'ANSWERED' && (
                 <Link
                   href={`/practice/${q.id}`}
-                  className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="ml-2 flex items-center gap-1 text-xs px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   查看作答 <Eye className="h-3 w-3" />
                 </Link>
@@ -102,7 +102,7 @@ export function QuestionList({
               )}
 
               {q.status === 'GENERATING' && (
-                <span className="ml-2 text-xs text-gray-400 flex items-center gap-1">
+                <span className="ml-2 text-xs text-muted-foreground/70 flex items-center gap-1">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   AI 正在生成...
                 </span>
@@ -111,7 +111,7 @@ export function QuestionList({
               {q.status === 'FAILED' && onRetry && (
                 retryingIds?.has(q.id) ? (
                   // 正在重试：显示加载状态（用户友好性）
-                  <span className="ml-2 text-xs text-red-500 flex items-center gap-1">
+                  <span className="ml-2 text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     正在重试...
                   </span>
@@ -134,12 +134,12 @@ export function QuestionList({
 }
 
 function StatusIcon({ status }: { status: string }) {
-  if (status === 'GENERATING') return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />;
-  if (status === 'GENERATED') return <CheckCircle2 className="h-4 w-4 text-green-500" />;
-  if (status === 'GRADING') return <Loader2 className="h-4 w-4 text-purple-500 animate-spin" />;
-  if (status === 'ANSWERED') return <Edit3 className="h-4 w-4 text-amber-500" />;
-  if (status === 'FAILED') return <AlertCircle className="h-4 w-4 text-red-500" />;
-  if (status === 'GRADING_FAILED') return <AlertCircle className="h-4 w-4 text-orange-500" />;
+  if (status === 'GENERATING') return <Loader2 className="h-4 w-4 text-blue-500 dark:text-blue-400 animate-spin" />;
+  if (status === 'GENERATED') return <CheckCircle2 className="h-4 w-4 text-green-500 dark:text-green-400" />;
+  if (status === 'GRADING') return <Loader2 className="h-4 w-4 text-purple-500 dark:text-purple-400 animate-spin" />;
+  if (status === 'ANSWERED') return <Edit3 className="h-4 w-4 text-amber-500 dark:text-amber-400" />;
+  if (status === 'FAILED') return <AlertCircle className="h-4 w-4 text-red-500 dark:text-red-400" />;
+  if (status === 'GRADING_FAILED') return <AlertCircle className="h-4 w-4 text-orange-500 dark:text-orange-400" />;
   return null;
 }
 

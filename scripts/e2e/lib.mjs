@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-export const BASE = 'https://english.gxwtf.cn';
+export const BASE = process.env.E2E_BASE || 'https://english.gxwtf.cn';
 const ACCOUNT = 'https://account.gxwtf.cn';
 
 // Credentials come from env, or from creds.json next to this file.
@@ -101,12 +101,25 @@ export async function loginViaSso({ identifier, password, system = 'english.gxwt
     r = await go(url);
     if (r.status >= 300 && r.status < 400 && r.headers.get('location')) {
       url = new URL(r.headers.get('location'), url).href;
-      if (url.startsWith('http://')) url = 'https://' + url.slice(7);
+      // 本地预览（http://localhost:3103 这类）不要被强制改写为 https：
+      // 回环地址上没有 TLS，改写后 SSO 回调会直接 SSL 报错。线上域名仍然强制 https。
+      if (url.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(url)) {
+        url = 'https://' + url.slice(7);
+      }
       continue;
     }
     break;
   }
-  const appCookies = jar.all().filter((c) => c.host === system);
+  // Cookie 罐按 hostname 存（不含端口），所以这里也要用 hostname 比：
+  // 本地预览传 system='localhost:3103' 时，直接比 host 会一个都匹配不上。
+  const appHost = (() => {
+    try {
+      return new URL(system.includes('://') ? system : `https://${system}`).hostname;
+    } catch {
+      return system;
+    }
+  })();
+  const appCookies = jar.all().filter((c) => c.host === appHost);
   console.log('[sso] app cookies:', appCookies.map((c) => c.name).join(', ') || '(none)');
   if (appCookies.length === 0) throw new Error('no app session cookie obtained');
   return { userId, cookies: appCookies };

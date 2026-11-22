@@ -161,7 +161,7 @@ export const WordCard = ({
                   </p>
                 ))
               ) : (
-                <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-500">暂无释义数据</p>
+                <p className="text-xs sm:text-sm text-gray-400 dark:text-gray-400">暂无释义数据</p>
               )}
             </div>
 
@@ -181,7 +181,7 @@ export const WordCard = ({
                   title={getRelationTypeLabel(related.type)}
                 >
                   <span className="truncate">{related.text}</span>
-                  <span className="ml-1 text-gray-400 dark:text-gray-500 hidden sm:inline">
+                  <span className="ml-1 text-gray-400 dark:text-gray-400 hidden sm:inline">
                     ({getRelationTypeLabel(related.type)})
                   </span>
                 </Badge>
@@ -206,11 +206,11 @@ export const WordCard = ({
                     e.stopPropagation();
                     onTagClick?.(tag, false);
                   }}
-                  className="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+                  className="focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-2 rounded-md"
                 >
                   <Badge
                     variant="secondary"
-                    className={`${colorPreset?.className || 'bg-gray-200'} text-xs cursor-pointer hover:opacity-80 transition-opacity border border-current`}
+                    className={`${colorPreset?.className || 'bg-muted'} text-xs cursor-pointer hover:opacity-80 transition-opacity border border-current`}
                   >
                     <span>{displayName}</span>
                   </Badge>
@@ -218,7 +218,7 @@ export const WordCard = ({
               );
             })}
             {word.tags.length === 0 && (
-              <Badge variant="outline" className="text-gray-400 text-xs">
+              <Badge variant="outline" className="text-muted-foreground/70 text-xs">
                 <BookOpen className="h-3 w-3 mr-1" />
                 <span className="hidden sm:inline">无标签</span>
                 <span className="sm:hidden">无标签</span>

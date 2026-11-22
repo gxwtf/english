@@ -297,7 +297,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
         {/* 头部 */}
         <div className="flex items-center justify-between p-6 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-gray-700 dark:to-gray-800 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-violet-600 rounded-xl flex items-center justify-center text-white">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-violet-600 dark:from-purple-400 dark:to-violet-500 rounded-xl flex items-center justify-center text-white">
               <Type className="h-5 w-5" />
             </div>
             <div>
@@ -335,7 +335,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
               <span className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                 开启遗忘曲线
               </span>
-              <span className="px-2 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-violet-600 rounded-full shadow-sm animate-pulse">
+              <span className="px-2 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-violet-600 dark:from-purple-400 dark:to-violet-500 rounded-full shadow-sm animate-pulse">
                 NEW
               </span>
               <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -454,7 +454,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   : `，当前选中 ${effectiveMaxWords} 个单词`}
               </p>
               {validationError && (
-                <p className="text-xs text-red-500 mt-1">{validationError}</p>
+                <p className="text-xs text-red-500 dark:text-red-400 mt-1">{validationError}</p>
               )}
             </div>
           )}
@@ -486,7 +486,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   }}
                 />
                 {translateValidationError && (
-                  <p className="text-xs text-red-500 mt-1">{translateValidationError}</p>
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-1">{translateValidationError}</p>
                 )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -522,7 +522,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   }}
                 />
                 {meaningSelectValidationError && (
-                  <p className="text-xs text-red-500 mt-1">{meaningSelectValidationError}</p>
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-1">{meaningSelectValidationError}</p>
                 )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -558,7 +558,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   }}
                 />
                 {meaningSelectEnValidationError && (
-                  <p className="text-xs text-red-500 mt-1">{meaningSelectEnValidationError}</p>
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-1">{meaningSelectEnValidationError}</p>
                 )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -621,7 +621,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 共需 n + m = {definitionTotalWords} 个单词（n 道题，m 个干扰词）
               </p>
               {definitionFillBlankValidationError && (
-                <p className="text-xs text-red-500 mt-1">{definitionFillBlankValidationError}</p>
+                <p className="text-xs text-red-500 dark:text-red-400 mt-1">{definitionFillBlankValidationError}</p>
               )}
             </div>
           )}
@@ -680,7 +680,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 共需 n + m = {wordSelectTranslateTotalWords} 个单词（n 道题，m 个干扰词）
               </p>
               {wordSelectTranslateValidationError && (
-                <p className="text-xs text-red-500 mt-1">{wordSelectTranslateValidationError}</p>
+                <p className="text-xs text-red-500 dark:text-red-400 mt-1">{wordSelectTranslateValidationError}</p>
               )}
             </div>
           )}
@@ -712,7 +712,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                   }}
                 />
                 {wordCardValidationError && (
-                  <p className="text-xs text-red-500 mt-1">{wordCardValidationError}</p>
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-1">{wordCardValidationError}</p>
                 )}
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -729,7 +729,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
                   AI 生成例句
-                  <span className="px-1.5 py-0.5 ml-1.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-violet-600 rounded-full shadow-sm">
+                  <span className="px-1.5 py-0.5 ml-1.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-violet-600 dark:from-purple-400 dark:to-violet-500 rounded-full shadow-sm">
                     NEW
                   </span>
                   <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -751,7 +751,7 @@ export const AIQuestionTypeSelector = ({ isOpen, onClose, onGenerate, maxWords, 
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   点击查看例句
-                  <span className="px-1.5 py-0.5 ml-1.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-violet-600 rounded-full shadow-sm">
+                  <span className="px-1.5 py-0.5 ml-1.5 text-xs font-bold text-white bg-gradient-to-r from-purple-500 to-violet-600 dark:from-purple-400 dark:to-violet-500 rounded-full shadow-sm">
                     NEW
                   </span>
                   <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">

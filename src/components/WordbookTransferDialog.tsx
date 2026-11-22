@@ -109,7 +109,7 @@ export function WordbookTransferDialog({
                     onCheckedChange={(checked) => toggleBook(book.id, checked === true)}
                   />
                   <span className="truncate flex-1">{book.name}</span>
-                  <span className="text-xs text-gray-400">{book.wordCount}</span>
+                  <span className="text-xs text-muted-foreground/70">{book.wordCount}</span>
                 </label>
               ))}
             </div>

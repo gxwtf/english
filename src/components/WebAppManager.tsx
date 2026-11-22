@@ -120,11 +120,11 @@ export function WebAppManager() {
         paddingRight: 'calc(env(safe-area-inset-right) + 0.75rem)',
       }}
     >
-      <div className="pointer-events-auto mx-auto flex max-w-md items-start gap-3 rounded-xl bg-gray-900/95 px-4 py-3 text-white shadow-2xl backdrop-blur">
-        <PlusSquare className="mt-0.5 h-5 w-5 shrink-0 text-white" />
+      <div className="pointer-events-auto mx-auto flex max-w-md items-start gap-3 rounded-xl bg-foreground/95 px-4 py-3 text-background shadow-2xl backdrop-blur">
+        <PlusSquare className="mt-0.5 h-5 w-5 shrink-0 text-background" />
         <div className="min-w-0 flex-1 text-sm leading-relaxed">
           <p className="font-semibold">安装「广学英语」到主屏幕</p>
-          <p className="mt-0.5 text-white/80">
+          <p className="mt-0.5 text-background/80">
             点击底部
             <Share className="mx-1 inline h-4 w-4 align-text-bottom" />
             分享按钮，选择「添加到主屏幕」，即可全屏使用并支持离线复习。
@@ -133,7 +133,7 @@ export function WebAppManager() {
         <button
           onClick={dismissIosHint}
           aria-label="不再提示"
-          className="-mr-1 rounded-md p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          className="-mr-1 rounded-md p-1 text-background/70 transition-colors hover:bg-background/10 hover:text-background"
         >
           <X className="h-4 w-4" />
         </button>

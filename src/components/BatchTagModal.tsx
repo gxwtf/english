@@ -95,7 +95,7 @@ export const BatchTagModal = ({
                   variant="ghost"
                   size="sm"
                   onClick={handleClearAll}
-                  className="h-8 px-3 text-xs whitespace-nowrap text-red-600 hover:text-red-700"
+                  className="h-8 px-3 text-xs whitespace-nowrap text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                 >
                   清空（取消所有标签）
                 </Button>
@@ -117,11 +117,11 @@ export const BatchTagModal = ({
                         ${
                           isSelected
                             ? colorPreset
-                              ? `${colorPreset.className} dark:bg-gray-800 dark:text-gray-300 ring-2 ring-blue-500 ring-offset-1 shadow-md`
-                              : 'bg-blue-100 text-blue-800 border-blue-500 ring-2 ring-blue-500 ring-offset-1'
+                              ? `${colorPreset.className} dark:bg-gray-800 dark:text-gray-300 ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-1 dark:ring-offset-gray-900 shadow-md`
+                              : 'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 border-blue-500 dark:border-blue-800 ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-1 dark:ring-offset-gray-900'
                             : colorPreset
-                              ? `${colorPreset.className} dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-opacity-80`
-                              : 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-opacity-80'
+                              ? `${colorPreset.className} dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 hover:bg-opacity-80`
+                              : 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 hover:bg-opacity-80'
                         }
                         cursor-pointer transition-all hover:scale-105 hover:opacity-90
                       `}

@@ -67,7 +67,7 @@ export function WordbookDetailPageContent({ params }: { params: Promise<{ id: st
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <Navbar currentPage="wordbook" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-          <BookOpen className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+          <BookOpen className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-500 mb-4" />
           <p className="text-gray-600 dark:text-gray-400 mb-4">单词本不存在或无权访问</p>
           <Link
             href="/wordbooks"

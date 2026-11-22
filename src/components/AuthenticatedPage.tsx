@@ -697,7 +697,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
                     <DropdownMenuTrigger asChild>
                       <button
                         aria-label="切换单词本"
-                        className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        className="p-1.5 rounded-md text-muted-foreground/70 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
                       >
                         <ChevronDown className="h-4 w-4" />
                       </button>
@@ -714,7 +714,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
                         >
                           <BookOpen className="h-4 w-4" />
                           <span className="truncate flex-1">{book.name}</span>
-                          <span className="text-xs text-gray-400">{book.wordCount}</span>
+                          <span className="text-xs text-muted-foreground/70">{book.wordCount}</span>
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuContent>
@@ -732,7 +732,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
                   setEditingWord(undefined);
                   setShowModal(true);
                 }}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-colors text-sm sm:text-base shrink-0"
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-colors text-sm sm:text-base shrink-0"
               >
                 <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span className="hidden sm:inline">添加单词</span>
@@ -805,7 +805,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
                 </button>
                 <button
                   onClick={handleDeleteSelected}
-                  className="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                  className="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400 text-white rounded-lg transition-colors"
                 >
                   确认删除
                 </button>
@@ -817,7 +817,7 @@ export const AuthenticatedPage = ({ queryWord, wordbookId, wordbookName, readOnl
         {/* 单词列表 */}
         {filteredAndSortedWords.length === 0 ? (
           <div className="text-center py-12">
-            <div className="text-gray-400 dark:text-gray-600 mb-4">
+            <div className="text-gray-400 dark:text-gray-400 mb-4">
               {words.length === 0 ? (
                 <p>还没有添加任何单词</p>
               ) : (

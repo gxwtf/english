@@ -41,6 +41,54 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* ===== L1 品牌色：经 CSS 变量间接化，深色模式自动提亮一档（docs/dark-mode.md §3.2） ===== */
+  --color-brand-red: var(--brand-red);
+  --color-brand-crimson: var(--brand-crimson);
+  --color-brand-deep-red: var(--brand-deep-red);
+  --color-brand-black: var(--brand-black);
+  --color-brand-white: var(--brand-white);
+
+  /* ===== L1 标签色：13 组用户可选标签配色，浅色/深色各一套（docs/dark-mode.md §5） ===== */
+  --color-tag-blue-bg: var(--tag-blue-bg);
+  --color-tag-blue-fg: var(--tag-blue-fg);
+  --color-tag-blue-bd: var(--tag-blue-bd);
+  --color-tag-purple-bg: var(--tag-purple-bg);
+  --color-tag-purple-fg: var(--tag-purple-fg);
+  --color-tag-purple-bd: var(--tag-purple-bd);
+  --color-tag-amber-bg: var(--tag-amber-bg);
+  --color-tag-amber-fg: var(--tag-amber-fg);
+  --color-tag-amber-bd: var(--tag-amber-bd);
+  --color-tag-green-bg: var(--tag-green-bg);
+  --color-tag-green-fg: var(--tag-green-fg);
+  --color-tag-green-bd: var(--tag-green-bd);
+  --color-tag-red-bg: var(--tag-red-bg);
+  --color-tag-red-fg: var(--tag-red-fg);
+  --color-tag-red-bd: var(--tag-red-bd);
+  --color-tag-indigo-bg: var(--tag-indigo-bg);
+  --color-tag-indigo-fg: var(--tag-indigo-fg);
+  --color-tag-indigo-bd: var(--tag-indigo-bd);
+  --color-tag-pink-bg: var(--tag-pink-bg);
+  --color-tag-pink-fg: var(--tag-pink-fg);
+  --color-tag-pink-bd: var(--tag-pink-bd);
+  --color-tag-yellow-bg: var(--tag-yellow-bg);
+  --color-tag-yellow-fg: var(--tag-yellow-fg);
+  --color-tag-yellow-bd: var(--tag-yellow-bd);
+  --color-tag-teal-bg: var(--tag-teal-bg);
+  --color-tag-teal-fg: var(--tag-teal-fg);
+  --color-tag-teal-bd: var(--tag-teal-bd);
+  --color-tag-orange-bg: var(--tag-orange-bg);
+  --color-tag-orange-fg: var(--tag-orange-fg);
+  --color-tag-orange-bd: var(--tag-orange-bd);
+  --color-tag-cyan-bg: var(--tag-cyan-bg);
+  --color-tag-cyan-fg: var(--tag-cyan-fg);
+  --color-tag-cyan-bd: var(--tag-cyan-bd);
+  --color-tag-lime-bg: var(--tag-lime-bg);
+  --color-tag-lime-fg: var(--tag-lime-fg);
+  --color-tag-lime-bd: var(--tag-lime-bd);
+  --color-tag-lightblue-bg: var(--tag-lightblue-bg);
+  --color-tag-lightblue-fg: var(--tag-lightblue-fg);
+  --color-tag-lightblue-bd: var(--tag-lightblue-bd);
 }
 
 /*
@@ -52,12 +100,9 @@
  * 辅助色：黄 #FDD000、橙 #F08300、灰 #9FA0A0、浅灰 #E6E6E6、绿 #41B25D、深绿 #007963、浅蓝 #0086D1、蓝 #004098、紫 #4D4398
  */
 @theme {
-  /* ===== VI 品牌语义色 ===== */
-  --color-brand-red: #a31f24; /* 实验红（标准色） */
-  --color-brand-crimson: #c22525; /* 赤诚红 */
-  --color-brand-deep-red: #8a1010; /* 深赤红 */
-  --color-brand-black: #231815; /* 坚实黑 */
-  --color-brand-white: #ffffff; /* 纯净白 */
+  /* ===== VI 品牌语义色 =====
+   * 色值已下沉到 :root / .dark 的 --brand-* 变量（深色模式要提亮一档），
+   * 这里不再写死 hex；@theme inline 里的 --color-brand-* 负责映射。 */
 
   --color-brand-tech-blue: #053391; /* 科技蓝 */
   --color-brand-purple: #492b93; /* 艺术紫 */
@@ -253,6 +298,9 @@
 }
 
 :root {
+  /* 浅色模式：浏览器原生控件 / 滚动条 / 自动填充底色跟随浅色 */
+  color-scheme: light;
+
   --radius: 0.625rem;
   --background: #ffffff;
   --foreground: #231815;
@@ -285,40 +333,147 @@
   --sidebar-accent-foreground: #231815;
   --sidebar-border: #e7e4e4;
   --sidebar-ring: #a31f24;
+
+  /* ===== L1 品牌色（浅色） ===== */
+  --brand-red: #a31f24; /* 实验红 */
+  --brand-crimson: #c22525; /* 赤诚红 */
+  --brand-deep-red: #8a1010; /* 深赤红 */
+  --brand-black: #231815; /* 坚实黑 */
+  --brand-white: #ffffff; /* 纯净白 */
+
+  /* ===== L1 标签色（浅色）：13 组用户可选色 ===== */
+  --tag-blue-bg: #eff6ff;
+  --tag-blue-fg: #1447e6;
+  --tag-blue-bd: #bedbff;
+  --tag-purple-bg: #faf5ff;
+  --tag-purple-fg: #8200db;
+  --tag-purple-bd: #e9d4ff;
+  --tag-amber-bg: #fffbeb;
+  --tag-amber-fg: #bb4d00;
+  --tag-amber-bd: #fee685;
+  --tag-green-bg: #f0fdf4;
+  --tag-green-fg: #008236;
+  --tag-green-bd: #b9f8cf;
+  --tag-red-bg: #fef2f2;
+  --tag-red-fg: #c10007;
+  --tag-red-bd: #ffc9c9;
+  --tag-indigo-bg: #eef2ff;
+  --tag-indigo-fg: #432dd7;
+  --tag-indigo-bd: #c6d2ff;
+  --tag-pink-bg: #fdf2f8;
+  --tag-pink-fg: #c6005c;
+  --tag-pink-bd: #fccee8;
+  --tag-yellow-bg: #fefce8;
+  --tag-yellow-fg: #a65f00;
+  --tag-yellow-bd: #fff085;
+  --tag-teal-bg: #f0fdfa;
+  --tag-teal-fg: #00786f;
+  --tag-teal-bd: #96f7e4;
+  --tag-orange-bg: #fff7ed;
+  --tag-orange-fg: #ca3500;
+  --tag-orange-bd: #ffd6a7;
+  --tag-cyan-bg: #ecfeff;
+  --tag-cyan-fg: #007595;
+  --tag-cyan-bd: #a2f4fd;
+  --tag-lime-bg: #f7fee7;
+  --tag-lime-fg: #497d00;
+  --tag-lime-bd: #d8f999;
+  --tag-lightblue-bg: #dbeafe;
+  --tag-lightblue-fg: #193cb8;
+  --tag-lightblue-bd: #8ec5ff;
 }
 
+/*
+ * 深色模式 ——「暖墨」：以 VI 坚实黑 #231815 为底，压暗一层做页面底，
+ * 卡片/弹层逐层提亮；正文用暖白 #f2eeec 而不是纯白，避免长时间阅读刺眼。
+ * 品牌红在深色下提亮一档，保证白字压在实心按钮上仍然成立。
+ * 逐条口径见 docs/dark-mode.md §3。
+ */
 .dark {
+  /* 深色模式：原生控件 / 滚动条 / 日期选择器等跟随深色 */
+  color-scheme: dark;
+
   --background: #14100f;
-  --foreground: #f4f2f2;
-  --card: #231815;
-  --card-foreground: #f4f2f2;
-  --popover: #231815;
-  --popover-foreground: #f4f2f2;
-  --primary: #c22525;
+  --foreground: #f2eeec;
+  --card: #1d1918;
+  --card-foreground: #f2eeec;
+  --popover: #221d1c;
+  --popover-foreground: #f2eeec;
+  --primary: #d0343a;
   --primary-foreground: #ffffff;
-  --secondary: #403c3b;
-  --secondary-foreground: #f4f2f2;
-  --muted: #403c3b;
-  --muted-foreground: #b4b0b0;
-  --accent: #403c3b;
-  --accent-foreground: #f4f2f2;
-  --destructive: #c22525;
-  --border: rgb(255 255 255 / 10%);
-  --input: rgb(255 255 255 / 15%);
-  --ring: #c22525;
-  --chart-1: #c22525;
-  --chart-2: #f08300;
-  --chart-3: #41b25d;
-  --chart-4: #6a4fbf;
-  --chart-5: #0086d1;
-  --sidebar: #231815;
-  --sidebar-foreground: #f4f2f2;
-  --sidebar-primary: #c22525;
+  --secondary: #2a2422;
+  --secondary-foreground: #f2eeec;
+  --muted: #262120;
+  /* 次要文字：实测压在 dark:bg-gray-800(#403c3b) 上 #a89f9c 只有 4.2，
+     抬到 #bdb5b1 后 ≈5.1，同时压在页面底 #14100f 上仍有 9.3，不会发白。 */
+  --muted-foreground: #bdb5b1;
+  --accent: #2a2422;
+  --accent-foreground: #f2eeec;
+  --destructive: #e05252;
+  --border: rgb(242 238 236 / 11%);
+  --input: rgb(242 238 236 / 14%);
+  --ring: #d0343a;
+  --chart-1: #d0343a;
+  --chart-2: #f0a35e;
+  --chart-3: #64c886;
+  --chart-4: #9b8fe0;
+  --chart-5: #5aa9e6;
+  --sidebar: #191514;
+  --sidebar-foreground: #f2eeec;
+  --sidebar-primary: #d0343a;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #403c3b;
-  --sidebar-accent-foreground: #f4f2f2;
-  --sidebar-border: rgb(255 255 255 / 10%);
-  --sidebar-ring: #c22525;
+  --sidebar-accent: #2a2422;
+  --sidebar-accent-foreground: #f2eeec;
+  --sidebar-border: rgb(242 238 236 / 9%);
+  --sidebar-ring: #d0343a;
+
+  /* ===== L1 品牌色（深色，提亮一档） ===== */
+  --brand-red: #d94a4f;
+  --brand-crimson: #d1343a;
+  --brand-deep-red: #a81c22;
+  --brand-black: #e8e2e0;
+  --brand-white: #ffffff;
+
+  /* ===== L1 标签色（深色）：深底 + 亮字 + 同色系边框 ===== */
+  --tag-blue-bg: #172033;
+  --tag-blue-fg: #93b4f8;
+  --tag-blue-bd: #2a3a57;
+  --tag-purple-bg: #201a33;
+  --tag-purple-fg: #c4a6f5;
+  --tag-purple-bd: #382b57;
+  --tag-amber-bg: #2a2011;
+  --tag-amber-fg: #f2c07a;
+  --tag-amber-bd: #4a3a1c;
+  --tag-green-bg: #16241a;
+  --tag-green-fg: #7ad79a;
+  --tag-green-bd: #24452e;
+  --tag-red-bg: #2a1616;
+  --tag-red-fg: #f0918f;
+  --tag-red-bd: #4d2424;
+  --tag-indigo-bg: #1a1d33;
+  --tag-indigo-fg: #a3aef5;
+  --tag-indigo-bd: #2c3357;
+  --tag-pink-bg: #2a1722;
+  --tag-pink-fg: #f3a2c6;
+  --tag-pink-bd: #4d2438;
+  --tag-yellow-bg: #2a2410;
+  --tag-yellow-fg: #f0d47a;
+  --tag-yellow-bd: #4a3f1c;
+  --tag-teal-bg: #12241f;
+  --tag-teal-fg: #6fd7c4;
+  --tag-teal-bd: #1f443c;
+  --tag-orange-bg: #2a1d13;
+  --tag-orange-fg: #f5ab7a;
+  --tag-orange-bd: #4a3320;
+  --tag-cyan-bg: #13242a;
+  --tag-cyan-fg: #6fd0e0;
+  --tag-cyan-bd: #1f434b;
+  --tag-lime-bg: #1e2410;
+  --tag-lime-fg: #b6d96a;
+  --tag-lime-bd: #36451c;
+  --tag-lightblue-bg: #16233a;
+  --tag-lightblue-fg: #8fb8f5;
+  --tag-lightblue-bd: #26405f;
 }
 
 @layer base {
@@ -384,4 +539,26 @@
 .dark ::selection {
   background-color: rgba(194, 37, 37, 0.4);
   color: inherit;
+}
+
+/* ===== 主题切换：短暂禁用过渡，避免整页颜色渐变闪烁 =====
+ * ThemeProvider 在切换主题时给 <html> 加 .theme-switching，80ms 后移除。
+ * 只压制过渡/动画，不改变任何颜色，防止「点一下主题整页慢慢褪色」的廉价感。 */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+  animation-duration: 0.001s !important;
+}
+
+/* ===== 桌面滚动条：跟随前景色，深色模式下不再出现系统亮条 ===== */
+@supports (scrollbar-color: auto) {
+  html {
+    scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
+  }
+}
+
+/* ===== 惰性底色：iOS 橡皮筋 / 桌面过滚动露出的底与主题一致 ===== */
+html {
+  background-color: var(--background);
 }

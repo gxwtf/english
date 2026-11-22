@@ -292,10 +292,10 @@ export const BatchAddWord = ({
 
   const statusIcon: Record<WordStatus, React.ReactNode> = {
     pending: <div className="h-4 w-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />,
-    processing: <Loader2 className="h-4 w-4 animate-spin text-blue-500" />,
-    success: <CheckCircle2 className="h-4 w-4 text-emerald-500" />,
-    failed: <XCircle className="h-4 w-4 text-red-500" />,
-    skipped: <AlertCircle className="h-4 w-4 text-amber-500" />,
+    processing: <Loader2 className="h-4 w-4 animate-spin text-blue-500 dark:text-blue-400" />,
+    success: <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />,
+    failed: <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />,
+    skipped: <AlertCircle className="h-4 w-4 text-amber-500 dark:text-amber-400" />,
   };
 
   const statusBg: Record<WordStatus, string> = {
@@ -314,7 +314,7 @@ export const BatchAddWord = ({
           <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-red-50 dark:bg-gray-700">
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-crimson shrink-0">
-                <ListPlus className="h-5 w-5 text-white" />
+                <ListPlus className="h-5 w-5 text-brand-white" />
               </div>
               <div className="min-w-0">
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white truncate">
@@ -329,7 +329,7 @@ export const BatchAddWord = ({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              className="rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50 shrink-0"
+              className="rounded-lg hover:bg-muted/50 shrink-0"
               disabled={isProcessing}
             >
               <X className="h-5 w-5" />
@@ -427,9 +427,9 @@ export const BatchAddWord = ({
                   >
                     <div className="flex items-center gap-3 mb-2">
                       {hasFailed ? (
-                        <AlertCircle className="h-5 w-5 text-amber-500" />
+                        <AlertCircle className="h-5 w-5 text-amber-500 dark:text-amber-400" />
                       ) : (
-                        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                        <CheckCircle2 className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
                       )}
                       <span className="font-semibold text-gray-900 dark:text-white">
                         {hasFailed ? '部分单词未添加成功' : '全部添加成功！'}

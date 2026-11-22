@@ -215,7 +215,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
     if (embedded) {
       return (
         <div className="py-12 text-center">
-          <Shield className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+          <Shield className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-500 mb-4" />
           <p className="text-gray-600 dark:text-gray-400">无权访问：需要管理员权限</p>
         </div>
       );
@@ -224,7 +224,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <Navbar currentPage="admin" />
         <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <Shield className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+          <Shield className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-500 mb-4" />
           <p className="text-gray-600 dark:text-gray-400">无权访问：需要管理员权限</p>
         </div>
       </div>
@@ -258,7 +258,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="sys-name" className="mb-1.5 block">
-                名称 <span className="text-red-500">*</span>
+                名称 <span className="text-red-500 dark:text-red-400">*</span>
               </Label>
               <Input
                 id="sys-name"
@@ -323,7 +323,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
               <p className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
                 <FileText className="h-4 w-4" />
                 已解析 {parsedWords.length} 个单词
-                {fileName && <span className="text-gray-400">（{fileName}）</span>}
+                {fileName && <span className="text-muted-foreground/70">（{fileName}）</span>}
               </p>
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {previewList.map((w) => (
@@ -335,7 +335,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
                   </span>
                 ))}
                 {parsedWords.length > previewList.length && (
-                  <span className="text-xs px-2 py-0.5 text-gray-400">
+                  <span className="text-xs px-2 py-0.5 text-muted-foreground/70">
                     …等 {parsedWords.length} 个
                   </span>
                 )}
@@ -422,7 +422,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
                         variant="ghost"
                         size="sm"
                         onClick={() => setDeleting(book)}
-                        className="text-red-600 hover:text-red-700 dark:text-red-400"
+                        className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -433,7 +433,7 @@ export function AdminWordbooksPage({ embedded = false }: { embedded?: boolean } 
                       {book.previewWords.map((w) => (
                         <span
                           key={w}
-                          className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                          className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200"
                         >
                           {w}
                         </span>

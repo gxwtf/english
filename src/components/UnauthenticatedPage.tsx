@@ -7,7 +7,7 @@ export const UnauthenticatedPage = () => {
       <div className="flex flex-col items-center text-center p-8 max-w-4xl mx-auto">
         <div className="mb-8">
           <div className="relative w-32 h-32 mx-auto mb-6">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full blur-xl opacity-30"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 rounded-full blur-xl opacity-30"></div>
             <BookOpen className="relative w-full h-full text-blue-600 dark:text-blue-400" />
           </div>
           <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">

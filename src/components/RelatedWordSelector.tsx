@@ -179,7 +179,7 @@ export const RelatedWordSelector = ({
                 setVerificationError('');
               }}
               onKeyDown={handleKeyPress}
-              className={verificationError ? 'border-red-500' : ''}
+              className={verificationError ? 'border-destructive' : ''}
               disabled={isVerifying}
             />
           </div>
@@ -194,7 +194,7 @@ export const RelatedWordSelector = ({
           </button>
         </div>
         {verificationError && (
-          <p className="text-xs text-red-500 mt-1">{verificationError}</p>
+          <p className="text-xs text-red-500 dark:text-red-400 mt-1">{verificationError}</p>
         )}
 
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -205,7 +205,7 @@ export const RelatedWordSelector = ({
       {/* 提示信息 */}
       {selectedRelatedWords.length === 0 && !newWordText && (
         <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-          <AlertCircle className="h-4 w-4 text-blue-500" />
+          <AlertCircle className="h-4 w-4 text-blue-500 dark:text-blue-400" />
           <p className="text-xs text-blue-700 dark:text-blue-300">
             输入一个在词典中的单词作为关联词，帮助记忆形近词或易混词
           </p>

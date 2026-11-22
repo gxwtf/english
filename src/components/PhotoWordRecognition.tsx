@@ -327,14 +327,14 @@ export const PhotoWordRecognition = ({
           <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700 bg-amber-50 dark:bg-gray-700">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-crimson to-brand-orange">
-                <Highlighter className="h-5 w-5 text-white" />
+                <Highlighter className="h-5 w-5 text-brand-white" />
               </div>
               <div>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">拍照识别高亮单词</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400">使用荧光笔高亮的单词将被自动识别</p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleClose} className="rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50">
+            <Button variant="ghost" size="sm" onClick={handleClose} className="rounded-lg hover:bg-muted/50">
               <X className="h-5 w-5" />
             </Button>
           </div>
@@ -344,7 +344,7 @@ export const PhotoWordRecognition = ({
                 <div className="flex flex-col items-center justify-center py-16 gap-5">
                   <div className="relative">
                     <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-crimson to-brand-orange">
-                      <Highlighter className="h-8 w-8 text-white" />
+                      <Highlighter className="h-8 w-8 text-brand-white" />
                     </div>
                     <Sparkles className="absolute -top-2 -right-2 h-5 w-5 text-brand-crimson" />
                   </div>
@@ -516,7 +516,7 @@ export const PhotoWordRecognition = ({
                             <div
                               key={index}
                               className={`p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 ${
-                                editingWordIndex === index ? 'ring-2 ring-blue-400' : ''
+                                editingWordIndex === index ? 'ring-2 ring-blue-500 dark:ring-blue-400' : ''
                               }`}
                             >
                               <div className="flex items-center gap-2 mb-2">

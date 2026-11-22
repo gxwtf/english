@@ -225,7 +225,7 @@ export function PracticePageContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-muted-foreground mx-auto"></div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">加载中...</p>
         </div>
       </div>
@@ -240,7 +240,7 @@ export function PracticePageContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-muted-foreground mx-auto"></div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">加载中...</p>
         </div>
       </div>
@@ -280,7 +280,7 @@ export function PracticePageContent() {
             <button
               onClick={handleExportPdf}
               disabled={selectedIds.size === 0 || exporting}
-              className="ml-auto flex items-center gap-2 text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="ml-auto flex items-center gap-2 text-sm px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {exporting ? (
                 <>

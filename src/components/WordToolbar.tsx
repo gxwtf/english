@@ -316,7 +316,7 @@ export const WordToolbar = ({
                               e.stopPropagation();
                             }}
                           >
-                            <span className={`${COLOR_PRESETS.find(c => c.id === tagConfig.colorId)?.className || 'bg-gray-200'} text-sm px-2 py-1 rounded-full`}>
+                            <span className={`${COLOR_PRESETS.find(c => c.id === tagConfig.colorId)?.className || 'bg-muted'} text-sm px-2 py-1 rounded-full`}>
                               {tagConfig.name}
                             </span>
                           </label>
@@ -355,7 +355,7 @@ export const WordToolbar = ({
         <div className="flex items-center gap-2">
           <div className="relative">
             <label htmlFor="word-search" className="sr-only">搜索单词</label>
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
             <Input
               id="word-search"
               placeholder="搜索单词..."
@@ -371,7 +371,7 @@ export const WordToolbar = ({
             onClick={onAIGenerate}
             disabled={allWordIds.length === 0}
             title={canBatchOperate ? 'AI 复习选中的单词' : '未选择单词，将复习当前筛选后的全部单词'}
-            className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+            className="h-9 text-sm whitespace-nowrap bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-700 dark:from-purple-400 dark:to-violet-500 dark:hover:from-violet-400 dark:hover:to-violet-500 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
           >
             <Sparkles className="h-4 w-4 mr-2" />
             <span className="hidden lg:inline">{canBatchOperate ? 'AI 复习' : 'AI 复习全部'}</span>
@@ -392,7 +392,7 @@ export const WordToolbar = ({
               <Layers className="h-4 w-4 mr-2" />
               <span className="hidden lg:inline">批量操作</span>
               {canBatchOperate && (
-                <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs bg-white/20 text-white backdrop-blur-sm">
+                <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs bg-brand-white/20 text-white backdrop-blur-sm">
                   {selectedWordIds.length}
                 </Badge>
               )}
@@ -414,9 +414,9 @@ export const WordToolbar = ({
                     onPointerDown={(e) => e.stopPropagation()}
                   >
                     {isExportingSelected ? (
-                      <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                      <Loader2 className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-spin" />
                     ) : (
-                      <FileDown className="h-4 w-4 text-blue-600" />
+                      <FileDown className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     )}
                     <span className="text-sm">{isExportingSelected ? '导出中...' : '导出 PDF'}</span>
                   </button>
@@ -432,7 +432,7 @@ export const WordToolbar = ({
                     onMouseDown={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <Tag className="h-4 w-4 text-blue-600" />
+                    <Tag className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     <span className="text-sm">设置标签</span>
                   </button>
 
@@ -448,7 +448,7 @@ export const WordToolbar = ({
                       onMouseDown={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
                     >
-                      <Copy className="h-4 w-4 text-blue-600" />
+                      <Copy className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       <span className="text-sm">复制到其它单词本</span>
                     </button>
                   )}
@@ -465,7 +465,7 @@ export const WordToolbar = ({
                       onMouseDown={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
                     >
-                      <FolderInput className="h-4 w-4 text-blue-600" />
+                      <FolderInput className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       <span className="text-sm">移动到其它单词本</span>
                     </button>
                   )}
@@ -481,7 +481,7 @@ export const WordToolbar = ({
                     onMouseDown={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <Trash2 className="h-4 w-4 text-red-600" />
+                    <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
                     <span className="text-sm">删除选中</span>
                   </button>
                     </>
@@ -647,7 +647,7 @@ export const WordToolbar = ({
                               e.stopPropagation();
                             }}
                           >
-                            <span className={`${COLOR_PRESETS.find(c => c.id === tagConfig.colorId)?.className || 'bg-gray-200'} text-sm px-2 py-1 rounded-full`}>
+                            <span className={`${COLOR_PRESETS.find(c => c.id === tagConfig.colorId)?.className || 'bg-muted'} text-sm px-2 py-1 rounded-full`}>
                               {tagConfig.name}
                             </span>
                           </label>
@@ -685,7 +685,7 @@ export const WordToolbar = ({
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-0">
             <label htmlFor="word-search-mobile" className="sr-only">搜索单词</label>
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
             <Input
               id="word-search-mobile"
               placeholder="搜索单词..."
@@ -700,7 +700,7 @@ export const WordToolbar = ({
             size="sm"
             onClick={onAIGenerate}
             disabled={allWordIds.length === 0}
-            className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
+            className="h-9 px-2 text-xs whitespace-nowrap bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-700 dark:from-purple-400 dark:to-violet-500 dark:hover:from-violet-400 dark:hover:to-violet-500 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-200"
             aria-label="AI 复习"
           >
             <Sparkles className="h-4 w-4" />
@@ -721,7 +721,7 @@ export const WordToolbar = ({
             >
               <Layers className="h-4 w-4" />
               {canBatchOperate && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-white/20 text-white backdrop-blur-sm">
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs bg-brand-white/20 text-white backdrop-blur-sm">
                   {selectedWordIds.length}
                 </Badge>
               )}
@@ -743,9 +743,9 @@ export const WordToolbar = ({
                     onPointerDown={(e) => e.stopPropagation()}
                   >
                     {isExportingSelected ? (
-                      <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                      <Loader2 className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-spin" />
                     ) : (
-                      <FileDown className="h-4 w-4 text-blue-600" />
+                      <FileDown className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     )}
                     <span className="text-sm">{isExportingSelected ? '导出中...' : '导出 PDF'}</span>
                   </button>
@@ -761,7 +761,7 @@ export const WordToolbar = ({
                     onMouseDown={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <Tag className="h-4 w-4 text-blue-600" />
+                    <Tag className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     <span className="text-sm">设置标签</span>
                   </button>
 
@@ -777,7 +777,7 @@ export const WordToolbar = ({
                       onMouseDown={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
                     >
-                      <Copy className="h-4 w-4 text-blue-600" />
+                      <Copy className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       <span className="text-sm">复制到其它单词本</span>
                     </button>
                   )}
@@ -794,7 +794,7 @@ export const WordToolbar = ({
                       onMouseDown={(e) => e.stopPropagation()}
                       onPointerDown={(e) => e.stopPropagation()}
                     >
-                      <FolderInput className="h-4 w-4 text-blue-600" />
+                      <FolderInput className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       <span className="text-sm">移动到其它单词本</span>
                     </button>
                   )}
@@ -810,7 +810,7 @@ export const WordToolbar = ({
                     onMouseDown={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <Trash2 className="h-4 w-4 text-red-600" />
+                    <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
                     <span className="text-sm">删除选中</span>
                   </button>
                     </>

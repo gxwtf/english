@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/toast"
 
 const variantConfig = {
-  success: { Icon: CheckCircle2, iconClassName: "text-blue-600" },
-  destructive: { Icon: XCircle, iconClassName: "text-white" },
+  success: { Icon: CheckCircle2, iconClassName: "text-blue-600 dark:text-blue-400" },
+  destructive: { Icon: XCircle, iconClassName: "text-brand-white" },
   default: { Icon: Info, iconClassName: "text-muted-foreground" },
 } as const
 

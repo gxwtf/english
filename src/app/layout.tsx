@@ -4,6 +4,9 @@ import { Footer } from "@/components/Footer";
 import { AuthProvider } from "@/components/AuthProvider";
 import { WebAppManager } from "@/components/WebAppManager";
 import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "@/components/theme/theme-provider";
+import { themeInitScript } from "@/components/theme/theme-script";
+import { BaiduAnalytics } from "@/components/baidu-analytics";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -11,10 +14,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#a31f24" },
-    { media: "(prefers-color-scheme: dark)", color: "#8a1010" },
-  ],
+  // themeColor 不在这里声明：由内联脚本 + ThemeProvider 按实际生效主题写 <meta name="theme-color">，
+  // 否则用户手动切到浅色、系统却是深色时，状态栏会跟吸顶导航对不上（见 docs/dark-mode.md §6）。
 };
 
 export const metadata: Metadata = {
@@ -113,8 +114,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <head>
+        <meta name="theme-color" content="#ffffff" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -125,32 +127,24 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
         <link rel="mask-icon" href="/icon-512.png" color="#a31f24" />
         {/*
-          百度统计（hm.js）。按百度官方要求放在 </head> 之前，一处安装全站生效。
-          根布局渲染本应用全部路由，加这一次即可覆盖整个英语站（english.gxwtf.cn）。
-          这是本项目专属的站点 ID，与主站 / 古诗文 / 题库的 ID 都不同。
+          深色模式首帧脚本：内联在 <head> 里，解析期同步执行，早于首帧渲染，不会白闪。
+          逻辑与 ThemeProvider 共用 src/components/theme/theme-script.ts。
         */}
-        <script
-          id="baidu-tongji"
-          dangerouslySetInnerHTML={{
-            __html: `var _hmt = _hmt || [];
-(function() {
-  var hm = document.createElement("script");
-  hm.src = "https://hm.baidu.com/hm.js?04aa0ee9b4dc3f3c07531934d922bffb";
-  var s = document.getElementsByTagName("script")[0];
-  s.parentNode.insertBefore(hm, s);
-})();`,
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="antialiased flex flex-col min-h-screen">
-        <AuthProvider>
-          <main className="flex-1">
-            {children}
-          </main>
-          <Footer />
-          <WebAppManager />
-          <Toaster />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <main className="flex-1">
+              {children}
+            </main>
+            <Footer />
+            <WebAppManager />
+            <Toaster />
+            {/* 百度统计：水合后再加载 hm.js，避免解析期改动 <head> 触发 React 水合告警 */}
+            <BaiduAnalytics siteId="04aa0ee9b4dc3f3c07531934d922bffb" />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

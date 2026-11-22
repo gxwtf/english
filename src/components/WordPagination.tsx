@@ -86,7 +86,7 @@ export const WordPagination = ({
           page === 'ellipsis' ? (
             <span
               key={`ellipsis-${index}`}
-              className="flex h-9 w-9 items-center justify-center text-gray-400"
+              className="flex h-9 w-9 items-center justify-center text-muted-foreground/70"
             >
               <MoreHorizontal className="h-4 w-4" />
             </span>

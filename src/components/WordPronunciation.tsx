@@ -215,10 +215,10 @@ export function WordPronunciation({
         const toneClass =
           tone === 'onDark'
             ? isPlaying
-              ? 'text-white'
+              ? 'text-brand-white'
               : isFailed
-                ? 'text-red-200'
-                : 'text-white/75 hover:text-white'
+                ? 'text-red-200 dark:text-red-300'
+                : 'text-brand-white/75 hover:text-brand-white'
             : isPlaying
               ? 'text-brand-crimson dark:text-brand-red'
               : isFailed

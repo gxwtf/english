@@ -42,7 +42,7 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const BOOK_COLORS = [
   { bg: 'bg-red-50 dark:bg-red-900/30', text: 'text-brand-crimson dark:text-red-400' },
   { bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400' },
-  { bg: 'bg-violet-50 dark:bg-violet-900/30', text: 'text-violet-600 dark:text-violet-400' },
+  { bg: 'bg-violet-50 dark:bg-violet-900/30', text: 'text-violet-600 dark:text-violet-300' },
   { bg: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400' },
 ];
 
@@ -340,7 +340,7 @@ export function HomePageContent() {
       label: '总词数',
       value: total,
       icon: Layers,
-      color: 'text-violet-600 dark:text-violet-400',
+      color: 'text-violet-600 dark:text-violet-300',
       bg: 'bg-violet-50 dark:bg-violet-900/30',
     },
   ];
@@ -394,7 +394,7 @@ export function HomePageContent() {
                 <span className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white leading-none">
                   {loading ? '-' : learning}
                 </span>
-                <span className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                <span className="mt-1 text-xs text-gray-400 dark:text-gray-400">
                   待学习
                 </span>
               </div>
@@ -413,7 +413,7 @@ export function HomePageContent() {
             <button
               onClick={handleOpenSelector}
               disabled={preparing || reviewing || loading || !hasWords}
-              className="mt-6 w-full sm:w-auto sm:min-w-[220px] flex items-center justify-center gap-2 px-6 py-3 bg-brand-crimson hover:bg-brand-deep-red text-white rounded-2xl font-semibold text-base shadow-lg shadow-red-500/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+              className="mt-6 w-full sm:w-auto sm:min-w-[220px] flex items-center justify-center gap-2 px-6 py-3 bg-brand-crimson hover:bg-brand-deep-red text-white rounded-2xl font-semibold text-base shadow-lg shadow-red-500/20 dark:shadow-red-950/50 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
             >
               {preparing || reviewing ? (
                 <>
@@ -455,7 +455,7 @@ export function HomePageContent() {
                   <div className={`mt-2 text-lg sm:text-xl font-bold ${item.color}`}>
                     {loading ? '-' : item.value}
                   </div>
-                  <div className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+                  <div className="mt-0.5 text-xs text-gray-400 dark:text-gray-400">
                     {item.label}
                   </div>
                 </div>
@@ -487,7 +487,7 @@ export function HomePageContent() {
           ) : wordbooks.length === 0 ? (
             <Link
               href="/wordbooks"
-              className="flex items-center justify-center gap-2 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 py-6 text-sm text-gray-400 dark:text-gray-500 hover:border-brand-crimson/40 transition-colors"
+              className="flex items-center justify-center gap-2 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 py-6 text-sm text-gray-400 dark:text-gray-400 hover:border-brand-crimson/40 transition-colors"
             >
               <Plus className="h-4 w-4" />
               还没有单词本，去创建一个
@@ -508,10 +508,10 @@ export function HomePageContent() {
                     <span className="flex-1 min-w-0 font-medium text-gray-900 dark:text-white truncate">
                       {book.name}
                     </span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+                    <span className="text-xs text-gray-400 dark:text-gray-400 shrink-0">
                       {book.wordCount} 词
                     </span>
-                    <ArrowRight className="h-4 w-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-300 transition-colors shrink-0" />
+                    <ArrowRight className="h-4 w-4 text-gray-300 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-300 transition-colors shrink-0" />
                   </Link>
                 );
               })}

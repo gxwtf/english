@@ -421,7 +421,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                     e.stopPropagation();
                     setShowPhotoRecognition(true);
                   }}
-                  className="flex-1 rounded-xl bg-purple-500 hover:bg-purple-600 active:scale-[0.98] px-4 py-3 text-white font-medium transition-all h-auto"
+                  className="flex-1 rounded-xl bg-purple-500 hover:bg-purple-600 dark:bg-purple-400 dark:hover:bg-violet-500 active:scale-[0.98] px-4 py-3 text-white font-medium transition-all h-auto"
                 >
                   <div className="flex items-center justify-center gap-2">
                     <div className="flex items-center gap-2">
@@ -495,7 +495,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                           variant="ghost"
                           size="sm"
                           onClick={restoreDefaultMeanings}
-                          className="h-8 px-3 text-xs whitespace-nowrap text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                          className="h-8 px-3 text-xs whitespace-nowrap text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
                         >
                           <RotateCcw className="h-3 w-3 mr-1" />
                           <span className="hidden sm:inline">恢复默认</span>
@@ -567,7 +567,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                                     {meaning.type}
                                   </Badge>
                                   {isEditing && (
-                                    <Badge className="text-xs bg-amber-500 text-white">编辑中</Badge>
+                                    <Badge className="text-xs bg-amber-500 dark:bg-amber-600 text-white">编辑中</Badge>
                                   )}
                                 </div>
                                 {meaning.sentence && (
@@ -581,14 +581,14 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                                   <>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); startEditMeaning(index); }}
-                                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-muted-foreground/70 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                                       title="编辑"
                                     >
                                       <Pencil className="h-3.5 w-3.5" />
                                     </button>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); deleteMeaning(index); }}
-                                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-muted-foreground/70 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                                       title="删除"
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
@@ -689,7 +689,7 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                   </div>
                 </div>
                 <div className="flex items-start gap-1.5 mt-2">
-                  <Info className="h-3.5 w-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <Info className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {editingMeaningIndex !== null
                       ? '修改完成后点击"保存"。词性不选则默认为"自定义"。'
@@ -732,12 +732,12 @@ export const WordModal = ({ isOpen, onClose, onSave, initialWord, allWords = [],
                             isSelected
                               // 选中时保持原背景，添加蓝色边框
                               ? colorPreset
-                                ? `${colorPreset.className} dark:bg-gray-800 dark:text-gray-300 ring-2 ring-blue-500 ring-offset-1 shadow-md`
-                                : 'bg-blue-100 text-blue-800 border-blue-500 ring-2 ring-blue-500 ring-offset-1'
+                                ? `${colorPreset.className} dark:bg-gray-800 dark:text-gray-300 ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-1 dark:ring-offset-gray-900 shadow-md`
+                                : 'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 border-blue-500 dark:border-blue-800 ring-2 ring-blue-500 dark:ring-blue-400 ring-offset-1 dark:ring-offset-gray-900'
                               // 未选中时使用浅色背景
                               : colorPreset
-                                ? `${colorPreset.className} dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-opacity-80`
-                                : 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 hover:bg-opacity-80'
+                                ? `${colorPreset.className} dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 hover:bg-opacity-80`
+                                : 'bg-gray-200 text-gray-700 border-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 hover:bg-opacity-80'
                           }
                           cursor-pointer transition-all hover:scale-105 hover:opacity-90
                         `}

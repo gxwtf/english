@@ -3,12 +3,15 @@
 import Link from 'next/link';
 import { BookOpen, FileQuestion, HelpCircle, LogOut, User, Settings, Home } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 
 interface NavbarProps {
   currentPage: 'home' | 'wordbook' | 'practice' | 'settings' | 'admin';
 }
 
-const NAV_LINK_CLASSES = 'flex items-center space-x-1 @min-[560px]:space-x-1.5 sm:space-x-2 px-1.5 @min-[560px]:px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors shrink-0 whitespace-nowrap';
+// base 断点（手机宽度）刻意压紧：右侧新增了主题切换按钮，390px 下若仍用 px-1.5/space-x-1
+// 会把最后一个「登出」挤出可视区、必须横滑才能点到（实测溢出 28px）。@min-[560px] 以上保持原样。
+const NAV_LINK_CLASSES = 'flex items-center space-x-0.5 @min-[560px]:space-x-1.5 sm:space-x-2 px-1 @min-[560px]:px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors shrink-0 whitespace-nowrap';
 
 export const Navbar = ({ currentPage }: NavbarProps) => {
   const { userInfo, logout } = useAuth();
@@ -26,7 +29,7 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
             </Link>
           </div>
 
-          <div className="min-w-0 flex items-center space-x-1 @min-[560px]:space-x-2 sm:space-x-4 md:space-x-6 flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="min-w-0 flex items-center space-x-0.5 @min-[560px]:space-x-2 sm:space-x-4 md:space-x-6 flex-nowrap overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <Link
               href="/"
               className={`${NAV_LINK_CLASSES} ${
@@ -73,6 +76,9 @@ export const Navbar = ({ currentPage }: NavbarProps) => {
               <HelpCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="hidden @min-[640px]:inline">使用文档</span>
             </a>
+
+            {/* 主题切换（浅色 / 深色 / 跟随系统）：未登录也显示，移动端 icon-only */}
+            <ThemeToggle className="shrink-0" />
 
             {/* 用户信息和登出 - 由于 SSR 限制，登出后需要刷新页面 */}
             {userInfo && (

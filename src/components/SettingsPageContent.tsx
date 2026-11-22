@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Tag as TagIcon, Shield, Sparkles, Layers } from 'lucide-react';
+import { Settings, Tag as TagIcon, Shield, Sparkles, Layers, SunMoon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { UnauthenticatedPage } from '@/components/UnauthenticatedPage';
 import { Navbar } from '@/components/Navbar';
@@ -9,6 +9,7 @@ import { TagEditModal } from '@/components/TagEditModal';
 import { AiSettingsModal } from '@/components/AiSettingsModal';
 import { ReviewScopeModal } from '@/components/ReviewScopeModal';
 import { AdminWordbooksPage } from '@/components/AdminWordbooksPage';
+import { ThemeSettingsDialog } from '@/components/theme/theme-settings-dialog';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ export function SettingsPageContent() {
   const [showAiSettings, setShowAiSettings] = useState(false);
   const [showReviewScope, setShowReviewScope] = useState(false);
   const [showSystemWordbooks, setShowSystemWordbooks] = useState(false);
+  const [showThemeSettings, setShowThemeSettings] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // 加载标签配置
@@ -59,7 +61,7 @@ export function SettingsPageContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-muted-foreground mx-auto"></div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">加载中...</p>
         </div>
       </div>
@@ -72,6 +74,13 @@ export function SettingsPageContent() {
   }
 
   const menuItems = [
+    {
+      id: 'appearance',
+      icon: SunMoon,
+      title: '外观',
+      description: '浅色 / 深色 / 跟随系统，选择界面配色',
+      onClick: () => setShowThemeSettings(true),
+    },
     {
       id: 'ai',
       icon: Sparkles,
@@ -164,6 +173,9 @@ export function SettingsPageContent() {
           </p>
         </div>
       </div>
+
+      {/* 外观（浅色 / 深色 / 跟随系统）弹窗 */}
+      <ThemeSettingsDialog open={showThemeSettings} onOpenChange={setShowThemeSettings} />
 
       {/* AI 出题设置弹窗 */}
       <AiSettingsModal

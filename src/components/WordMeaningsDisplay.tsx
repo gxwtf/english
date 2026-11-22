@@ -349,7 +349,7 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                 word.meanings.map((meaning, mIndex) => (
                   <span
                     key={mIndex}
-                    className="text-xs px-2 py-0.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-600"
+                    className="text-xs px-2 py-0.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded border border-gray-200 dark:border-gray-600"
                   >
                     {meaning.type && (
                       <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">
@@ -370,7 +370,7 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                   onClick={() => openEdit(word)}
                   title="编辑释义"
                   aria-label="编辑释义"
-                  className="p-1 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/40 dark:hover:text-blue-300 transition-colors"
+                  className="p-1 rounded text-muted-foreground/70 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/40 dark:hover:text-blue-300 transition-colors"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
@@ -379,7 +379,7 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                   onClick={() => openDelete(word)}
                   title="删除单词"
                   aria-label="删除单词"
-                  className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 dark:hover:text-red-300 transition-colors"
+                  className="p-1 rounded text-muted-foreground/70 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 dark:hover:text-red-300 transition-colors"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -429,7 +429,7 @@ export function WordMeaningsDisplay({ questionId, status, isShowingResults }: Wo
                   onClick={() => removeDraftMeaning(index)}
                   title="删除该释义"
                   aria-label="删除该释义"
-                  className="p-2 rounded text-gray-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 dark:hover:text-red-300 transition-colors shrink-0"
+                  className="p-2 rounded text-muted-foreground/70 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 dark:hover:text-red-300 transition-colors shrink-0"
                 >
                   <X className="h-4 w-4" />
                 </button>

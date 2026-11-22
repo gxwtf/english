@@ -202,7 +202,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
           <summary className="cursor-pointer text-amber-600 dark:text-amber-400 font-medium">
             查看 AI 思考过程
           </summary>
-          <pre className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
+          <pre className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200 rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
             {thinking}
           </pre>
         </details>
@@ -236,7 +236,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
             })}
           </div>
           <div className="flex gap-3">
-            <Link href="/practice" className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+            <Link href="/practice" className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
               返回题目列表
             </Link>
           </div>
@@ -272,7 +272,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
             </div>
           )}
           <div className="flex gap-3">
-            <Link href="/practice" className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+            <Link href="/practice" className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
               返回题目列表
             </Link>
             <button onClick={handleRetryGrading} disabled={isRetryingGrading} className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white disabled:opacity-50 disabled:cursor-not-allowed">
@@ -361,12 +361,12 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
             </div>
           )}
           <div className="flex gap-3">
-            <Link href="/practice" className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">
+            <Link href="/practice" className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600">
               返回题目列表
             </Link>
             <button onClick={handleReset} disabled={isResetting} className={`flex-1 py-3 font-semibold rounded-xl transition-all shadow-md text-white disabled:opacity-50 disabled:cursor-not-allowed ${
               currentStatus === 'ANSWERED'
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 dark:from-blue-600 dark:to-indigo-700 dark:hover:from-blue-500 dark:hover:to-indigo-600'
                 : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red'
             }`}>
               {isResetting ? '重置中...' : '重新作答'}
@@ -427,7 +427,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
                     placeholder="请从候选单词中选择合适的单词，输入英文翻译..."
                     rows={3}
                     disabled={submitting}
-                    className="w-full mt-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full mt-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-amber-500 dark:focus:ring-amber-400 focus:border-transparent resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
               );
@@ -444,7 +444,7 @@ export function WordSelectTranslateAnswer({ questionId, words, questions, thinki
             <button
               onClick={() => setAnswers({})}
               disabled={submitting}
-              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               清空重写
             </button>

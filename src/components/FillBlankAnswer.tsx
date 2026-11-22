@@ -234,7 +234,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
           <summary className="cursor-pointer text-amber-600 dark:text-amber-400 font-medium">
             查看 AI 思考过程
           </summary>
-          <pre className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
+          <pre className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-200 rounded-lg whitespace-pre-wrap text-xs overflow-auto max-h-48">
             {thinking}
           </pre>
         </details>
@@ -270,7 +270,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
           <div className="flex gap-3">
             <Link
               href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
             >
               返回题目列表
             </Link>
@@ -308,7 +308,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
           <div className="flex gap-3">
             <Link
               href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
             >
               返回题目列表
             </Link>
@@ -384,7 +384,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
           <div className="flex gap-3">
             <Link
               href="/practice"
-              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+              className="flex-1 text-center py-3 font-semibold rounded-xl transition-all shadow-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
             >
               返回题目列表
             </Link>
@@ -393,7 +393,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
               disabled={isResetting}
               className={`flex-1 py-3 font-semibold rounded-xl transition-all shadow-md text-white disabled:opacity-50 disabled:cursor-not-allowed ${
                 currentStatus === 'ANSWERED'
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 dark:from-blue-600 dark:to-indigo-700 dark:hover:from-blue-500 dark:hover:to-indigo-600'
                   : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red'
               }`}
             >
@@ -454,7 +454,7 @@ export function FillBlankAnswer({ questionId, words, questions, thinking, lastAn
             disabled={submitting}
             className={`w-full py-3 font-semibold rounded-xl transition-all shadow-md ${
               submitting
-                ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 : 'bg-gradient-to-r from-brand-crimson to-brand-deep-red hover:from-brand-red hover:to-brand-deep-red text-white hover:shadow-lg'
             }`}
           >
@@ -493,7 +493,7 @@ function BlankInput({
               value={value}
               onChange={(e) => onChange(e.target.value)}
               disabled={disabled}
-              className="inline-block min-w-[120px] border-b-2 text-center bg-transparent px-1 py-0.5 outline-none transition-colors border-dashed border-green-400 dark:border-green-600 focus:border-blue-500"
+              className="inline-block min-w-[120px] border-b-2 text-center bg-transparent px-1 py-0.5 outline-none transition-colors border-dashed border-green-400 dark:border-green-600 focus:border-blue-500 dark:focus:border-blue-400"
               placeholder="填入单词"
             />
           )}

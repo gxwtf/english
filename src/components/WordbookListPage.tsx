@@ -192,7 +192,7 @@ export const WordbookListPage = () => {
 
           <button
             onClick={openCreate}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-colors text-sm sm:text-base"
+            className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 text-white px-3 sm:px-4 py-2 rounded-lg flex items-center gap-1 sm:gap-2 transition-colors text-sm sm:text-base"
           >
             <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
             <span className="hidden sm:inline">新建单词本</span>
@@ -221,7 +221,7 @@ export const WordbookListPage = () => {
                     汇总全部单词
                   </p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
               </div>
             </div>
 
@@ -230,7 +230,7 @@ export const WordbookListPage = () => {
                 onClick={openCreate}
                 className="bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-5 cursor-pointer hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all flex flex-col items-center justify-center text-center min-h-[120px]"
               >
-                <BookOpen className="h-8 w-8 text-gray-300 dark:text-gray-600 mb-2" />
+                <BookOpen className="h-8 w-8 text-gray-300 dark:text-gray-500 mb-2" />
                 <p className="text-sm text-gray-500 dark:text-gray-400">还没有单词本，点击创建</p>
               </div>
             )}
@@ -260,7 +260,7 @@ export const WordbookListPage = () => {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
-                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+                          className="p-1.5 rounded-md text-muted-foreground/70 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-200 dark:hover:bg-gray-700 transition-colors"
                           aria-label="更多操作"
                         >
                           <MoreVertical className="h-4 w-4" />
@@ -288,20 +288,20 @@ export const WordbookListPage = () => {
                     {book.previewWords.map((w) => (
                       <span
                         key={w}
-                        className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                        className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200"
                       >
                         {w}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-4 min-h-[26px]">
+                  <p className="text-xs text-gray-400 dark:text-gray-400 mt-4 min-h-[26px]">
                     暂无单词
                   </p>
                 )}
 
                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                  <span className="text-xs text-gray-400 dark:text-gray-400">
                     更新于 {formatDate(book.updatedAt)}
                   </span>
                   <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

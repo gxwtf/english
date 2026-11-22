@@ -20,7 +20,7 @@ const VARIANT_STYLES: Record<Variant, VariantStyle> = {
     title: 'text-blue-800 dark:text-blue-200',
     text: 'text-blue-700 dark:text-blue-300',
     track: 'bg-blue-100 dark:bg-blue-950/50',
-    bar: 'bg-gradient-to-r from-blue-500 to-indigo-500',
+    bar: 'bg-gradient-to-r from-blue-500 to-indigo-500 dark:from-blue-400 dark:to-indigo-400',
     badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300',
   },
   purple: {
@@ -28,7 +28,7 @@ const VARIANT_STYLES: Record<Variant, VariantStyle> = {
     title: 'text-purple-800 dark:text-purple-200',
     text: 'text-purple-700 dark:text-purple-300',
     track: 'bg-purple-100 dark:bg-purple-950/50',
-    bar: 'bg-gradient-to-r from-purple-500 to-violet-500',
+    bar: 'bg-gradient-to-r from-purple-500 to-violet-500 dark:from-purple-400 dark:to-violet-400',
     badge: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300',
   },
   amber: {
@@ -36,7 +36,7 @@ const VARIANT_STYLES: Record<Variant, VariantStyle> = {
     title: 'text-amber-800 dark:text-amber-200',
     text: 'text-amber-700 dark:text-amber-300',
     track: 'bg-amber-100 dark:bg-amber-950/50',
-    bar: 'bg-gradient-to-r from-amber-500 to-orange-500',
+    bar: 'bg-gradient-to-r from-amber-500 to-orange-500 dark:from-amber-400 dark:to-orange-400',
     badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
   },
   green: {
@@ -44,7 +44,7 @@ const VARIANT_STYLES: Record<Variant, VariantStyle> = {
     title: 'text-green-800 dark:text-green-200',
     text: 'text-green-700 dark:text-green-300',
     track: 'bg-green-100 dark:bg-green-950/50',
-    bar: 'bg-gradient-to-r from-green-500 to-emerald-500',
+    bar: 'bg-gradient-to-r from-green-500 to-emerald-500 dark:from-green-400 dark:to-emerald-400',
     badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300',
   },
 };
