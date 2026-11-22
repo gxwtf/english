@@ -315,7 +315,7 @@ def estimate_line_height(ink):
     return float(heights[len(heights) // 2])
 
 
-def filter_highlight_mask(mask, line_height, ocr_lines=None):
+def filter_highlight_mask(mask, line_height):
     """去掉大块背景（题框/引用框），只保留单词级别的高亮。
 
     单词高亮的高度 ≈ 一行；跨多行的色块判为背景。
@@ -323,11 +323,6 @@ def filter_highlight_mask(mask, line_height, ocr_lines=None):
     if mask is None or cv2.countNonZero(mask) == 0:
         return mask
 
-    if ocr_lines:
-        heights = [l['bbox']['y1'] - l['bbox']['y0'] for l in ocr_lines if l['bbox']['y1'] > l['bbox']['y0']]
-        if heights:
-            heights.sort()
-            line_height = float(heights[len(heights) // 2])
     max_height = max((line_height or 36.0) * 2.5, 60)
 
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
