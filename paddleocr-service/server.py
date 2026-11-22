@@ -1,69 +1,53 @@
 #!/usr/bin/env python3
-"""PaddleOCR HTTP 服务 - 独立部署版本（极简高亮识别架构）
+"""拍照识词 OCR 微服务（Unlimited-OCR-2 后端 + OpenCV 高亮检测）
 
-核心思路：双OCR方案解决碎片词问题
-1. 去高亮图 OCR → 获取完整文本和整行 bbox
-2. 原图 OCR → 获取碎片 bbox 和高亮区域
-3. 交叉匹配：用完整文本 + 碎片 bbox → 精确分词 + 高亮判定
+流水线：
+  1. 透视矫正：把拍歪的书页拉正
+  2. HSV 高亮检测：找出荧光笔高亮区域
+  3. 红笔/黑笔标记检测：圈出、下划线也计入候选区域
+  4. 候选区域取整行切片，批量送 Unlimited-OCR-2（SGLang，OpenAI 兼容接口）识别
+  5. 行内墨迹投影切分单词 bbox（切分数量与词数不一致时按字符数等比分配）
+  6. 判定每个词是否落在高亮/标记区域内
+
+OCR 后端地址由环境变量 UNLIMITED_OCR_URL 指定，默认 http://127.0.0.1:8014。
 """
 
 import base64
 import json
 import logging
 import os
+import re
 import signal
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import cv2
 import numpy as np
+import requests
 from flask import Flask, request, jsonify
 
-# 禁用 PaddleOCR / Paddle 的日志输出，防止日志文件膨胀占满磁盘
-# 将日志目录设为 /tmp 下，避免写入沙箱 overlay 层
-import tempfile
-_PADDLEOCR_TMPDIR = os.path.join(tempfile.gettempdir(), 'paddleocr_service_tmp')
-os.makedirs(_PADDLEOCR_TMPDIR, exist_ok=True)
-os.environ['PPOCR_LOG_HOME'] = _PADDLEOCR_TMPDIR
-os.environ['TMPDIR'] = _PADDLEOCR_TMPDIR
+# ===== 配置 =====
 
-# 关键：禁用 PaddlePaddle 的 GLog 文件写入，防止推理时以数百 MB/s 写日志占满磁盘
-# GLog 默认将日志写入 /tmp 下的文件，推理时会产生大量 INFO 级别日志
-# 必须在 import paddleocr / paddle 之前设置这些环境变量
-os.environ['GLOG_logtostderr'] = '1'          # 日志输出到 stderr 而非文件
-os.environ['GLOG_minloglevel'] = '3'           # 只显示 FATAL 级别日志 (0=INFO,1=WARNING,2=ERROR,3=FATAL)
-os.environ['GLOG_max_log_size'] = '1'          # 单个日志文件最大 1MB（兜底保护）
-os.environ['GLOG_stop_logging_if_full_disk'] = '1'  # 磁盘满时停止写日志
-os.environ['FLAGS_logtostderr'] = 'true'       # PaddlePaddle 内部日志也输出到 stderr
-os.environ['FLAGS_call_stack_level'] = '0'     # 禁用调用栈日志
-
-logging.getLogger('ppocr').setLevel(logging.ERROR)
-logging.getLogger('paddle').setLevel(logging.ERROR)
-
-# 将 PaddleOCR 模型缓存目录设置到服务目录下
-PADDLEOCR_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.paddleocr_cache')
-os.environ['PPOCR_MODEL_HOME'] = PADDLEOCR_CACHE
-os.makedirs(PADDLEOCR_CACHE, exist_ok=True)
-
-from paddleocr import PaddleOCR
+OCR_URL = (os.environ.get('UNLIMITED_OCR_URL') or 'http://127.0.0.1:8014').rstrip('/')
+OCR_MODEL = os.environ.get('UNLIMITED_OCR_MODEL') or 'Unlimited-OCR-2'
+OCR_TIMEOUT = float(os.environ.get('UNLIMITED_OCR_TIMEOUT') or 300)
+# 单次请求带几张切片（单图请求更稳；并发数控制同时打给后端的请求数）
+OCR_PARALLEL = max(1, int(os.environ.get('UNLIMITED_OCR_PARALLEL') or 3))
+OCR_MAX_TOKENS_PER_IMAGE = int(os.environ.get('UNLIMITED_OCR_MAX_TOKENS_PER_IMAGE') or 512)
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
 
-# 全局初始化 OCR 引擎（只初始化一次）
-ocr = None
-ocr_lock = __import__('threading').Lock()
+# ===== 常见英文词典（用于粘连词拆分 / 碎片合并 / 圈出误读修正） =====
 
-# 常见英文词典，用于粘连词拆分（动态规划）
-# 按词频排序，高频词优先匹配
 WORD_DICT = None
 
+
 def load_word_dict():
-    """加载英文词典，用于粘连词拆分"""
     global WORD_DICT
     if WORD_DICT is not None:
         return WORD_DICT
-    # 常见英文词（覆盖考试高频词 + 日常词）
     words = {
         # 冠词/代词/介词/连词
         'a', 'an', 'the', 'of', 'in', 'to', 'for', 'and', 'or', 'but', 'is', 'are',
@@ -89,7 +73,7 @@ def load_word_dict():
         'wait', 'serve', 'die', 'send', 'expect', 'build', 'stay', 'fall', 'cut',
         'reach', 'kill', 'remain', 'suggest', 'raise', 'pass', 'sell', 'require',
         'report', 'decide', 'pull', 'reduce', 'feel', 'explain', 'explore', 'uncover',
-        'accuse', 'reduce', 'enhance', 'venture', 'publish', 'compose', 'discover',
+        'accuse', 'enhance', 'venture', 'publish', 'compose', 'discover',
         'credit', 'contribute', 'center', 'suppose', 'mean', 'search', 'remark',
         'famously', 'actually', 'supposedly', 'otherworldly', 'paranormal',
         # 常见名词
@@ -113,53 +97,34 @@ def load_word_dict():
         'hundred', 'years', 'later', 'newton', 'keats', 'shakespeare', 'coleridge',
         'romantic', 'sacred', 'simple', 'magical', 'distinct', 'major',
         # 常见形容词/副词
-        'good', 'new', 'first', 'last', 'long', 'great', 'little', 'own', 'other',
-        'old', 'right', 'big', 'high', 'different', 'small', 'large', 'next',
-        'early', 'young', 'important', 'few', 'public', 'bad', 'same', 'able',
-        'beautiful', 'natural', 'scientific', 'artistic', 'divine', 'ultimate',
-        'famous', 'whole', 'separate', 'distinct', 'major', 'simple', 'magical',
-        'sacred', 'otherworldly', 'supernatural', 'paranormal', 'spiritual',
-        'crazy', 'abnormal',
+        'good', 'new', 'first', 'last', 'long', 'great', 'little', 'old', 'big',
+        'high', 'different', 'small', 'large', 'next', 'early', 'young',
+        'important', 'public', 'bad', 'able', 'beautiful', 'natural', 'scientific',
+        'artistic', 'divine', 'ultimate', 'famous', 'whole', 'separate',
+        'supernatural', 'spiritual', 'crazy', 'abnormal',
         # 更多常见词
-        'divine', 'unweave', 'unweaving', 'dismantle', 'destroy', 'ruin',
-        'sacred', 'enhance', 'enhanced', 'search', 'stare', 'star', 'stars',
-        'those', 'same', 'samuel', 'taylor', 'coleridge', 'isaac',
-        'opticks', 'composed', 'shocked', 'ventures', 'ventured',
-        'accused', 'reducing', 'credited', 'contributed', 'centered',
-        'supposedly', 'otherworldly', 'supernatural', 'spiritual',
-        'distinct', 'remain', 'separate', 'occurred', 'published',
-        'mathematician', 'physicist', 'philosopher', 'poets',
-        'raindrop', 'refraction', 'magical', 'territory',
-        'colleague', 'famously', 'remarked', 'perspective',
-        'uncover', 'secrets', 'feels', 'meant', 'ideal',
-        'expression', 'ultimate', 'truth', 'myth', 'movement',
-        'talents', 'presence', 'power', 'whole', 'aspects',
-        'whereas', 'area', 'two', 'five', 'one', 'souls',
-        'needed', 'would', 'make', 'shakespeare',
-        # 补充
-        'themes', 'unweaving', 'newton', 'newtons',
+        'unweave', 'unweaving', 'dismantle', 'destroy', 'ruin', 'enhanced', 'stare',
+        'star', 'stars', 'samuel', 'taylor', 'isaac', 'opticks', 'composed',
+        'shocked', 'ventures', 'ventured', 'accused', 'reducing', 'credited',
+        'contributed', 'centered', 'occurred', 'published', 'physicist', 'poets',
+        'remarked', 'secrets', 'feels', 'meant', 'myth', 'talents', 'presence',
+        'aspects', 'whereas', 'souls', 'needed', 'themes', 'newtons',
         # 测试用例期望单词
-        'remarkable', 'creatures', 'environmental', 'spectacular',
-        'delicate', 'bloomed', 'courageous', 'medal',
-        'mysterious', 'disappeared', 'appreciate', 'wonderful',
-        'perseverance', 'important', 'consideration', 'requires',
-        'empowers', 'achieve', 'transforms', 'modern',
-        'beautiful', 'illuminated', 'examined', 'discovered',
+        'remarkable', 'creatures', 'environmental', 'spectacular', 'delicate',
+        'bloomed', 'courageous', 'medal', 'mysterious', 'disappeared', 'appreciate',
+        'wonderful', 'perseverance', 'consideration', 'requires', 'empowers',
+        'achieve', 'transforms', 'modern', 'illuminated', 'examined', 'discovered',
     }
     WORD_DICT = words
     return words
 
 
 def split_stuck_word(token, dict_words=None):
-    """用动态规划拆分单个粘连词。
-    返回拆分后的词列表，如果无法拆分则返回 [token]。
-    """
+    """用动态规划拆分单个粘连词。无法拆分时返回 [token]。"""
     if dict_words is None:
         dict_words = load_word_dict()
 
-    # 保留原始 token 用于最终输出
     original = token
-    # 去掉尾部标点，保留用于后续拼接
     trailing_punct = ''
     while token and token[-1] in r'.,;:!?\'")\]':
         trailing_punct = token[-1] + trailing_punct
@@ -170,11 +135,9 @@ def split_stuck_word(token, dict_words=None):
     if n <= 4:
         return [original]
 
-    # 如果 token 本身在词典中，不拆分（避免把 "remarkable" 拆成 "remark"+"able"）
     if token_lower in dict_words:
         return [original]
 
-    # 动态规划：dp[i] = 前i个字符的最优拆分（词数最少）
     INF = float('inf')
     dp = [INF] * (n + 1)
     dp[0] = 0
@@ -190,7 +153,6 @@ def split_stuck_word(token, dict_words=None):
     if dp[n] == INF:
         return [original]
 
-    # 回溯拆分结果，保留原始大小写
     parts = []
     i = n
     while i > 0:
@@ -199,59 +161,37 @@ def split_stuck_word(token, dict_words=None):
         i = j
     parts.reverse()
 
-    # 给最后一个部分加上尾部标点
     if trailing_punct and parts:
         parts[-1] = parts[-1] + trailing_punct
 
-    # 只接受拆分后每个部分都>=2字符的结果（避免单字母拆分，除非是 'a' 或 'i'）
     if all(len(p.rstrip(r'.,;:!?\'")\]')) >= 2 or p.rstrip(r'.,;:!?\'")\]').lower() in ('a', 'i') for p in parts):
         return parts
     return [original]
 
 
+def split_by_punctuation(token):
+    """按标点/驼峰边界拆分粘连词。"""
+    parts = re.split(r'(?<=[a-z])(?=[A-Z])', token)
+    if len(parts) > 1:
+        return parts
+    parts = re.split(r'(?<=[.,;:!?\'")\]])(?=[a-zA-Z])', token)
+    if len(parts) > 1:
+        return parts
+    return [token]
+
+
 def split_stuck_words(text):
-    """拆分文本中的粘连词。
-    策略：先按标点边界拆分，再对每个部分做动态规划拆分。
-    """
+    """拆分整行文本中的粘连词（模型偶尔会丢空格）。"""
     dict_words = load_word_dict()
-    tokens = text.split()
     result = []
-    for token in tokens:
-        # 先按标点边界拆分：如 "course,artists" -> ["course,", "artists"]
-        # "myth.Many" -> ["myth.", "Many"]
-        # "enhancedit." -> ["enhancedit."]
-        sub_parts = split_by_punctuation(token)
-        for part in sub_parts:
+    for token in text.split():
+        for part in split_by_punctuation(token):
             stripped = part.rstrip('.,;:!?\'")')
             if len(stripped) <= 4 or stripped.lower() in dict_words:
                 result.append(part)
                 continue
-            parts = split_stuck_word(part, dict_words)
-            result.extend(parts)
+            result.extend(split_stuck_word(part, dict_words))
     return ' '.join(result)
-
-
-def split_by_punctuation(token):
-    """按标点边界拆分粘连词。
-    如 "course,artists" -> ["course,", "artists"]
-    "myth.Many" -> ["myth.", "Many"]
-    "enhancedit." -> ["enhancedit."]
-    "the.rainbow"His" -> ["the.", "rainbow\"", "His"]
-    """
-    import re
-    # 在小写字母后面跟大写字母的位置拆分（驼峰式粘连）
-    # 如 "mythMany" -> ["myth", "Many"]
-    parts = re.split(r'(?<=[a-z])(?=[A-Z])', token)
-    if len(parts) > 1:
-        return parts
-
-    # 在标点后面跟字母的位置拆分
-    # 如 "course,artists" -> ["course,", "artists"]
-    parts = re.split(r'(?<=[.,;:!?\'")\]])(?=[a-zA-Z])', token)
-    if len(parts) > 1:
-        return parts
-
-    return [token]
 
 
 # ===== 文档扫描矫正（透视变换） =====
@@ -274,7 +214,7 @@ def four_point_transform(image, pts):
     widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
     maxWidth = max(int(widthA), int(widthB))
     heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
-    heightB = np.sqrt(((tl[0] - bl[1]) ** 2) + ((tl[1] - bl[1]) ** 2))
+    heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
     maxHeight = max(int(heightA), int(heightB))
     dst = np.array([[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]], dtype="float32")
     M = cv2.getPerspectiveTransform(rect, dst)
@@ -307,313 +247,190 @@ def auto_transform(image):
 # ===== 图片预处理 =====
 
 def remove_highlights_for_ocr(img):
-    """将高亮色和红笔标记替换为白色，使 OCR det 模型不被干扰。
-
-    1. 荧光高亮色（高饱和度）→ 白色
-    2. 红笔标记 → 白色（红色不与文字混淆，可直接全部移除）
-    注：黑笔标记不移除，因为黑色圈/下划线与文字相连，强制移除会破坏文字。
-    """
+    """将高亮色和红笔标记替换为白色，使文字识别不被颜色干扰。"""
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    h, s, v = cv2.split(hsv)
     result = img.copy()
-
-    # 1. 荧光高亮色
-    highlight_mask = (s > 40) & (v > 120)
+    # 荧光高亮色
+    highlight_mask = (hsv[:, :, 1] > 40) & (hsv[:, :, 2] > 120)
     result[highlight_mask] = [255, 255, 255]
-
-    # 2. 红笔标记（红色像素全部移除，不影响黑色文字）
+    # 红笔标记
     red1 = cv2.inRange(hsv, np.array([0, 50, 100]), np.array([10, 255, 255]))
     red2 = cv2.inRange(hsv, np.array([170, 50, 100]), np.array([180, 255, 255]))
-    red_mask = cv2.bitwise_or(red1, red2)
-    result[red_mask > 0] = [255, 255, 255]
-
+    result[cv2.bitwise_or(red1, red2) > 0] = [255, 255, 255]
     return result
 
 
 def enhance_color_document(img):
-    """去除阴影，让纸张变白，但保留墨迹和荧光色"""
+    """去除阴影，让纸张变白，但保留墨迹和荧光色。"""
     kernel_size = max(25, min(img.shape[0], img.shape[1]) // 20)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
     bg = cv2.dilate(img, kernel)
     bg = cv2.GaussianBlur(bg, (21, 21), 0)
-    img_float = img.astype(np.float32)
-    bg_float = bg.astype(np.float32)
-    out = 255 * (img_float / (bg_float + 1e-7))
-    out = np.clip(out, 0, 255).astype(np.uint8)
-    return out
+    out = 255 * (img.astype(np.float32) / (bg.astype(np.float32) + 1e-7))
+    return np.clip(out, 0, 255).astype(np.uint8)
 
 
-# ===== HSV 高亮检测 =====
+# ===== 高亮 / 墨迹 mask =====
 
 def extract_highlight_mask(enhanced_img):
     hsv = cv2.cvtColor(enhanced_img, cv2.COLOR_BGR2HSV)
-    masks = []
-    # 黄色
-    masks.append(cv2.inRange(hsv, np.array([15, 40, 120]), np.array([45, 255, 255])))
-    # 绿色
-    masks.append(cv2.inRange(hsv, np.array([35, 40, 120]), np.array([85, 255, 255])))
-    # 粉色/紫色
-    masks.append(cv2.inRange(hsv, np.array([140, 30, 120]), np.array([180, 255, 255])))
-    # 橙色
-    masks.append(cv2.inRange(hsv, np.array([5, 40, 120]), np.array([20, 255, 255])))
+    masks = [
+        cv2.inRange(hsv, np.array([15, 40, 120]), np.array([45, 255, 255])),   # 黄
+        cv2.inRange(hsv, np.array([35, 40, 120]), np.array([85, 255, 255])),   # 绿
+        cv2.inRange(hsv, np.array([140, 30, 120]), np.array([180, 255, 255])), # 粉/紫
+        cv2.inRange(hsv, np.array([5, 40, 120]), np.array([20, 255, 255])),    # 橙
+    ]
     mask = masks[0]
     for m in masks[1:]:
         mask = cv2.bitwise_or(mask, m)
-    kernel = np.ones((3, 3), np.uint8)
-    mask = cv2.dilate(mask, kernel, iterations=1)
-    return mask
+    return cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=1)
 
 
-def check_word_highlighted(mask, bbox):
-    x0, y0, x1, y1 = bbox['x0'], bbox['y0'], bbox['x1'], bbox['y1']
-    h, w = mask.shape[:2]
-    x0 = max(0, min(x0, w - 1))
-    y0 = max(0, min(y0, h - 1))
-    x1 = max(0, min(x1, w))
-    y1 = max(0, min(y1, h))
-    if x1 <= x0 or y1 <= y0:
-        return False, 0.0
-    roi = mask[y0:y1, x0:x1]
-    total_pixels = roi.size
-    if total_pixels == 0:
-        return False, 0.0
-    white_pixels = cv2.countNonZero(roi)
-    ratio = white_pixels / total_pixels
-    return ratio > 0.30, round(ratio, 3)
+def ink_mask(gray):
+    """文字墨迹 mask（自适应阈值，抗阴影）。"""
+    blur = cv2.GaussianBlur(gray, (3, 3), 0)
+    return cv2.adaptiveThreshold(
+        blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 15
+    )
 
 
-def filter_highlight_mask(mask, ocr_lines=None):
-    """过滤高亮 mask，去除大块背景区域（如黄色题框、引用框等）。
+def estimate_line_height(ink):
+    """从整页行投影估计行高，用于过滤高亮块与补齐行切片。"""
+    rows = (ink > 0).sum(axis=1)
+    threshold = max(3, int(ink.shape[1] * 0.004))
+    heights = []
+    run = 0
+    for v in rows:
+        if v >= threshold:
+            run += 1
+        elif run:
+            if 5 <= run <= 120:
+                heights.append(run)
+            run = 0
+    if run and 5 <= run <= 120:
+        heights.append(run)
+    if not heights:
+        return 36.0
+    heights.sort()
+    return float(heights[len(heights) // 2])
 
-    单词高亮通常只覆盖单行文字，高度 ≈ 1 个行高。
-    题框/引用框等背景区域通常跨越多行，高度远大于单行。
 
-    策略：
-    1. 找出所有连通组件
-    2. 移除高度超过阈值的组件（多行背景框）
-    3. 移除位于大块背景 bbox 内部的小组件（避免背景框内的噪声/子区域被误识别）
+def filter_highlight_mask(mask, line_height, ocr_lines=None):
+    """去掉大块背景（题框/引用框），只保留单词级别的高亮。
 
-    Args:
-        mask: 原始高亮 mask
-        ocr_lines: OCR 行结果，用于动态计算行高阈值
+    单词高亮的高度 ≈ 一行；跨多行的色块判为背景。
     """
     if mask is None or cv2.countNonZero(mask) == 0:
         return mask
 
-    # 根据 OCR 行高动态计算阈值，默认 80px
-    if ocr_lines and len(ocr_lines) > 0:
+    if ocr_lines:
         heights = [l['bbox']['y1'] - l['bbox']['y0'] for l in ocr_lines if l['bbox']['y1'] > l['bbox']['y0']]
         if heights:
             heights.sort()
-            median_height = heights[len(heights) // 2]
-            # 单词高亮最多 2.5x 行高（允许轻微倾斜/涂抹溢出），但不小于 60px
-            max_height = max(median_height * 2.5, 60)
-        else:
-            max_height = 80
-    else:
-        max_height = 80
+            line_height = float(heights[len(heights) // 2])
+    max_height = max((line_height or 36.0) * 2.5, 60)
 
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
     if num_labels <= 1:
         return mask
 
-    # 收集大块背景组件的 bbox（高度超过阈值的多行区域）
     big_bboxes = []
     for i in range(1, num_labels):
         x, y, w, h, area = stats[i]
         if h > max_height:
             big_bboxes.append((x, y, w, h))
 
-    # 保留小组件，但排除 bbox 完全位于大块背景 bbox 内部的
-    # （这些通常是背景框内的噪声/颜色变化产生的子区域）
-    filtered_mask = np.zeros_like(mask)
+    filtered = np.zeros_like(mask)
     for i in range(1, num_labels):
         x, y, w, h, area = stats[i]
         if h > max_height:
-            continue  # 跳过大块背景本身
-        # 检查小组件 bbox 是否完全位于某个大块背景 bbox 内部
-        inside_big = False
-        for bx, by, bw, bh in big_bboxes:
-            if x >= bx and y >= by and (x + w) <= (bx + bw) and (y + h) <= (by + bh):
-                inside_big = True
-                break
+            continue
+        inside_big = any(
+            x >= bx and y >= by and (x + w) <= (bx + bw) and (y + h) <= (by + bh)
+            for bx, by, bw, bh in big_bboxes
+        )
         if inside_big:
-            continue  # 跳过背景内部的小组件
-        filtered_mask[labels == i] = 255
-
-    return filtered_mask
-
-
-# ===== OCR 引擎 =====
-
-def get_ocr():
-    global ocr
-    if ocr is None:
-        with ocr_lock:
-            if ocr is None:  # 双重检查，避免并发加载
-                cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.paddleocr_cache')
-                det_dir = os.path.join(cache_dir, 'det')
-                cls_dir = os.path.join(cache_dir, 'cls')
-                rec_dir = os.path.join(cache_dir, 'rec')
-                os.makedirs(det_dir, exist_ok=True)
-                os.makedirs(cls_dir, exist_ok=True)
-                os.makedirs(rec_dir, exist_ok=True)
-                ocr = PaddleOCR(
-                    use_angle_cls=True, lang='en', show_log=False, use_gpu=False,
-                    det_model_dir=det_dir, cls_model_dir=cls_dir, rec_model_dir=rec_dir,
-                )
-    return ocr
+            continue
+        filtered[labels == i] = 255
+    return filtered
 
 
-# ===== 双 OCR 交叉匹配 =====
-
-def parse_ocr_result(result):
-    """解析 PaddleOCR 原始结果为统一格式"""
-    lines = []
-    if result and result[0]:
-        for line_result in result[0]:
-            bbox_points = line_result[0]
-            text = line_result[1][0]
-            confidence = line_result[1][1]
-            x_coords = [p[0] for p in bbox_points]
-            y_coords = [p[1] for p in bbox_points]
-            lines.append({
-                'text': text,
-                'bbox': {
-                    'x0': int(min(x_coords)),
-                    'y0': int(min(y_coords)),
-                    'x1': int(max(x_coords)),
-                    'y1': int(max(y_coords)),
-                },
-                'confidence': round(confidence * 100, 1),
-            })
-    return lines
-
-
-def match_words_to_line(clean_line, fragment_words, highlight_mask):
-    """将完整文本的词与碎片 bbox 匹配，并检测高亮。
-
-    策略：
-    - clean_line 是去高亮图 OCR 的完整文本行
-    - fragment_words 是原图 OCR 在同一行的碎片词列表
-    - 先拆分粘连词，再按字符数等比分配 bbox
-    - 用碎片的高亮信息 + HSV mask 判定每个词是否高亮
-    """
-    # 拆分粘连词（去高亮图 OCR 可能丢失空格）
-    text = split_stuck_words(clean_line['text'])
-    tokens = text.split()
-    if not tokens:
+def component_boxes(mask, min_area=80):
+    """返回 mask 中连通块的 bbox 列表 [(x0, y0, x1, y1), ...]。"""
+    if mask is None or cv2.countNonZero(mask) == 0:
         return []
-
-    line_bbox = clean_line['bbox']
-    line_x0 = line_bbox['x0']
-    line_x1 = line_bbox['x1']
-    line_y0 = line_bbox['y0']
-    line_y1 = line_bbox['y1']
-    line_width = line_x1 - line_x0
-    line_height = line_y1 - line_y0
-
-    # 按字符数等比分配 bbox
-    total_chars = sum(len(t) for t in tokens) + len(tokens) - 1
-    words = []
-    current_x = line_x0
-    for token in tokens:
-        char_count = len(token) + 1  # +1 for space
-        part_width = int(line_width * char_count / total_chars)
-        word_bbox = {
-            'x0': current_x,
-            'y0': line_y0,
-            'x1': current_x + part_width,
-            'y1': line_y1,
-        }
-        # 检测高亮
-        is_hl, hl_ratio = check_word_highlighted(highlight_mask, word_bbox)
-        words.append({
-            'text': token,
-            'bbox': word_bbox,
-            'confidence': clean_line['confidence'],
-            'isHighlighted': is_hl,
-            'highlightRatio': hl_ratio,
-        })
-        current_x += part_width
-
-    # 用碎片词的高亮信息修正：如果碎片与某个词 bbox 重叠且碎片被高亮，则该词也应高亮
-    # 严格限制：碎片文本必须与词文本有子串匹配关系，避免页码、行号等无关碎片污染词的高亮判定
-    for frag in fragment_words:
-        frag_cx = (frag['bbox']['x0'] + frag['bbox']['x1']) / 2
-        frag_text_lower = frag['text'].lower().strip()
-        for w in words:
-            if w['bbox']['x0'] <= frag_cx <= w['bbox']['x1']:
-                if frag.get('isHighlighted'):
-                    w_text_lower = w['text'].lower().strip()
-                    # 碎片文本与词文本必须有子串匹配关系（任一方包含另一方，且长度>=2）
-                    # 避免 "10" 这种页码碎片污染 "themes" 词的高亮判定
-                    if (len(frag_text_lower) >= 2 and len(w_text_lower) >= 2 and
-                        (frag_text_lower in w_text_lower or w_text_lower in frag_text_lower)):
-                        w['isHighlighted'] = True
-                        w['highlightRatio'] = max(w['highlightRatio'], frag.get('highlightRatio', 0))
-                break
-
-    return words
+    num, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    boxes = []
+    for i in range(1, num):
+        x, y, w, h, area = stats[i]
+        if area < min_area:
+            continue
+        boxes.append((int(x), int(y), int(x + w), int(y + h)))
+    return boxes
 
 
-# ===== 红笔/黑笔标记检测（圈出 / 下划线） =====
+def check_word_highlighted(mask, bbox):
+    x0, y0, x1, y1 = bbox['x0'], bbox['y0'], bbox['x1'], bbox['y1']
+    h, w = mask.shape[:2]
+    x0 = max(0, min(int(x0), w - 1))
+    y0 = max(0, min(int(y0), h - 1))
+    x1 = max(0, min(int(x1), w))
+    y1 = max(0, min(int(y1), h))
+    if x1 <= x0 or y1 <= y0:
+        return False, 0.0
+    roi = mask[y0:y1, x0:x1]
+    total = roi.size
+    if total == 0:
+        return False, 0.0
+    ratio = cv2.countNonZero(roi) / total
+    return ratio > 0.30, round(ratio, 3)
 
-def detect_red_black_marks(img, words):
-    """检测红笔/黑笔的圈出和下划线标记，标记对应的词为高亮。
 
-    img: 透视变换后的 BGR 图片
-    words: OCR 识别的所有词列表（会原地修改 isHighlighted / highlightRatio）
-    """
-    if not words:
-        return
+# ===== 红笔/黑笔标记检测 =====
 
+def detect_marks(img):
+    """检测红笔/黑笔的圈出、下划线，返回 [{'bbox': {...}, 'type': ...}]。"""
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-    # 红色 mask（两个色相范围）
     red1 = cv2.inRange(hsv, np.array([0, 50, 100]), np.array([10, 255, 255]))
     red2 = cv2.inRange(hsv, np.array([170, 50, 100]), np.array([180, 255, 255]))
     red_mask = cv2.bitwise_or(red1, red2)
-
-    # 黑色 mask（低饱和度 + 低亮度）
     black_mask = cv2.inRange(hsv, np.array([0, 0, 0]), np.array([180, 50, 80]))
 
-    marks = []  # {'bbox': {x0,y0,x1,y1}, 'type': 'circle'|'underline'}
-
+    marks = []
     for mask, color in [(red_mask, 'red'), (black_mask, 'black')]:
         if cv2.countNonZero(mask) == 0:
             continue
-        num, labels, stats, cent = cv2.connectedComponentsWithStats(mask, connectivity=8)
+        num, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
         for i in range(1, num):
             x, y, w, h, area = stats[i]
-            # 黑色 mask 包含所有文字，用面积+宽度过滤掉文字组件
-            # 文字组件面积通常 < 200，宽度 < 30
+            # 黑色 mask 包含所有文字：用面积/宽度过滤掉文字组件
             if color == 'black':
                 if area < 300 or w < 80:
                     continue
-            else:
-                if area < 200 or w < 60:
-                    continue
+            elif area < 200 or w < 60:
+                continue
 
             bbox_area = w * h
             fill_ratio = area / bbox_area if bbox_area > 0 else 0
             aspect = w / h if h > 0 else 0
 
             mark_type = None
-            # 圈出：低填充率（环形）+ 较大高度
             if fill_ratio < 0.3 and h > 25:
                 mark_type = 'circle'
-            # 下划线：很薄（红色实心线条 h<10）或 扁平（黑色虚线 h<25 且 aspect>4）
             elif (fill_ratio > 0.8 and h < 10) or (h < 25 and aspect > 4 and fill_ratio < 0.3):
                 mark_type = 'underline'
 
             if mark_type:
                 marks.append({
-                    'bbox': {'x0': x, 'y0': y, 'x1': x + w, 'y1': y + h},
+                    'bbox': {'x0': int(x), 'y0': int(y), 'x1': int(x + w), 'y1': int(y + h)},
                     'type': mark_type,
                 })
+    return marks
 
-    if not marks:
+
+def apply_marks(words, marks):
+    """把圈出/下划线标记落到具体单词上（原地修改 isHighlighted / highlightRatio）。"""
+    if not words or not marks:
         return
 
     circle_words = []
@@ -622,7 +439,6 @@ def detect_red_black_marks(img, words):
         for word in words:
             wb = word['bbox']
             if mark['type'] == 'circle':
-                # 圈出：词 bbox 与 mark bbox 有显著重叠（词在圈内）
                 ox0 = max(wb['x0'], mb['x0'])
                 ox1 = min(wb['x1'], mb['x1'])
                 oy0 = max(wb['y0'], mb['y0'])
@@ -634,42 +450,34 @@ def detect_red_black_marks(img, words):
                         word['isHighlighted'] = True
                         word['highlightRatio'] = max(word.get('highlightRatio', 0), 0.9)
                         circle_words.append(word)
-            else:  # underline
-                # 下划线：在词的正下方，x 范围重叠
+            else:  # underline：位于词的正下方，x 范围重叠
                 if (wb['x1'] > mb['x0'] and wb['x0'] < mb['x1'] and
-                    mb['y0'] >= wb['y0'] - 5 and mb['y0'] <= wb['y1'] + 20):
+                        mb['y0'] >= wb['y0'] - 5 and mb['y0'] <= wb['y1'] + 20):
                     ox = min(wb['x1'], mb['x1']) - max(wb['x0'], mb['x0'])
                     word_w = wb['x1'] - wb['x0']
                     if word_w > 0 and ox / word_w > 0.4:
                         word['isHighlighted'] = True
                         word['highlightRatio'] = max(word.get('highlightRatio', 0), 0.9)
 
-    # 修正圈出词的 OCR 文本：黑色圈弧可能被 OCR 误读为字符前缀（如 "Cappreciate"）
+    # 圈画弧线可能被识别成字符前缀（如 "Cappreciate"）
     dict_words = load_word_dict()
     for word in circle_words:
         text = word['text']
-        text_lower = text.lower()
-        if text_lower in dict_words:
+        if text.lower() in dict_words:
             continue
-        # 尝试去掉前 1-3 个字符，找词典匹配
-        for strip_n in range(1, min(4, len(text_lower))):
-            candidate = text_lower[strip_n:]
+        for strip_n in range(1, min(4, len(text))):
+            candidate = text[strip_n:].lower()
             if len(candidate) >= 4 and candidate in dict_words:
-                # 保留原始大小写模式：用原始首字符的剩余部分
                 word['text'] = text[strip_n:]
                 break
 
 
 def merge_highlighted_fragments(words):
-    """合并被 OCR 拆分的高亮词碎片（如 "consider"+"at"+"i" → "consideration"）。
-
-    策略：同一行中相邻的高亮词碎片，如果合并后在词典中找到匹配，则合并为一个词。
-    """
+    """合并被拆开的高亮词碎片（如 "consider"+"at"+"i" → "consideration"）。"""
     if len(words) < 2:
         return words
 
     dict_words = load_word_dict()
-    # 按行分组：y0 相近的词视为同一行
     sorted_words = sorted(words, key=lambda w: (w['bbox']['y0'], w['bbox']['x0']))
 
     merged = []
@@ -681,18 +489,15 @@ def merge_highlighted_fragments(words):
             i += 1
             continue
 
-        # 尝试与后续高亮词合并
         group = [w]
         j = i + 1
         while j < len(sorted_words):
             nxt = sorted_words[j]
-            # 同一行：y 范围重叠 > 50%
             y_overlap = (min(w['bbox']['y1'], nxt['bbox']['y1']) -
                          max(w['bbox']['y0'], nxt['bbox']['y0']))
             y_min_h = min(w['bbox']['y1'] - w['bbox']['y0'], nxt['bbox']['y1'] - nxt['bbox']['y0'])
             if y_min_h <= 0 or y_overlap / y_min_h < 0.5:
                 break
-            # x 相邻：间距小于平均字宽
             gap = nxt['bbox']['x0'] - group[-1]['bbox']['x1']
             avg_char_w = max((group[-1]['bbox']['x1'] - group[-1]['bbox']['x0']) /
                              max(len(group[-1]['text']), 1), 5)
@@ -704,22 +509,19 @@ def merge_highlighted_fragments(words):
             j += 1
 
         if len(group) > 1:
-            # 尝试合并文本，看是否在词典中
             merged_text = ''.join(g['text'] for g in group)
             merged_lower = merged_text.lower()
+            final_text = None
             if merged_lower in dict_words:
                 final_text = merged_text
             else:
-                # 前缀匹配：OCR 可能丢失尾部字符（如 "considerati" → "consideration"）
-                final_text = None
                 for dw in dict_words:
                     if (len(merged_lower) >= 6 and dw.startswith(merged_lower) and
-                        len(merged_lower) / len(dw) >= 0.7):
+                            len(merged_lower) / len(dw) >= 0.7):
                         final_text = dw
                         break
             if final_text:
-                # 合并为一个词
-                merged_word = {
+                merged.append({
                     'text': final_text,
                     'bbox': {
                         'x0': group[0]['bbox']['x0'],
@@ -730,8 +532,7 @@ def merge_highlighted_fragments(words):
                     'confidence': group[0].get('confidence', 0),
                     'isHighlighted': True,
                     'highlightRatio': max(g.get('highlightRatio', 0) for g in group),
-                }
-                merged.append(merged_word)
+                })
                 i = j
                 continue
 
@@ -741,40 +542,321 @@ def merge_highlighted_fragments(words):
     return merged
 
 
-def group_lines_by_row(lines, y_threshold_factor=0.5):
-    """将 OCR 行按 y 坐标分行"""
-    if not lines:
+# ===== Unlimited-OCR-2 客户端 =====
+
+_BLOCK_RE = re.compile(r'<BLOCK>(.*?)<FORK>(.*?)(?=<BLOCK>|<PAGE>|$)', re.S)
+_TAG_RE = re.compile(r'<[^>]+>')
+
+
+def _encode_jpeg_b64(img):
+    ok, buf = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 92])
+    if not ok:
+        raise ValueError('image encode failed')
+    return base64.b64encode(buf.tobytes()).decode('ascii')
+
+
+def _collapse_repeats(text):
+    """兜底：模型偶发整句复读时，连续重复的句子只保留一句。"""
+    if len(text) < 600:
+        return text
+    parts = re.split(r'(?<=[.!?])\s+', text)
+    out = []
+    for part in parts:
+        if out and part == out[-1]:
+            continue
+        out.append(part)
+    return ' '.join(out)
+
+
+def _clean_page_text(page):
+    parts = []
+    for m in _BLOCK_RE.finditer(page):
+        # 模型偶尔会带出 </td></tr></table> 之类的噪声标签
+        text = _TAG_RE.sub(' ', m.group(2))
+        text = re.sub(r'\s+', ' ', text).strip()
+        if text:
+            parts.append(text)
+    if not parts:
+        text = _TAG_RE.sub(' ', page)
+        text = re.sub(r'\s+', ' ', text).strip()
+        if text:
+            parts.append(text)
+    return _collapse_repeats(' '.join(parts).strip())
+
+
+def _ocr_one(img):
+    """把一张整行切片发给 Unlimited-OCR-2，返回识别文本。
+
+    实测多图（<PAGE><image> 重复）在 base 模式下会漏页/串页，因此每张切片单独请求；
+    并发由 ocr_images 控制。
+    """
+    content = [
+        {'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{_encode_jpeg_b64(img)}'}},
+        {'type': 'text', 'text': '<PAGE><image>Multi page parsing.'},
+    ]
+
+    payload = {
+        'model': OCR_MODEL,
+        'messages': [{'role': 'user', 'content': content}],
+        'max_tokens': OCR_MAX_TOKENS_PER_IMAGE,
+        'temperature': 0,
+        'skip_special_tokens': False,
+        # 切片是很扁的整行图；gundam 动态切图会在这里触发退化重复，
+        # 必须用 base 模式（每张切片一个全局视图）。
+        'images_config': {'crop_mode': False},
+        'stream': True,
+        'stream_options': {'include_usage': True},
+    }
+
+    t0 = time.time()
+    # requests.Session 不是线程安全的；并发识别时每次请求用独立 session
+    sess = requests.Session()
+    sess.trust_env = False  # 本机服务不经过 clash 代理
+    resp = sess.post(
+        f'{OCR_URL}/v1/chat/completions',
+        headers={'Content-Type': 'application/json'},
+        data=json.dumps(payload),
+        timeout=(10, OCR_TIMEOUT),
+        stream=True,
+    )
+    resp.raise_for_status()
+
+    chunks = []
+    for line in resp.iter_lines(decode_unicode=True):
+        if not line or not line.startswith('data:'):
+            continue
+        data = line[len('data:'):].strip()
+        if data == '[DONE]':
+            break
+        try:
+            ev = json.loads(data)
+        except json.JSONDecodeError:
+            continue
+        for choice in ev.get('choices') or []:
+            delta = (choice.get('delta') or {}).get('content') or ''
+            if delta:
+                chunks.append(delta)
+
+    raw = ''.join(chunks)
+    text = _clean_page_text(raw)
+    logging.info('[ocr] 1 crop, %d chars, %.2fs', len(text), time.time() - t0)
+    return text
+
+
+def ocr_images(images):
+    """并发识别多张整行切片，返回与输入顺序一致的文本列表。"""
+    if not images:
         return []
+    workers = min(OCR_PARALLEL, len(images))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(pool.map(_ocr_one, images))
 
-    sorted_lines = sorted(lines, key=lambda l: (l['bbox']['y0'], l['bbox']['x0']))
-    rows = []
-    current_row = [sorted_lines[0]]
 
-    for line in sorted_lines[1:]:
-        prev = current_row[-1]
-        avg_height = max((prev['bbox']['y1'] - prev['bbox']['y0'] +
-                          line['bbox']['y1'] - line['bbox']['y0']) / 2, 1)
-        y_gap = abs(line['bbox']['y0'] - prev['bbox']['y0'])
-        if y_gap < avg_height * y_threshold_factor:
-            current_row.append(line)
+# ===== 行切片与分词 =====
+
+def _column_runs(ink, y0, y1, gap):
+    """返回 [y0:y1] 行带内连续墨迹列的区间（gap 以上视为断开）。"""
+    cols = (ink[y0:y1] > 0).sum(axis=0)
+    idx = np.where(cols > 0)[0]
+    if len(idx) == 0:
+        return []
+    runs = []
+    start = prev = int(idx[0])
+    for c in idx[1:]:
+        c = int(c)
+        if c - prev > gap:
+            runs.append((start, prev))
+            start = c
+        prev = c
+    runs.append((start, prev))
+    return runs
+
+
+def _line_extent(ink, y0, y1, anchor_x0, anchor_x1, line_height):
+    """在行带内找出候选词所在的那一段连续文本（避开页边页码/另一栏）。"""
+    runs = _column_runs(ink, y0, y1, max(int(line_height * 2), 24))
+    if not runs:
+        return None
+    chosen = None
+    for r in runs:
+        if r[1] >= anchor_x0 and r[0] <= anchor_x1:
+            chosen = r
+            break
+    if chosen is None:
+        chosen = min(runs, key=lambda r: min(abs(r[0] - anchor_x0), abs(r[1] - anchor_x1)))
+    x0 = max(0, chosen[0] - 6)
+    x1 = min(ink.shape[1], chosen[1] + 7)
+    if x1 - x0 < 8:
+        return None
+    return x0, x1
+
+
+def _text_rows(ink, y0, y1, x0, x1):
+    strip = ink[y0:y1, x0:x1]
+    rows = (strip > 0).sum(axis=1)
+    threshold = max(2, int(strip.shape[1] * 0.02))
+    ys = np.where(rows >= threshold)[0]
+    if len(ys) == 0:
+        ys = np.where(rows > 0)[0]
+    if len(ys) == 0:
+        return y0, y1
+    return y0 + int(ys[0]), y0 + int(ys[-1]) + 1
+
+
+def detect_text_lines(ink, line_height):
+    """把整页墨迹按行投影切成文本行 [(y0, y1), ...]。"""
+    rows = (ink > 0).sum(axis=1)
+    threshold = max(3, int(ink.shape[1] * 0.004))
+    runs = []
+    start = None
+    for y, v in enumerate(rows):
+        if v >= threshold and start is None:
+            start = y
+        elif v < threshold and start is not None:
+            runs.append([start, y])
+            start = None
+    if start is not None:
+        runs.append([start, len(rows)])
+
+    # 先丢掉高度过小的噪声游程（阴影/压缩噪点），否则它会成为桥梁把相邻两行黏在一起
+    min_run = max(3, int(line_height * 0.25))
+    runs = [r for r in runs if r[1] - r[0] >= min_run]
+
+    merged = []
+    for r in runs:
+        # 同一行内被字间空隙断开的极小间隙可以合并，行距必须保持独立
+        if merged and r[0] - merged[-1][1] <= max(2, int(line_height * 0.2)):
+            merged[-1][1] = r[1]
         else:
-            rows.append(current_row)
-            current_row = [line]
-    rows.append(current_row)
-    return rows
+            merged.append(r)
+    return [(a, b) for a, b in merged if b - a >= min_run]
+
+
+def _pick_line(lines, y0, y1):
+    """给高亮块/标记找所属文本行：优先取重叠最大的一行，否则取它上方最近的一行。"""
+    if not lines:
+        return None
+    best = None
+    best_overlap = 0
+    for ly0, ly1 in lines:
+        overlap = min(ly1, y1) - max(ly0, y0)
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best = (ly0, ly1)
+    if best is not None:
+        return best
+    above = [l for l in lines if l[1] <= y0 + 2]
+    if above:
+        return max(above, key=lambda l: l[1])
+    return min(lines, key=lambda l: abs(l[0] - y0))
+
+
+
+def _word_segments(ink, x0, x1, y0, y1, line_height):
+    """行内按词间空隙切出词 bbox（仅用于切分数与识别词数一致时）。"""
+    strip = ink[y0:y1, x0:x1]
+    cols = (strip > 0).sum(axis=0)
+    idx = np.where(cols > 0)[0]
+    if len(idx) == 0:
+        return []
+    gap = max(int(line_height * 0.30), 6)
+    segments = []
+    start = prev = int(idx[0])
+    for c in idx[1:]:
+        c = int(c)
+        if c - prev > gap:
+            segments.append((x0 + start, x0 + prev + 1))
+            start = c
+        prev = c
+    segments.append((x0 + start, x0 + prev + 1))
+    return segments
+
+
+def _token_boxes(ink, band, tokens, line_height):
+    x0, x1 = band['x0'], band['x1']
+    y0, y1 = band['y0'], band['y1']
+    ty0, ty1 = _text_rows(ink, y0, y1, x0, x1)
+    if ty1 - ty0 < 4:
+        ty0, ty1 = y0, y1
+
+    segments = _word_segments(ink, x0, x1, ty0, ty1, line_height)
+    if len(segments) == len(tokens):
+        return [{'x0': s[0], 'y0': ty0, 'x1': s[1], 'y1': ty1} for s in segments]
+
+    # 退化：按字符数等比分配（与旧 PaddleOCR 流程一致）
+    total = sum(len(t) + 1 for t in tokens)
+    if total <= 0:
+        return []
+    boxes = []
+    current = x0
+    for i, token in enumerate(tokens):
+        if i == len(tokens) - 1:
+            end = x1
+        else:
+            end = current + int((x1 - x0) * (len(token) + 1) / total)
+        boxes.append({'x0': current, 'y0': ty0, 'x1': max(end, current + 1), 'y1': ty1})
+        current = end
+    return boxes
+
+
+def build_bands(mask, marks, ink, line_height):
+    """把高亮块/标记转换成整行切片区域，并合并同一行上的重复区域。"""
+    h, w = ink.shape[:2]
+    lines = detect_text_lines(ink, line_height)
+    candidates = []
+
+    for (bx0, by0, bx1, by1) in component_boxes(mask):
+        line = _pick_line(lines, by0, by1)
+        if line is None:
+            continue
+        candidates.append({'line': line, 'ax0': bx0, 'ax1': bx1})
+
+    for mark in marks:
+        mb = mark['bbox']
+        line = _pick_line(lines, mb['y0'], mb['y1'])
+        if line is None:
+            continue
+        candidates.append({'line': line, 'ax0': mb['x0'], 'ax1': mb['x1']})
+
+    bands = []
+    for c in candidates:
+        ly0, ly1 = c['line']
+        y0 = max(0, ly0 - int(line_height * 0.15))
+        y1 = min(h, ly1 + int(line_height * 0.25))
+        if y1 - y0 < 6:
+            continue
+        extent = _line_extent(ink, y0, y1, c['ax0'], c['ax1'], line_height)
+        if extent is None:
+            continue
+        bands.append({'y0': y0, 'y1': y1, 'x0': extent[0], 'x1': extent[1]})
+
+    # 同一行（y 相同、x 段相同/相邻）的切片合并，避免同一行重复 OCR
+    merged = []
+    for b in sorted(bands, key=lambda b: (b['y0'], b['x0'])):
+        for m in merged:
+            y_overlap = min(m['y1'], b['y1']) - max(m['y0'], b['y0'])
+            y_min = min(m['y1'] - m['y0'], b['y1'] - b['y0'])
+            x_gap = max(m['x0'], b['x0']) - min(m['x1'], b['x1'])
+            if y_min > 0 and y_overlap / y_min > 0.5 and x_gap <= max(int(line_height * 2), 24):
+                m['y0'] = min(m['y0'], b['y0'])
+                m['y1'] = max(m['y1'], b['y1'])
+                m['x0'] = min(m['x0'], b['x0'])
+                m['x1'] = max(m['x1'], b['x1'])
+                break
+        else:
+            merged.append(dict(b))
+    return merged
 
 
 # ===== 主流程 =====
 
 def ocr_and_detect(image_bytes):
-    """完整流程：透视变换 → 双OCR → 光照归一化 → HSV高亮检测 → 交叉匹配"""
-
+    """透视变换 → 高亮/标记检测 → 整行切片 → Unlimited-OCR-2 → 高亮判定。"""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if img is None:
         return {'error': 'Invalid image'}
 
-    # 限制图片最大分辨率（2000px 保证 OCR 准确性；单 OCR 已将内存从 6GB 降至 ~3-4GB）
     MAX_DIM = 2000
     h, w = img.shape[:2]
     if max(h, w) > MAX_DIM:
@@ -783,221 +865,117 @@ def ocr_and_detect(image_bytes):
 
     t_total_start = time.time()
 
-    # 步骤1: 透视变换
+    # 1. 透视矫正
     t0 = time.time()
-    warped_img, transform_matrix = auto_transform(img)
+    warped_img, _ = auto_transform(img)
     t_transform = time.time() - t0
 
-    # 步骤2: 生成去高亮图
+    # 2. 去高亮图（用于识别） + 墨迹投影（用于行/词定位）
     t0 = time.time()
     clean_img = remove_highlights_for_ocr(warped_img)
+    gray = cv2.cvtColor(clean_img, cv2.COLOR_BGR2GRAY)
+    ink = ink_mask(gray)
+    line_height = estimate_line_height(ink)
     t_enhance = time.time() - t0
 
-    # 步骤3: 单 OCR（去除原图 OCR 以减少内存，从 6GB 降至 ~3-4GB）
-    t0 = time.time()
-    engine = get_ocr()
-
-    # OCR: 去高亮图 → 获取完整文本和 bbox（det 模型不会被高亮色干扰）
-    clean_result = engine.ocr(clean_img, cls=True)
-    clean_lines = parse_ocr_result(clean_result)
-
-    # 不再对原图做第二次 OCR（原 raw_lines），高亮检测改用 highlight_mask + clean_lines bbox
-    raw_lines = []
-    # 释放 OCR 原始结果和中间图片，减少内存占用
-    del clean_result, clean_img
-    import gc
-    gc.collect()
-    t_ocr = time.time() - t0
-
-    # 步骤4: 光照归一化 + HSV 高亮检测
+    # 3. 高亮检测 + 红黑标记检测 + 构建行切片
     t0 = time.time()
     enhanced_img = enhance_color_document(warped_img)
-    highlight_mask = extract_highlight_mask(enhanced_img)
-    # 过滤大块背景区域（如黄色题框、引用框），只保留单词级别的高亮
-    highlight_mask = filter_highlight_mask(highlight_mask, clean_lines + raw_lines)
-    # 释放不再需要的中间图片
-    del enhanced_img
+    highlight_mask = filter_highlight_mask(extract_highlight_mask(enhanced_img), line_height)
+    marks = detect_marks(warped_img)
+    bands = build_bands(highlight_mask, marks, ink, line_height)
     t_mask = time.time() - t0
 
-    # 步骤5: 对原图碎片做高亮检测
-    for line in raw_lines:
-        is_hl, hl_ratio = check_word_highlighted(highlight_mask, line['bbox'])
-        line['isHighlighted'] = is_hl
-        line['highlightRatio'] = hl_ratio
+    # 下划线在识别图里会被读成连字符（history → hi-story），先擦掉；
+    # 圈出不能擦，圈内是单词本身。
+    for mark in marks:
+        if mark['type'] != 'underline':
+            continue
+        mb = mark['bbox']
+        clean_img[
+            max(0, mb['y0'] - 1):min(clean_img.shape[0], mb['y1'] + 2),
+            max(0, mb['x0'] - 1):min(clean_img.shape[1], mb['x1'] + 2),
+        ] = 255
 
-    # 步骤6: 交叉匹配 - 用完整文本 + 碎片高亮信息
     all_words = []
+    if bands:
+        # 4. 整行切片批量识别
+        # 切片过扁（文字贴边）时模型会输出占位符，必须留白边
+        pad_y = max(20, int(line_height * 0.7))
+        pad_x = 12
+        t0 = time.time()
+        crops = [
+            cv2.copyMakeBorder(
+                clean_img[b['y0']:b['y1'], b['x0']:b['x1']],
+                pad_y, pad_y, pad_x, pad_x,
+                cv2.BORDER_CONSTANT, value=(255, 255, 255),
+            )
+            for b in bands
+        ]
+        texts = ocr_images(crops)
+        t_ocr = time.time() - t0
 
-    # 将原图碎片按行分组
-    raw_rows = group_lines_by_row(raw_lines)
-
-    for clean_line in clean_lines:
-        # 找到与 clean_line 同一行的碎片
-        cl_y_center = (clean_line['bbox']['y0'] + clean_line['bbox']['y1']) / 2
-        matching_frags = []
-        for row in raw_rows:
-            for frag in row:
-                frag_y_center = (frag['bbox']['y0'] + frag['bbox']['y1']) / 2
-                avg_height = max(clean_line['bbox']['y1'] - clean_line['bbox']['y0'], 1)
-                if abs(frag_y_center - cl_y_center) < avg_height * 0.6:
-                    # 还要检查 x 范围有重叠
-                    if frag['bbox']['x1'] > clean_line['bbox']['x0'] and frag['bbox']['x0'] < clean_line['bbox']['x1']:
-                        matching_frags.append(frag)
-
-        words = match_words_to_line(clean_line, matching_frags, highlight_mask)
-        all_words.extend(words)
-
-    # 步骤6.5: 检查未覆盖的高亮区域，单独 OCR（修复小词被 det 模型漏掉的问题）
-    # 整图 OCR 时 det 模型会缩小图片，导致小词（如 85x47px 的 "divorce"）被漏掉。
-    # 对未被 OCR 词覆盖的高亮区域，裁剪原始分辨率区域单独 OCR。
-    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(highlight_mask, connectivity=8)
-    uncovered_regions = []
-    for i in range(1, num_labels):  # 跳过背景（0）
-        rx, ry, rw, rh, area = stats[i]
-        rx, ry, rw, rh = int(rx), int(ry), int(rw), int(rh)
-        if area < 100:  # 太小的区域忽略（噪点）
-            continue
-        # 检查是否有 OCR 词的 bbox 与这个高亮区域重叠（用面积重叠率，避免只覆盖边缘被判未覆盖）
-        region_area = int(rw) * int(rh)
-        covered = False
-        for word in all_words:
-            wbbox = word['bbox']
-            ox0 = max(wbbox['x0'], rx)
-            ox1 = min(wbbox['x1'], rx + rw)
-            oy0 = max(wbbox['y0'], ry)
-            oy1 = min(wbbox['y1'], ry + rh)
-            if ox1 > ox0 and oy1 > oy0:
-                overlap = (ox1 - ox0) * (oy1 - oy0)
-                # 如果词的 bbox 覆盖了高亮区域 30% 以上，认为已覆盖
-                if region_area > 0 and overlap / region_area > 0.3:
-                    covered = True
-                    break
-        if not covered:
-            uncovered_regions.append((rx, ry, rw, rh))
-
-    # 对未覆盖的高亮区域单独 OCR（限制最多 5 次，防止内存暴涨）
-    for rx, ry, rw, rh in uncovered_regions[:5]:
-        # 扩大裁剪范围，确保完整识别上下文
-        margin_x, margin_y = 100, 30
-        cx0 = int(max(0, rx - margin_x))
-        cy0 = int(max(0, ry - margin_y))
-        cx1 = int(min(warped_img.shape[1], rx + rw + margin_x))
-        cy1 = int(min(warped_img.shape[0], ry + rh + margin_y))
-        crop = warped_img[cy0:cy1, cx0:cx1]
-        if crop.shape[0] < 10 or crop.shape[1] < 10:
-            continue
-        try:
-            crop_result = engine.ocr(crop, cls=True)
-            crop_lines = parse_ocr_result(crop_result)
-            # 坐标转换回原图坐标系 + 高亮检测
-            for line in crop_lines:
-                line['bbox']['x0'] += cx0
-                line['bbox']['x1'] += cx0
-                line['bbox']['y0'] += cy0
-                line['bbox']['y1'] += cy0
-                # 用 match_words_to_line 分配 bbox 和高亮
-                words = match_words_to_line(line, [], highlight_mask)
-                # 过滤掉与已有 OCR 词 bbox 重叠的结果（避免重复识别，如 "neprsmofa" 与 "prism" 重叠）
-                for new_word in words:
-                    nw = new_word['bbox']
-                    new_area = (nw['x1'] - nw['x0']) * (nw['y1'] - nw['y0'])
-                    if new_area <= 0:
-                        continue
-                    overlap_existing = False
-                    for existing in all_words:
-                        eb = existing['bbox']
-                        ox0 = max(nw['x0'], eb['x0'])
-                        ox1 = min(nw['x1'], eb['x1'])
-                        oy0 = max(nw['y0'], eb['y0'])
-                        oy1 = min(nw['y1'], eb['y1'])
-                        if ox1 > ox0 and oy1 > oy0:
-                            overlap = (ox1 - ox0) * (oy1 - oy0)
-                            # 新词被已有词覆盖 30% 以上则跳过（防止重复识别）
-                            if overlap / new_area > 0.3:
-                                overlap_existing = True
-                                break
-                    if not overlap_existing:
-                        all_words.append(new_word)
-            del crop_result
-        except Exception:
-            pass  # 单独 OCR 失败不影响主流程
-
-    # 步骤7: 红笔/黑笔圈出和下划线检测（标记对应的词为高亮）
-    detect_red_black_marks(warped_img, all_words)
-
-    # 步骤8: 合并被 OCR 拆分的高亮词碎片（如 "consider"+"at"+"i" → "consideration"）
-    all_words = merge_highlighted_fragments(all_words)
-
-    # 如果去高亮图 OCR 没有结果，回退到原图 OCR
-    if not all_words and raw_lines:
-        for line in raw_lines:
-            text = split_stuck_words(line['text'])
-            tokens = text.split()
-            if not tokens:
+        # 5. 行内分词 + 高亮判定
+        for band, text in zip(bands, texts):
+            if not text:
                 continue
-            bbox = line['bbox']
-            bbox_width = bbox['x1'] - bbox['x0']
-            total_chars = sum(len(t) for t in tokens) + len(tokens) - 1
-            current_x = bbox['x0']
-            for token in tokens:
-                char_count = len(token) + 1
-                part_width = int(bbox_width * char_count / total_chars)
-                word_bbox = {'x0': current_x, 'y0': bbox['y0'], 'x1': current_x + part_width, 'y1': bbox['y1']}
-                is_hl, hl_ratio = check_word_highlighted(highlight_mask, word_bbox)
+            tokens = split_stuck_words(text).split()
+            boxes = _token_boxes(ink, band, tokens, line_height)
+            for token, bbox in zip(tokens, boxes):
+                is_hl, ratio = check_word_highlighted(highlight_mask, bbox)
                 all_words.append({
                     'text': token,
-                    'bbox': word_bbox,
-                    'confidence': line['confidence'],
+                    'bbox': bbox,
+                    'confidence': 100.0,
                     'isHighlighted': is_hl,
-                    'highlightRatio': hl_ratio,
+                    'highlightRatio': ratio,
+                    '_line': (band['y0'], band['x0']),
                 })
-                current_x += part_width
+    else:
+        t_ocr = 0.0
 
-    # 生成输出
+    # 6. 标记落词 + 碎片合并
+    apply_marks(all_words, marks)
+    all_words = merge_highlighted_fragments(all_words)
+
+    # 7. 输出（按阅读顺序）
+    all_words.sort(key=lambda x: (x['_line'][0], x['bbox']['x0']))
+    for word in all_words:
+        for key in ('x0', 'y0', 'x1', 'y1'):
+            word['bbox'][key] = int(word['bbox'][key])
+        word['highlightRatio'] = float(word.get('highlightRatio', 0))
+        word['confidence'] = float(word.get('confidence', 0))
+
     full_text_lines = []
-    current_line_y = None
+    current_line = None
     line_parts = []
-
-    for w in all_words:
-        bbox = w['bbox']
-        if current_line_y is None or abs(bbox['y0'] - current_line_y) > max(bbox['y1'] - bbox['y0'], 1) * 0.5:
-            if line_parts:
-                full_text_lines.append(' '.join(line_parts))
-                line_parts = []
-            current_line_y = bbox['y0']
-
-        if w['isHighlighted']:
-            line_parts.append(f'**{w["text"]}**')
-        else:
-            line_parts.append(w['text'])
-
+    for word in all_words:
+        if current_line is not None and word['_line'] != current_line:
+            full_text_lines.append(' '.join(line_parts))
+            line_parts = []
+        current_line = word['_line']
+        line_parts.append(f'**{word["text"]}**' if word['isHighlighted'] else word['text'])
     if line_parts:
         full_text_lines.append(' '.join(line_parts))
 
-    t_total = time.time() - t_total_start
-    highlighted_words = [w for w in all_words if w['isHighlighted']]
-
-    # 确保所有值是 JSON 可序列化的 Python 类型（cv2/numpy 可能返回 int64）
-    for w in all_words:
-        for k in ('x0', 'y0', 'x1', 'y1'):
-            w['bbox'][k] = int(w['bbox'][k])
-        w['highlightRatio'] = float(w.get('highlightRatio', 0))
-        w['confidence'] = float(w.get('confidence', 0))
+    highlighted = [w for w in all_words if w['isHighlighted']]
+    for word in all_words:
+        word.pop('_line', None)
 
     return {
         'words': all_words,
-        'highlightedWords': [w['text'] for w in highlighted_words],
+        'highlightedWords': [w['text'] for w in highlighted],
         'fullText': '\n'.join(full_text_lines),
         'timing': {
             'transform': round(t_transform, 3),
-            'ocr': round(t_ocr, 3),
             'enhance': round(t_enhance, 3),
+            'ocr': round(t_ocr, 3),
             'mask': round(t_mask, 3),
-            'total': round(t_total, 3),
+            'total': round(time.time() - t_total_start, 3),
         },
         'stats': {
             'totalWords': len(all_words),
-            'highlightedCount': len(highlighted_words),
+            'highlightedCount': len(highlighted),
         },
     }
 
@@ -1014,42 +992,36 @@ def handle_ocr():
         if 'error' in result:
             return jsonify(result), 400
         return jsonify(result)
+    except requests.RequestException as e:
+        logging.error('Unlimited-OCR-2 request failed: %s', e)
+        return jsonify({'error': f'Unlimited-OCR-2 服务不可用（{OCR_URL}）：{e}'}), 503
     except Exception as e:
-        logging.error(f'OCR processing error: {e}')
+        logging.error('OCR processing error: %s', e)
         return jsonify({'error': str(e)}), 500
 
 
 @app.route('/health', methods=['GET'])
 def health():
+    # 识别后端是常驻服务，本进程启动即可接单；后端不可用会在请求时返回 503。
     return jsonify({
         'status': 'ok',
-        'service': 'paddleocr',
-        'model_ready': ocr is not None,
+        'service': 'unlimited-ocr-2',
+        'backend': OCR_URL,
+        'model_ready': True,
     })
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PADDLEOCR_PORT', '39821'))
-    host = os.environ.get('PADDLEOCR_HOST', '0.0.0.0')
+    port = int(os.environ.get('OCR_SERVICE_PORT', os.environ.get('PADDLEOCR_PORT', '39821')))
+    host = os.environ.get('OCR_SERVICE_HOST', os.environ.get('PADDLEOCR_HOST', '0.0.0.0'))
 
-    # 禁用 Flask/Werkzeug 请求日志，防止日志膨胀
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
-    # 先启动 Flask 服务（让 /health 端点能响应），再在后台线程加载模型
-    # 避免模型加载慢（首次需要下载）时健康检查超时
-    import threading
-    def load_model_async():
-        try:
-            get_ocr()
-            print(f'PaddleOCR engine ready', flush=True)
-        except Exception as e:
-            print(f'PaddleOCR model load FAILED: {e}', flush=True)
-
-    threading.Thread(target=load_model_async, daemon=True).start()
-    print(f'PaddleOCR server listening on {host}:{port} (model loading in background)', flush=True)
+    print(f'OCR service listening on {host}:{port} -> {OCR_URL} ({OCR_MODEL})', flush=True)
 
     signal.signal(signal.SIGTERM, lambda s, f: sys.exit(0))
     signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
 
-    app.run(host=host, port=port, threaded=False)
+    # 后端是远程常驻服务，允许并发处理多个识别请求
+    app.run(host=host, port=port, threaded=True)

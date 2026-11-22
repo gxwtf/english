@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 一键创建 Python 虚拟环境并安装 PaddleOCR 服务依赖
+# 一键创建 Python 虚拟环境并安装拍照识词 OCR 服务依赖
 # 用法：cd paddleocr-service && ./setup.sh
 set -e
 
@@ -53,8 +53,7 @@ echo "[2/3] 升级 pip + 安装 setuptools/wheel ..."
 "$VENV_DIR/bin/python" -m pip install --upgrade pip setuptools wheel --quiet
 
 # 安装依赖
-echo "[3/3] 安装依赖（paddlepaddle + paddleocr + opencv + flask）..."
-echo "      首次安装可能需要 5-10 分钟（paddlepaddle ~200MB）"
+echo "[3/3] 安装依赖（opencv + flask + requests）..."
 "$VENV_DIR/bin/pip" install -r requirements.txt
 
 # 安装完成后再次检查，防止依赖在 site-packages 中引入指向项目根之外的符号链接

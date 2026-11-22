@@ -1,4 +1,4 @@
-import { ensurePaddleReady, releasePaddle } from '@/lib/paddle-manager';
+import { ensureOcrServiceReady, releaseOcrService } from '@/lib/ocr-service-manager';
 
 export interface OCRWordResult {
   text: string;
@@ -28,11 +28,12 @@ export interface OCRResult {
 export async function recognizeHighlightedImage(imageBuffer: Buffer): Promise<OCRResult> {
   const base64Image = imageBuffer.toString('base64');
 
-  // 懒加载：首次请求时按需启动本地 PaddleOCR，闲置后自动退出释放内存
-  const paddleUrl = await ensurePaddleReady();
+  // 懒加载：首次请求时按需启动本地 OCR 微服务（OpenCV + Unlimited-OCR-2），
+  // 闲置后自动退出释放内存
+  const ocrUrl = await ensureOcrServiceReady();
 
   try {
-    // 重试机制：PaddleOCR 服务可能正在启动或短暂不可用
+    // 重试机制：本地服务可能正在启动或短暂不可用
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 1000;
     let lastError: Error | null = null;
@@ -40,7 +41,7 @@ export async function recognizeHighlightedImage(imageBuffer: Buffer): Promise<OC
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        response = await fetch(paddleUrl, {
+        response = await fetch(ocrUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: base64Image }),
@@ -49,12 +50,11 @@ export async function recognizeHighlightedImage(imageBuffer: Buffer): Promise<OC
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         if (attempt < MAX_RETRIES) {
-          console.warn(`[OCR] 第 ${attempt}/${MAX_RETRIES} 次调用 PaddleOCR 失败: ${lastError.message}，${RETRY_DELAY_MS}ms 后重试...`);
+          console.warn(`[OCR] 第 ${attempt}/${MAX_RETRIES} 次调用 OCR 服务失败: ${lastError.message}，${RETRY_DELAY_MS}ms 后重试...`);
           await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
         } else {
-          // 所有重试都失败，给出更有意义的错误信息
           const reason = lastError.message.includes('fetch failed')
-            ? `PaddleOCR 服务不可用（${paddleUrl}），请检查服务是否已启动`
+            ? `OCR 服务不可用（${ocrUrl}），请检查服务是否已启动`
             : lastError.message;
           throw new Error(`OCR 请求失败（已重试 ${MAX_RETRIES} 次）: ${reason}`);
         }
@@ -62,12 +62,12 @@ export async function recognizeHighlightedImage(imageBuffer: Buffer): Promise<OC
     }
 
     if (!response || !response.ok) {
-      throw new Error(`PaddleOCR server returned ${response?.status ?? 'no response'}`);
+      throw new Error(`OCR server returned ${response?.status ?? 'no response'}`);
     }
 
     const data = await response.json();
     if (data.error) {
-      throw new Error(`PaddleOCR error: ${data.error}`);
+      throw new Error(`OCR error: ${data.error}`);
     }
 
     // 过滤无效词
@@ -105,6 +105,6 @@ export async function recognizeHighlightedImage(imageBuffer: Buffer): Promise<OC
     };
   } finally {
     // 请求结束后结算；若该进程已处理超过上限，会在无在途请求时被回收以释放内存
-    releasePaddle();
+    releaseOcrService();
   }
 }

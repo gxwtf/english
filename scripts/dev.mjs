@@ -2,9 +2,9 @@
 /**
  * 启动 Next.js（dev 或 start）。
  *
- * 注意：PaddleOCR 采用懒加载策略——不再在应用启动时拉起，
- * 而是在首次拍照识别请求时由 src/lib/paddle-manager.ts 按需启动，
- * 闲置一段时间后自动退出以释放内存。
+ * 注意：拍照识词 OCR 采用懒加载策略——不再在应用启动时拉起本地 Python 微服务，
+ * 而是在首次拍照识别请求时由 src/lib/ocr-service-manager.ts 按需启动，
+ * 闲置一段时间后自动退出以释放内存。文字识别由常驻的 Unlimited-OCR-2 完成。
  *
  * 用法：
  *   node scripts/dev.mjs dev    → next dev（开发模式）

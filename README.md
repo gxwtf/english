@@ -14,15 +14,16 @@
 - 拉取项目。
 - 下载 [词典](https://github.com/skywind3000/ECDICT/blob/master/ecdict.csv) 文件并保存到 `./src/dict` 目录下。
 - 从服务器上拷贝一份 .env 文件到本地。
-- 配置 paddleOCR（文字识别）服务：
+- 配置拍照识词 OCR 服务（本地微服务，识别后端为常驻的 Unlimited-OCR-2）：
 
 ```bash
 cd paddleocr-service && ./setup.sh
 ```
 
-> OCR 采用**按需启动**：应用（`pnpm dev` / `pnpm start`）启动时不会拉起 Python 服务，
-> 而是在首次「拍照识别」时自动启动，闲置一段时间后自动退出以释放内存。
-> 首次识别需要等待模型加载（约 10s，取决于机器）。
+> 文字识别由服务器上的 Unlimited-OCR-2 完成（SGLang，默认 `http://127.0.0.1:8014`，
+> 可用 `UNLIMITED_OCR_URL` 覆盖）。本地 Python 服务只做 OpenCV 透视/高亮检测与行切片，
+> 采用**按需启动**：应用（`pnpm dev` / `pnpm start`）启动时不会拉起，首次「拍照识别」
+> 时自动启动，闲置一段时间后自动退出。首次识别通常 1~3 秒。
 
 - 构建并启动服务：
 

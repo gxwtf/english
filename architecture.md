@@ -8,7 +8,7 @@ This project is a Next.js application (App Router) built with TypeScript. It int
 - **Language**: TypeScript
 - **Database**: PostgreSQL via Prisma ORM
 - **AI**: OpenAI API (via custom wrapper and queue)
-- **OCR**: PaddleOCR (Python microservice)
+- **OCR**: Unlimited-OCR-2 (SGLang, OpenAI-compatible HTTP) + local OpenCV microservice
 - **UI**: React, Tailwind CSS, Shadcn UI
 
 ## Database Schema (Prisma)
@@ -44,11 +44,13 @@ The database schema is defined in `prisma/schema.prisma` and includes the follow
 - It can optionally include "related words" (words not explicitly selected by the user but related to selected ones) to increase question variety.
 
 ### OCR (Image Recognition)
-- `src/lib/ocr.ts` communicates with a PaddleOCR microservice.
-- `src/lib/paddle-manager.ts` manages the microservice lifecycle with **lazy loading**: the Python service is NOT started at app boot; it is spawned on the first recognition request, reused while active, recycled after `PADDLEOCR_MAX_REQUESTS` requests, and killed after `PADDLEOCR_IDLE_MS` idle to release memory.
+- `src/lib/ocr.ts` communicates with a local Python microservice (`paddleocr-service/server.py`),
+  which performs perspective correction, highlighter/mark detection and line cropping, then calls
+  Unlimited-OCR-2 at `UNLIMITED_OCR_URL` (default `http://127.0.0.1:8014`) for text recognition.
+- `src/lib/ocr-service-manager.ts` manages the microservice lifecycle with **lazy loading**: the Python service is NOT started at app boot; it is spawned on the first recognition request, reused while active, recycled after `OCR_SERVICE_MAX_REQUESTS` requests, and killed after `OCR_SERVICE_IDLE_MS` idle to release memory.
 - It sends base64 encoded images and receives recognized words, bounding boxes, and confidence scores.
 - It specifically handles "highlighted" words in images.
-- If `PADDLEOCR_URL` is set, the service is treated as external and lifecycle management is skipped.
+- If `OCR_SERVICE_URL` is set, the service is treated as external and lifecycle management is skipped.
 
 ## Directory Structure
 - `src/app`: Next.js App Router pages and API routes.

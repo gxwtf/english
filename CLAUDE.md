@@ -132,7 +132,7 @@ it points out of the filesystem root
 ```
 
 `paddleocr-service/venv` 由 `setup.sh` 用 `python3 -m venv` 创建、被 `.gitignore` 忽略，其中的 `bin/python -> python3 -> /usr/bin/python3`
-必然指向项目外，所以这个 panic 在本机环境下无法通过调整 venv 规避（改相对链接、提前设置 `PADDLEOCR_DIR` 均实测无效，Turbopack 仍会报同一错误）。
+必然指向项目外，所以这个 panic 在本机环境下无法通过调整 venv 规避（改相对链接、提前设置 `OCR_SERVICE_DIR` 均实测无效，Turbopack 仍会报同一错误）。
 
 **失败的典型后果**：构建在写入 `BUILD_ID` 之前就中止，`.next/` 里没有生产产物，`pnpm start` 报
 `Could not find a production build in the '.next' directory`，systemd 服务随即反复重启直至 failed。
