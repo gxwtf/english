@@ -52,7 +52,7 @@ GX_IDENT='<测试账号>' GX_PASSWORD='<密码>' node scripts/e2e/batchadd.mjs g
 ```
 
 - 浏览器默认 `/usr/bin/microsoft-edge`（`/usr/bin/chromium-browser` 只是 snap 壳，用不了），可用 `BROWSER_PATH` 覆盖。
-- **必须用测试账号**（如 `小广_2`）：脚本会真实写入单词本和单词，且不自动清理。
+- **必须用测试账号**（`scripts/e2e/creds.json`，全站统一为 SSO 普通用户 `爸儿爷孙天团`，见 `~/gxwtf_dev/password/README.md`）：脚本会真实写入单词本和单词，且不自动清理，跑完请清理该账号下的测试数据。
 - **改动「添加单词 / 单词本关联」相关逻辑后必须跑一次** `batchadd.mjs`。
 
 详细说明见开发文档 `gxenglish/testing.md`（《回归测试》）。
