@@ -6,8 +6,12 @@ onlyBuiltDependencies:
   - sharp
   - tesseract.js
 blockExoticSubdeps: false
+# 2026-11-23：依赖树里出现两份 pg（adapter 解析到 8.23.0、主应用 8.23.1），
+# 会让 @prisma/adapter-pg 的 `pool instanceof Pool` 判定失败 → 把 Pool 当连接参数 →
+# pg-protocol addCString 收到对象，表现为 SSO 回调/DB 写入时 uncaughtException。
 overrides:
   path: ^0.12.7
+  pg: 8.23.1
 allowBuilds:
   '@prisma/engines': true
   core-js: true
