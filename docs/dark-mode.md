@@ -127,7 +127,7 @@ L1 只服务于品牌与标签这两类「必须成对、但语义 token 表达�
 
 | 项 | 处理 |
 | --- | --- |
-| `<meta name="theme-color">` | `viewport.themeColor` 给 light/dark 两条（`#ffffff` / `#14100f`，**不用品牌红**，与吸顶导航同色才不割裂）；JS 侧再加一条运行期同步，用户手动切换后立即改 meta |
+| `<meta name="theme-color">` | `viewport.themeColor` 给 light/dark 两条（`#ffffff` / `#000000`，**不用品牌红**，与吸顶导航同色才不割裂）；JS 侧再加一条运行期同步，用户手动切换后立即改 meta |
 | `manifest.json` | `theme_color` 保持品牌红（安装图标/任务栏装饰），`background_color` 保持 `#ffffff`（启动屏首帧，无法按主题） |
 | `apple-mobile-web-app-status-bar-style` | 保持 `black-translucent`（浅深两态都成立） |
 | 启动图 `/splash/*` | 静态图，安装态冷启动首帧仍是浅色，**已知限制**，不为此生成 32 张深色图 |
