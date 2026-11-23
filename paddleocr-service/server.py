@@ -4,17 +4,19 @@
 流水线：
   1. 透视矫正：把拍歪的书页拉正
   2. HSV 高亮检测：找出荧光笔高亮区域
-  3. 红笔标记检测：只保留扁长的圈/下划线，方形红色汉字批注会被剔除
+  3. 红笔标记检测：自适应纸色的敏感 mask（淡笔也能抓）→ 按形状分成
+     「圈」与「下划线」，并用「外圈占比 / 填充率 / 圈内印刷墨迹」剔除手写批注
   4. 每个标记在局部 x 范围做墨迹投影定位它圈住的那一行（整页投影会被纸张弧度糊成一块）
-  5. 该行切横条送 Unlimited-OCR-2（SGLang，OpenAI 兼容接口）识别；模型对裁剪很敏感，
-     多档上下留白/横向窗口各识别一次
-  6. 行内墨迹投影分词：红圈取离圈中心最近的词（多次识别多数票），
-     高亮按词 bbox 与高亮 mask 的覆盖率筛词
+  5. 同一行的多个标记只做一次 OCR：该行切横条送 Unlimited-OCR-2（SGLang，
+     OpenAI 兼容接口）识别
+  6. 行内墨迹投影分词：圈取圈中心最近的词、下划线取覆盖范围内的词；
+     再用 ECDict 词表校验，读到词典外的词就换「去笔迹」版重识一次
 
 OCR 后端地址由环境变量 UNLIMITED_OCR_URL 指定，默认 http://127.0.0.1:8014。
 """
 
 import base64
+import csv
 import json
 import logging
 import os
@@ -22,6 +24,7 @@ import re
 import signal
 import sys
 import time
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 
 import cv2
@@ -36,6 +39,8 @@ OCR_MODEL = os.environ.get('UNLIMITED_OCR_MODEL') or 'Unlimited-OCR-2'
 OCR_TIMEOUT = float(os.environ.get('UNLIMITED_OCR_TIMEOUT') or 300)
 # 单次请求带几张切片（单图请求更稳；并发数控制同时打给后端的请求数）
 OCR_PARALLEL = max(1, int(os.environ.get('UNLIMITED_OCR_PARALLEL') or 3))
+# 设 OCR_DEBUG=1 时把标记/行带/取词的判据打到 stderr，便于调参
+OCR_DEBUG = bool(os.environ.get('OCR_DEBUG'))
 OCR_MAX_TOKENS_PER_IMAGE = int(os.environ.get('UNLIMITED_OCR_MAX_TOKENS_PER_IMAGE') or 512)
 
 app = Flask(__name__)
@@ -287,7 +292,7 @@ def extract_highlight_mask(enhanced_img):
     for m in masks[1:]:
         mask = cv2.bitwise_or(mask, m)
 
-    # 红笔是「标记」不是高亮，交给 detect_red_mark_rois 处理；
+    # 红笔是「标记」不是高亮，交给 detect_marks 处理；
     # 否则红笔批注（尤其是汉字）会被当成大片高亮，导致整行/整页单词误报。
     # V<=235 避免把浅粉色荧光笔一起删掉。
     red1 = cv2.inRange(hsv, np.array([0, 50, 100]), np.array([10, 255, 235]))
@@ -384,13 +389,25 @@ def _red_mask(img):
     return cv2.bitwise_or(red1, red2)
 
 
-def _dark_mask(img):
-    """印刷文字的二值 mask（暗且低饱和），排除红笔与彩色高亮。"""
+def _dark_mask(img, enhanced=None, mark_mask=None):
+    """印刷文字的二值 mask（暗且低饱和），排除标记笔迹与彩色高亮。
+
+    这里要连**敏感**标记 mask 一起排除：学生手写的红笔中文常常又暗又低饱和，
+    只按 ``_red_mask``（保守窗口）排不干净，漏下的笔画会被当成「印刷墨迹」，
+    于是页边批注也能通过「行内有文字」的校验，凭空造出假词。
+    """
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    red = _red_mask(img)
-    dark = ((gray < 110) & (hsv[:, :, 1] < 120)).astype(np.uint8)
-    dark[red > 0] = 0
+    # 阈值取在**光照归一化**后的灰阶上：手机拍书页时页边常有阴影，
+    # 直接对原图卡 gray<110 会把阴影纸当成墨迹，页边批注因此能骗过校验。
+    base = enhanced if enhanced is not None else enhance_color_document(img)
+    gray = cv2.cvtColor(base, cv2.COLOR_BGR2GRAY)
+    marks = cv2.bitwise_or(_red_mask(img),
+                           _mark_mask(img) if mark_mask is None else mark_mask)
+    # 不再加「饱和度低」这道门：手机拍的暖色偏照片里，黑字的 S 中位数就有 128，
+    # 一刀 S<120 会把整页印刷文字挡掉（实测 sample2 只剩 3% 墨迹、行带碎成 10px 细条）。
+    # 彩色干扰已经由上面的 marks 排除，无需再看饱和度。
+    dark = (gray < 110).astype(np.uint8)
+    dark[marks > 0] = 0
     return dark
 
 
@@ -408,34 +425,150 @@ def _ocr_source(img):
     return out
 
 
-def detect_red_mark_rois(img):
-    """检测红笔圈出的单词。
+def _red_residual(img, ksize=31):
+    """红色度 ``R - max(G,B)``，以及它相对「局部纸色」的超出量。"""
+    b = img[:, :, 0].astype(np.float32)
+    g = img[:, :, 1].astype(np.float32)
+    r = img[:, :, 2].astype(np.float32)
+    redness = r - np.maximum(g, b)
+    red8 = np.clip(redness, 0, 255).astype(np.uint8)
+    bg = cv2.medianBlur(red8, ksize).astype(np.float32)
+    return redness, redness - bg
 
-    手写红色批注（汉字）接近方形/竖长，圈或下划线是扁长条；用 ``h <= 0.55*w``
-    只保留覆盖印刷文字的水平长条，避免把批注当成标记（这是「识别太多」的主因）。
+
+def _mark_mask(img):
+    """红笔/彩色笔标记的敏感 mask（自适应纸色）。
+
+    实测学生常用很淡的细笔：S 只有 20~40、笔画 1~2px。旧版固定窗口
+    （``S>=50`` 且 ``V<=235``）会把这种笔迹切碎成噪点 —— 一张整页照片上
+    只剩 0.04% 的红像素、且都是下划线碎片，圈本身完全检不到。
+
+    这里改用「红色度」为主判据，并用大核中值估出纸色、取局部超出量：
+    既不会被暖色纸/阴影渐变整片骗成红色，又能抓住淡笔。
     """
-    red = _red_mask(img)
-    if cv2.countNonZero(red) == 0:
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    redness, resid = _red_residual(img)
+    v = hsv[:, :, 2].astype(np.int16)
+    s = hsv[:, :, 1].astype(np.int16)
+    strong = redness >= 30                       # 正常红笔：绝对红度够
+    faint = (resid >= 4) & (redness >= 8)        # 淡笔：只要比周围纸更红
+    m = ((strong | faint) & (v >= 45) & (s >= 12)).astype(np.uint8) * 255
+    m = cv2.morphologyEx(m, cv2.MORPH_OPEN,
+                         cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    m = cv2.morphologyEx(m, cv2.MORPH_CLOSE,
+                         cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+    return m
+
+
+def _ring_score(sub):
+    """标记像素落在 bbox 外圈（25% 边框带）里的比例。
+
+    圈线几乎全部落在外圈（≈1.0）；手写汉字批注的笔画铺满整个 bbox（≈0.5）。
+    """
+    h, w = sub.shape[:2]
+    total = int(cv2.countNonZero(sub))
+    if h < 4 or w < 4 or total == 0:
+        return 0.0
+    bx, by = max(1, int(w * 0.25)), max(1, int(h * 0.25))
+    band = np.zeros_like(sub)
+    band[:by, :] = 255
+    band[h - by:, :] = 255
+    band[:, :bx] = 255
+    band[:, w - bx:] = 255
+    return cv2.countNonZero(cv2.bitwise_and(sub, band)) / total
+
+
+MIN_MARK_AREA = 90
+
+
+def _erase_marks(img, mask):
+    """把标记笔迹 inpaint 掉，得到一张「干净纸面」用于复识。
+
+    直接涂白会啃掉被圈单词的笔画；inpaint 能沿笔画两侧补出合理的底色，
+    实测把 tangible（被笔迹压成 fangible）救了回来。
+    """
+    if mask is None or cv2.countNonZero(mask) == 0:
+        return img
+    m = cv2.dilate(mask, np.ones((3, 3), np.uint8), iterations=1)
+    return cv2.inpaint(img, m, 3, cv2.INPAINT_TELEA)
+
+
+def detect_marks(img, dark, page_w, page_h, mask=None):
+    """检测红笔标记，分成「下划线」与「圈」两类。
+
+    旧实现只认 ``h <= 0.55*w`` 的扁长条，且要求 ``h >= 18``：手画的圈
+    （h/w≈0.5）勉强能过，而细下划线（实测 h≈9px）直接被丢掉，加上淡笔
+    在 mask 阶段就已丢失，整类标记等于形同虚设。
+
+    新版按形状分两类，并用三个判据把圈和手写中文批注分开：
+
+    * ``ring``      标记像素落在外圈的比例（圈线几乎全在外圈）；
+    * ``fill``      填充率（圈是空心环，批注笔画铺满）；
+    * ``inner_ink`` 圈内**印刷墨迹**占比 —— 这是最硬的一条：圈里包的是黑色
+      印刷单词，而手写批注的笔画本身就是红的，圈内几乎没有独立墨迹。
+    """
+    if mask is None:
+        mask = _mark_mask(img)
+    if cv2.countNonZero(mask) == 0:
         return []
-    num, labels, stats, _ = cv2.connectedComponentsWithStats(red, connectivity=8)
-    rois = []
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    marks = []
     for i in range(1, num):
         x, y, w, h, area = stats[i]
-        if area < 300 or w < 80 or h < 18:
+        if area < MIN_MARK_AREA or w < 30 or h < 4:
             continue
-        if h > w * 0.55:
+        if w > page_w * 0.85 or h > page_h * 0.10:
             continue
-        mask = (labels == i)
-        ys, xs = np.where(mask)
-        rois.append({
-            'kind': 'circle',
+        sub = (labels[y:y + h, x:x + w] == i).astype(np.uint8) * 255
+        hw = h / max(w, 1)
+        fill = area / max(1, w * h)
+        ring = _ring_score(sub)
+        # 圈内（内缩 22%）有多少「印刷墨迹」——批注里几乎没有
+        ix0, iy0 = x + int(w * 0.22), y + int(h * 0.22)
+        ix1, iy1 = x + int(w * 0.78), y + int(h * 0.78)
+        inner = 0.0
+        if ix1 > ix0 and iy1 > iy0:
+            inner = float(dark[iy0:iy1, ix0:ix1].mean())
+        # 下划线：横条上方一行内要有印刷文字（排除空白处/边缘的笔道）
+        lh = max(18, int(h * 2.5))
+        ay0 = max(0, y - lh)
+        above = float(dark[ay0:y, x:x + w].mean()) if y > ay0 else 0.0
+
+        if hw <= 0.32 and w >= 45 and above >= 0.02:
+            kind = 'underline'          # 细横条
+        elif (0.14 <= hw <= 0.95 and w >= 45 and ring >= 0.55
+              and fill <= 0.50 and inner >= 0.03):
+            kind = 'ring'               # 圈住一个词
+        else:
+            continue                    # 手写批注 / 勾叉 / 噪点
+        ys, xs = np.where(sub > 0)
+        marks.append({
+            'kind': kind,
             'bbox': {'x0': int(x), 'y0': int(y), 'x1': int(x + w), 'y1': int(y + h)},
-            # 用红像素分位数而不是 bbox：批注会把 bbox 撑宽/撑高
-            'ax0': int(np.percentile(xs, 2)),
-            'ax1': int(np.percentile(xs, 98)),
-            'mask': mask,
+            'ax0': int(x + xs.min()),
+            'ax1': int(x + xs.max()) + 1,
+            'mask': labels == i,
+            'ring': round(ring, 3),
+            'fill': round(fill, 3),
+            'hw': round(hw, 3),
+            'inner': round(inner, 3),
+            'above': round(above, 3),
         })
-    return rois
+    return marks
+
+
+def _pick_band_for_mark(bands, roi):
+    """给标记选目标文本行。
+
+    下划线贴在文字下方：优先取「紧邻其上方」的那一行（否则容易挑到下一行）；
+    圈则取纵向重叠最大的那一行。
+    """
+    y0, y1 = roi['bbox']['y0'], roi['bbox']['y1']
+    if roi['kind'] == 'underline':
+        above = [(a, b) for a, b in bands if b <= y0 + max(3, (b - a) * 0.5)]
+        if above:
+            return max(above, key=lambda t: t[1])
+    return _pick_line_band(bands, y0, y1, roi.get('mask'))
 
 
 def _local_line_bands(dark, x0, x1, img_h, min_h=10, max_h=80):
@@ -467,20 +600,25 @@ def _local_line_bands(dark, x0, x1, img_h, min_h=10, max_h=80):
 def _pick_line_band(bands, y0, y1, mask=None):
     """选被标记圈住的那一行。
 
-    优先看「该行里红笔横向覆盖的列数」：圈是横跨单词的扁长环，批注是窄块；
-    没有 mask 时退化为与标记 y 范围重叠最大。
+    主看「这一行有多大概率整行落在标记里」——圈的上下弧常越过相邻行，
+    旧版按「标记在该行覆盖的列数」排序，会被下弧的宽度带到下一行去
+    （实测把 dignity 那一圈判成了下一行的 be）。
     """
     best = None
     best_score = None
+    span = max(1, y1 - y0)
     for a, b in bands:
         ov = min(b, y1) - max(a, y0)
         if ov <= 0:
             continue
+        band_h = max(1, b - a)
+        cover = ov / band_h                       # 该行被标记覆盖的比例
+        covered = min(ov, span) / span            # 标记被该行覆盖的比例
         if mask is not None:
             width = int(mask[a:b].any(axis=0).sum())
-            score = (width, ov)
+            score = (round(cover, 2), covered, width)
         else:
-            score = (0, ov)
+            score = (round(cover, 2), covered, 0)
         if best_score is None or score > best_score:
             best_score = score
             best = (a, b)
@@ -537,6 +675,38 @@ def _strip_token(tok):
     return tok.strip('.,;:!?\'"()[]{}“”‘’')
 
 
+def _pick_token_and_seg(tokens, segs, center_x, strip_w):
+    """同 ``_pick_token``，但一并返回该词的像素 x 范围（估计值也算）。"""
+    if not tokens:
+        return None, None
+    if segs and len(segs) == len(tokens):
+        idx = min(range(len(segs)),
+                  key=lambda i: abs((segs[i][0] + segs[i][1]) / 2 - center_x))
+        return tokens[idx], tuple(segs[idx])
+
+    seg = None
+    if segs:
+        seg = min(segs, key=lambda r: abs((r[0] + r[1]) / 2 - center_x))
+        seg_c = (seg[0] + seg[1]) / 2
+    else:
+        seg_c = center_x
+
+    total = sum(len(t) + 1 for t in tokens)
+    if total <= 0:
+        return tokens[0], seg
+    best_i, best_d, pos = 0, None, 0
+    for i, tok in enumerate(tokens):
+        c = (pos + len(tok) / 2) / total * strip_w
+        d = abs(c - seg_c)
+        if best_d is None or d < best_d:
+            best_d, best_i = d, i
+        pos += len(tok) + 1
+    if seg is None:
+        a = sum(len(t) + 1 for t in tokens[:best_i]) / total * strip_w
+        seg = (a, a + len(tokens[best_i]) / total * strip_w)
+    return tokens[best_i], seg
+
+
 def _clean_circled_prefix(text):
     """圈的弧线偶尔被识别成前缀字母（如 Cappreciate → appreciate）。"""
     if len(text) < 5:
@@ -549,34 +719,6 @@ def _clean_circled_prefix(text):
         if len(cand) >= 4 and cand.lower() in dict_words:
             return cand
     return text
-
-
-def _pick_token(tokens, segs, center_x, strip_w):
-    """在 OCR 词序列中选出落在标记中心附近的词。"""
-    if not tokens:
-        return None
-    if segs and len(segs) == len(tokens):
-        seg = min(segs, key=lambda r: abs((r[0] + r[1]) / 2 - center_x))
-        return tokens[segs.index(seg)]
-    if segs:
-        seg = min(segs, key=lambda r: abs((r[0] + r[1]) / 2 - center_x))
-        seg_c = (seg[0] + seg[1]) / 2
-    else:
-        seg_c = center_x
-    total = sum(len(t) + 1 for t in tokens)
-    if total <= 0:
-        return tokens[0]
-    best_tok = tokens[0]
-    best_d = None
-    pos = 0
-    for tok in tokens:
-        c = (pos + len(tok) / 2) / total * strip_w
-        d = abs(c - seg_c)
-        if best_d is None or d < best_d:
-            best_d = d
-            best_tok = tok
-        pos += len(tok) + 1
-    return best_tok
 
 
 def _tokens_in_range(tokens, segs, rx0, rx1, strip_w):
@@ -754,6 +896,284 @@ def _ocr_blocks(img):
 
 
 
+# ===== ECDict 词表（与前端 src/lib/dict 同一份，用于校验收词） =====
+
+_WORDS = None
+_EDITS_ALPHA = 'abcdefghijklmnopqrstuvwxyz'
+
+
+def _ecdict_candidates():
+    here = os.path.dirname(os.path.abspath(__file__))
+    cands = [os.environ.get('ECDICT_PATH')]
+    for root in (here, os.getcwd()):
+        cands.append(os.path.join(root, '..', 'src', 'dict', 'ecdict.csv'))
+        cands.append(os.path.join(root, 'src', 'dict', 'ecdict.csv'))
+    return [c for c in cands if c and os.path.exists(c)]
+
+
+def _quality(collins, oxford, tag, bnc, frq):
+    """ECDict 里的「像不像常用词」分：柯林斯星/牛津/考试标签 + 词频排名。"""
+    score = 0.0
+    if collins:
+        try:
+            score += 60 + int(collins)
+        except ValueError:
+            score += 60
+    if oxford:
+        score += 80
+    if tag:
+        score += 40
+    ranks = []
+    for v in (bnc, frq):
+        try:
+            iv = int(v or 0)
+        except (TypeError, ValueError):
+            iv = 0
+        if iv > 0:
+            ranks.append(iv)
+    if ranks:
+        score += max(0.0, 30.0 - min(ranks) / 5000.0)
+    return score
+
+
+def load_words():
+    """懒加载 ECDict 词表（40 万词，约 0.6s / 50MB），返回 ``{词: 常用度分}``。
+
+    前端 ``queryWord`` 查的就是这份词典、查不到的词会被丢掉，所以识别阶段
+    用同一份词表校验最合适：既能救回 ``fangible→tangible``、``nêwfound``
+    这类被笔迹压住的误读，也不会把界面上查不到释义的垃圾词递给用户。
+    """
+    global _WORDS
+    if _WORDS is not None:
+        return _WORDS
+    _WORDS = {}
+    path = next(iter(_ecdict_candidates()), None)
+    if not path:
+        logging.warning('未找到 ECDict 词表，跳过单词校验（可用 ECDICT_PATH 指定）')
+        return _WORDS
+    t0 = time.time()
+    try:
+        with open(path, encoding='utf-8', newline='') as f:
+            reader = csv.reader(f)
+            next(reader, None)
+            for row in reader:
+                if not row:
+                    continue
+                w = row[0].strip().lower()
+                if not w or ' ' in w:
+                    continue
+
+                def col(i, _row=row):
+                    return _row[i] if i < len(_row) else ''
+
+                _WORDS[w] = _quality(col(5), col(6), col(7), col(8), col(9))
+    except OSError as exc:
+        logging.warning('读取 ECDict 失败：%s', exc)
+        return _WORDS
+    logging.info('[dict] %d words <- %s (%.2fs)', len(_WORDS), path, time.time() - t0)
+    return _WORDS
+
+
+def _deaccent(text):
+    return ''.join(c for c in unicodedata.normalize('NFKD', text)
+                   if not unicodedata.combining(c))
+
+
+def _edits1(word):
+    for i in range(len(word) + 1):
+        a, b = word[:i], word[i:]
+        if b:
+            yield a + b[1:]                     # 删一个
+        if i < len(word) - 1:
+            yield a + b[1] + b[0] + b[2:]       # 换位
+        for c in _EDITS_ALPHA:
+            if b and c != b[0]:
+                yield a + c + b[1:]             # 换一个
+            yield a + c + b                     # 插一个
+
+
+def _dict_ok_or_fix(text, min_len=2):
+    """判断 OCR 出来的词可不可信；返回 ``(是否可信, 修好的词)``。
+
+    词表缺失时一律放行（不能因为缺词典就把功能关死）。
+    """
+    words = load_words()
+    if not words:
+        return True, text
+    w = _deaccent(text).lower()
+    if len(w) < min_len:
+        return False, text
+    if w in words:
+        return True, text if text.lower() == w else w
+    if not re.fullmatch(r'[a-z]{3,20}', w):
+        return False, text
+
+    hits = [(c, words[c]) for c in _edits1(w) if c in words]
+    if not hits:
+        return False, text
+    hits.sort(key=lambda t: -t[1])
+    best, best_score = hits[0]
+    # 只有明显比第二名更常用时才纠：ECDict 里 frangible/fungible 也是真词，
+    # 只按「唯一匹配」会把 tangible 放过
+    second = hits[1][1] if len(hits) > 1 else 0.0
+    if best_score >= 60 and second < best_score * 0.7:
+        return True, best
+    return False, text
+
+
+_WORD_RE = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ'’\-]*$")
+_CJK_RE = re.compile(r'[\u3000-\u303f\u3400-\u9fff\uff00-\uffef]')
+
+
+def _looks_like_english_word(text):
+    """只要「像英文单词」的 token：排除中文批注、数字、标点碎片。"""
+    if not text or len(text) < 2 or _CJK_RE.search(text):
+        return False
+    return bool(_WORD_RE.match(text))
+
+
+def _candidates_for_roi(roi, res, clean_img):
+    """从一次 OCR 结果里取出该标记对应的词：[(原文 token, bbox)]。"""
+    if res is None or not res['tokens']:
+        return []
+    strip_w = res['crop'].shape[1]
+    segs = _segment_word_boxes(
+        clean_img[res['y0']:res['y1'], res['x0']:res['x1']])
+    rx0 = roi['ax0'] - res['x0']
+    rx1 = roi['ax1'] - res['x0']
+    mark_w = max(1, roi['ax1'] - roi['ax0'])
+    if roi['kind'] == 'ring':
+        tok, seg = _pick_token_and_seg(res['tokens'], segs, (rx0 + rx1) / 2.0, strip_w)
+        picked = [(tok, seg)] if tok else []
+    else:
+        picked = _tokens_in_range(res['tokens'], segs, rx0, rx1, strip_w)
+
+    out = []
+    for tok, seg in picked:
+        text = _clean_circled_prefix(_strip_token(tok))
+        if not _looks_like_english_word(text):
+            continue
+        if roi['kind'] != 'highlight' and len(text) < 3:
+            continue
+        if seg is not None:
+            bx0, bx1 = int(res['x0'] + seg[0]), int(res['x0'] + seg[1])
+            overlap = max(0, min(bx1, roi['ax1']) - max(bx0, roi['ax0'])) / mark_w
+        else:
+            bx0, bx1 = int(roi['ax0']), int(roi['ax1'])
+            overlap = 1.0
+        # 页边的手写批注圈不住正文，捞出来的词会远在右侧、与被圈处几乎不重叠
+        if roi['kind'] == 'ring' and overlap < 0.3:
+            continue
+        out.append((text, bx0, bx1))
+    return out
+
+
+def _extract_marked_words(ocr_img, ocr_clean, clean_img, dark, highlight_mask,
+                         highlight_boxes, marks, page_w, page_h):
+    """标记区域 → 单词列表。
+
+    两个要点：
+
+    * 同一文本行上的多个标记合并成**一次** OCR。旧实现每个候选要打 9 次模型
+      （3 档纵向留白 × 3 档横向窗口），学生划一整页时慢到不可用，多次请求
+      还更容易被模型复读带偏。
+    * 词表校验 + 双源复识。红笔压在字母上时模型会把 tangible 读成 fangible、
+      newfound 读成 nêwfound。先用「保留笔迹」版识别；词典里查不到就换
+      「笔迹已 inpaint 掉」的版本再识一次，取能通过校验的那个。
+    """
+    rois = []
+    for b in highlight_boxes:
+        rois.append({'kind': 'highlight',
+                     'bbox': {'x0': b[0], 'y0': b[1], 'x1': b[2], 'y1': b[3]},
+                     'ax0': b[0], 'ax1': b[2]})
+    for mk in marks:
+        rois.append({'kind': mk['kind'], 'bbox': mk['bbox'],
+                     'ax0': mk['ax0'], 'ax1': mk['ax1'], 'mask': mk.get('mask')})
+    if not rois:
+        return []
+
+    # 1) 每个标记定位到目标文本行；同一行的合并
+    plans = []
+    for roi in rois:
+        ax0, ax1 = roi['ax0'], roi['ax1']
+        aw = max(1, ax1 - ax0)
+        # 行带搜索窗口要比 OCR 窗口更宽：圈住词的红笔会遮住墨迹，
+        # 窗口太窄时那一行的墨迹投影会断掉、找不到行。
+        bands = _local_line_bands(dark, max(0, ax0 - aw * 2.5),
+                                 min(page_w, ax1 + aw * 2.5), page_h)
+        band = _pick_band_for_mark(bands, roi)
+        if band is None:
+            continue
+        for plan in plans:
+            if abs(plan['band'][0] - band[0]) <= 6:
+                plan['rois'].append(roi)
+                plan['x0'] = min(plan['x0'], ax0)
+                plan['x1'] = max(plan['x1'], ax1)
+                break
+        else:
+            plans.append({'band': band, 'rois': [roi], 'x0': ax0, 'x1': ax1})
+
+    # 2) 每行一次 OCR（必要时复识一次），再逐个标记取词
+    words = []
+    for plan in plans:
+        ly0, ly1 = plan['band']
+        lh = max(8, ly1 - ly0)
+        # 左右各留 2.5 行：圈的 bbox 常比被圈的单词窄，窗口太窄会把词截断
+        # （实测 blisterèd→blistere、clumsily→clumsi、tangible→tangib）
+        pad = 2.5 * lh
+        wx0 = max(0, int(plan['x0'] - pad))
+        wx1 = min(page_w, int(plan['x1'] + pad))
+        yy0, yy1 = ly0 - 0.35 * lh, ly1 + 0.35 * lh
+
+        res_primary = _ocr_strip(ocr_img, yy0, yy1, wx0, wx1)
+        res_retry = None
+
+        for roi in plan['rois']:
+            if roi['kind'] == 'ring':
+                # 手写批注常紧贴在某一行上方；要求圈心与该行中心对齐，
+                # 否则「圈」其实是行外的批注
+                mc = (roi['bbox']['y0'] + roi['bbox']['y1']) / 2.0
+                # 圈心落在「该行 ± 半行」之内即可：圈的下弧常垂到下一行去，
+                # 用对称距离会把贴着行底的圈误杀（实测 tangible 被丢）
+                if not (ly0 - 0.5 * lh <= mc <= ly1 + 0.5 * lh):
+                    if OCR_DEBUG:
+                        print(f"[debug] ring {roi['bbox']} 圈心 {mc:.0f} 不在行 "
+                              f"({ly0},{ly1})±{0.5 * lh:.0f} 内，丢弃", file=sys.stderr)
+                    continue
+            cands = _candidates_for_roi(roi, res_primary, clean_img)
+            if OCR_DEBUG:
+                print(f"[debug] {roi['kind']} {roi['bbox']} band=({ly0},{ly1}) "
+                      f"cands={cands}", file=sys.stderr)
+            trusted = [(t, x0, x1) for t, x0, x1 in cands if _dict_ok_or_fix(t)[0]]
+            chosen = []
+            for text, bx0, bx1 in (trusted or cands):
+                ok, fixed = _dict_ok_or_fix(text)
+                chosen.append((fixed if ok else text, bx0, bx1))
+            if not trusted:
+                # 一个都不认识 → 换「去笔迹」版再识一次
+                if res_retry is None:
+                    res_retry = _ocr_strip(ocr_clean, yy0, yy1, wx0, wx1)
+                alt = _candidates_for_roi(roi, res_retry, clean_img)
+                alt_ok = [(t, x0, x1) for t, x0, x1 in alt if _dict_ok_or_fix(t)[0]]
+                if alt_ok:
+                    chosen = [(_dict_ok_or_fix(t)[1], x0, x1) for t, x0, x1 in alt_ok]
+
+            for text, bx0, bx1 in chosen:
+                wb = {'x0': bx0, 'y0': int(ly0), 'x1': bx1, 'y1': int(ly1)}
+                if roi['kind'] == 'highlight':
+                    # 高亮块可能盖住整行，只保留真正被色块覆盖的词
+                    ok, ratio = check_word_highlighted(highlight_mask, wb)
+                    if not ok:
+                        continue
+                else:
+                    ratio = 1.0
+                words.append({
+                    'text': text, 'bbox': wb, 'confidence': 100.0,
+                    'isHighlighted': True, 'highlightRatio': float(ratio),
+                })
+    return words
+
+
 def _dedupe_words(words):
     """同一行可能被多个标记切片重复识别，按 bbox+文本去重。"""
     kept = []
@@ -816,116 +1236,28 @@ def ocr_and_detect(image_bytes):
     highlight_mask = filter_highlight_mask(
         extract_highlight_mask(enhanced_img), pseudo_line_h
     )
-    dark = _dark_mask(warped_img)
+    mark_mask = _mark_mask(warped_img)          # 中值滤波较重，整页只算一次
+    dark = _dark_mask(warped_img, enhanced_img, mark_mask)
     t_mask = time.time() - t0
 
-    # 4. 候选区域：荧光高亮块 + 红笔圈出的词（批注已按形状过滤）
-    rois = [
-        {'kind': 'highlight', 'bbox': {'x0': b[0], 'y0': b[1], 'x1': b[2], 'y1': b[3]}}
-        for b in component_boxes(highlight_mask, min_area=200)
-    ]
-    rois.extend(detect_red_mark_rois(warped_img))
+    # 4. 候选标记：荧光高亮块 + 红笔下划线/圈
+    highlight_boxes = component_boxes(highlight_mask, min_area=200)
+    marks = detect_marks(warped_img, dark, page_w, page_h, mark_mask)
+    ocr_clean = _erase_marks(ocr_img, mark_mask)
 
-    all_words = []
+    # 5. 标记区域 → 单词（同一行的多个标记只做一次 OCR）
     t0 = time.time()
-    for roi in rois:
-        b = roi['bbox']
-        bx0, by0, bx1, by1 = b['x0'], b['y0'], b['x1'], b['y1']
-        # 红笔用红像素分位数（去掉批注撑出来的范围），高亮直接用 bbox
-        ax0 = roi.get('ax0', bx0)
-        ax1 = roi.get('ax1', bx1)
-        aw = max(1, ax1 - ax0)
-        center_x = (ax0 + ax1) / 2.0
-
-        # 找行带的 x 窗口要比 OCR 窗口更宽：圈住词的红笔会遮住该词墨迹，
-        # 窗口太窄时那一行投影会断掉、找不到行。
-        bands = _local_line_bands(
-            dark, max(0, ax0 - aw * 2.5), min(page_w, ax1 + aw * 2.5), page_h
-        )
-        band = _pick_line_band(bands, by0, by1, roi.get('mask'))
-        if band is None:
-            continue
-        ly0, ly1 = band
-        # 模型对纵向留白/横向上下文都很敏感；多试几档再投票。
-        # 上留白多于下留白：补回行首升部，又不把下一行带进来。
-        y_pads = [(16, 8)] if roi['kind'] == 'highlight' else \
-            [(16, 8), (17, 5), (14, 8)]
-        win1 = (max(0, int(ax0 - aw)), min(page_w, int(ax1 + aw)))
-        if roi['kind'] == 'highlight':
-            x_ranges = [win1]
-        else:
-            x_ranges = [
-                (max(0, int(ax0 - aw * 2)), min(page_w, int(ax1 + aw * 2))),
-                win1,
-                (0, page_w),
-            ]
-
-        cands = []
-        for top, bot in y_pads:
-            yy0, yy1 = max(0, ly0 - top), min(page_h, ly1 + bot)
-            for vx0, vx1 in x_ranges:
-                res = _ocr_strip(ocr_img, yy0, yy1, vx0, vx1)
-                if res is None:
-                    continue
-                score = _score_ocr_text(res['text'])
-                if score <= 0:
-                    continue
-                res['score'] = score
-                cands.append(res)
-        if not cands:
-            continue
-
-        if roi['kind'] == 'highlight':
-            best = max(cands, key=lambda r: r['score'])
-            segs = _segment_word_boxes(
-                clean_img[best['y0']:best['y1'], best['x0']:best['x1']])
-            strip_w = best['crop'].shape[1]
-            for tok, (sx0, sx1) in _tokens_in_range(
-                    best['tokens'], segs, 0, strip_w, strip_w):
-                wb = {'x0': int(best['x0'] + sx0), 'y0': int(best['y0']),
-                      'x1': int(best['x0'] + sx1), 'y1': int(best['y1'])}
-                if check_word_highlighted(highlight_mask, wb)[0]:
-                    text = _clean_circled_prefix(_strip_token(tok))
-                    if text and re.search(r'[A-Za-z]', text):
-                        all_words.append({
-                            'text': text, 'bbox': wb, 'confidence': 100.0,
-                            'isHighlighted': True, 'highlightRatio': 1.0,
-                        })
-            continue
-
-        # 红圈：每个候选各选一个词，多数票胜出（模型偶尔会把 entitled 读成 connected）
-        votes = {}
-        for res in cands:
-            segs = _segment_word_boxes(
-                clean_img[res['y0']:res['y1'], res['x0']:res['x1']])
-            strip_w = res['crop'].shape[1]
-            local_cx = center_x - res['x0']
-            tok = _pick_token(res['tokens'], segs, local_cx, strip_w)
-            if tok is None:
-                continue
-            text = _clean_circled_prefix(_strip_token(tok))
-            if not text or not re.search(r'[A-Za-z]', text):
-                continue
-            item = votes.get(text)
-            if item is None:
-                votes[text] = {'count': 1, 'score': res['score'], 'box': b}
-            else:
-                item['count'] += 1
-                item['score'] += res['score']
-
-        if not votes:
-            continue
-        text = max(votes, key=lambda k: (votes[k]['count'], votes[k]['score']))
-        all_words.append({
-            'text': text, 'bbox': b, 'confidence': 100.0,
-            'isHighlighted': True, 'highlightRatio': 1.0,
-        })
+    all_words = _extract_marked_words(
+        ocr_img, ocr_clean, clean_img, dark, highlight_mask,
+        highlight_boxes, marks, page_w, page_h,
+    )
     t_ocr = time.time() - t0
 
-    # 5. 去重（同一区域可能同时被高亮和红圈命中）
+
+    # 6. 去重（同一区域可能同时被高亮和红圈命中）
     all_words = _dedupe_words(all_words)
 
-    # 6. 输出（按阅读顺序）
+    # 7. 输出（按阅读顺序）
     all_words.sort(key=lambda x: (x['bbox']['y0'], x['bbox']['x0']))
     for word in all_words:
         for key in ('x0', 'y0', 'x1', 'y1'):
